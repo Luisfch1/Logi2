@@ -8,9 +8,9 @@
   <title>Logi2 v0.6b4</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="favicon.png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest?v=0.6b4">
+  <link rel="icon" href="favicon.png?v=0.6b4">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.6b4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -774,6 +774,17 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try{
       const reg = await navigator.serviceWorker.register("./sw.js");
+
+      // 🔄 Revisa actualizaciones de forma proactiva (sin pedirle al usuario borrar caché)
+      try{ await reg.update(); }catch{}
+      try{
+        setInterval(() => { try{ reg.update(); }catch{} }, 60*60*1000); // cada hora
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible"){
+            try{ reg.update(); }catch{}
+          }
+        });
+      }catch{}
 
       if (reg.waiting){
         waitingSW = reg.waiting;
