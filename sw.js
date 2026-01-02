@@ -1,6 +1,6 @@
 // sw.js
-const CACHE_VERSION = "logi2-v0.7b1";
-const CACHE = `logi2-cache-${CACHE_VERSION}`;
+const CACHE_VERSION = "logi2-v0.7b2";
+const CACHE = `logi2-v0.7b2${CACHE_VERSION}`;
 
 const ASSETS = [
   "./",
@@ -32,7 +32,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k.startsWith("logi2-cache-") && k !== CACHE).map(k => caches.delete(k)));
+    await Promise.all(keys.filter(k => k.startsWith("logi2-v0.7b2") && k !== CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });

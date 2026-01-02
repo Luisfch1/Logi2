@@ -1,739 +1,3 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1220" />
-
-  <title>Logi2 v0.7b2</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="favicon.png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-  <!-- JSZip (ZIP) -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <!-- DOCX (Word) -->
-  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
-
-  <!-- XLSX (Excel import) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <style>
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-
-    :root{
-      /* Base (oscuro sobrio) */
-      --bg:#0b1220;
-      --card:#0a1020;
-      --card2:#050a14;
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --border:#223047;
-
-      /* Acento */
-      --accent:#3b82f6;
-      --accent2:#60a5fa;
-      --accent-rgb:59,130,246;
-
-      /* UI */
-      --danger:#ef4444;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-    }
-    :root[data-theme="light"]{
-      --bg:#f5f7fb;
-      --card:#ffffff;
-      --card2:#ffffff;
-      --text:#0f172a;
-      --muted:#475569;
-      --border:#d6deea;
-
-      --accent:#2563eb;
-      --accent2:#3b82f6;
-      --accent-rgb:37,99,235;
-
-      --danger:#ef4444;
-      --shadow:0 10px 24px rgba(15,23,42,.10);
-    }
-    body{margin:0;padding:14px;background:var(--bg);color:var(--text)}
-    .wrap{max-width:900px;margin:0 auto;display:grid;gap:12px}
-    h1{font-size:1.15rem;margin:4px 0 0;text-align:center}
-    .card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px}
-    input[type="date"], select, textarea{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
-    textarea{min-height:44px;resize:vertical}
-    input[type="text"]{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
-    .btn{
-      border:0;border-radius:999px;padding:10px 14px;font-weight:700;cursor:pointer;
-      display:inline-flex;align-items:center;gap:8px;font-size:.92rem;
-      user-select:none;-webkit-user-select:none;touch-action:manipulation;
-    }
-    .btn-primary{background:var(--accent);color:white}
-    .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
-    .btn-danger{background:#ef4444;color:#fee2e2}
-    .btn-disabled{opacity:.45;cursor:not-allowed}
-    .muted{color:var(--muted);font-size:.8rem}
-    .pill{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:rgba(var(--accent-rgb),.14);border:1px solid rgba(var(--accent-rgb),.22);color:var(--text);font-weight:900}
-    .chip-done{
-      font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
-      padding:4px 10px;border-radius:999px;background:#34d399;color:#052e1a;font-weight:900
-    }
-    .status{font-size:.85rem;color:var(--text)}
-    .ok{color:#34d399}
-
-    .list{display:grid;gap:10px;margin-top:10px}
-    .item{border:1px solid var(--border);border-radius:14px;padding:10px;background:var(--card)}
-    .item.done{border-color:#34d39955}
-    .itemTop{display:flex;gap:10px;align-items:flex-start}
-    .thumb{width:72px;height:72px;border-radius:12px;object-fit:cover;border:1px solid var(--border);cursor:pointer}
-    .grow{flex:1}
-    .mini{font-size:.78rem;color:#9ca3af;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .right{margin-left:auto;display:flex;gap:8px;align-items:center}
-    .smallBtn{padding:8px 10px;font-size:.85rem}
-
-    .tabs{display:flex;gap:8px;align-items:center}
-    .tab{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:8px 12px;font-weight:800;cursor:pointer;font-size:.88rem}
-    .tab.active{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.30);color:var(--text)}
-
-    .galleryWrap{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:var(--card);overflow:visible}
-    .dayHeader{
-  position:sticky; top:0;
-  background:var(--card);
-  border-bottom:1px solid var(--border);
-  padding:10px 12px;
-  z-index:5;
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-}
-.dayChip{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:6px 10px;border-radius:999px;
-  background:rgba(var(--accent-rgb),.14);
-  border:1px solid rgba(var(--accent-rgb),.26);
-  font-weight:900;
-}
-.dayTitle{font-weight:900}
-.dayMeta{color:var(--muted);font-size:.8rem}
-    .gridThumbs{
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
-      gap:8px;
-      padding:10px 12px 14px;
-    }
-    @media (min-width: 768px){
-      .gridThumbs{grid-template-columns:repeat(6, minmax(0,1fr));}
-    }
-    .gThumbBox{position:relative}
-    .gThumb{
-      width:100%;
-      aspect-ratio:1/1;
-      object-fit:cover;
-      border-radius:12px;
-      border:1px solid var(--border);
-      cursor:pointer;
-      display:block;
-    }
-    .badge{
-      position:absolute;
-      left:8px; top:8px;
-      padding:3px 8px;
-      border-radius:999px;
-      font-size:.68rem;
-      font-weight:900;
-      background:rgba(15,23,42,.8);
-      border:1px solid rgba(203,213,225,.25);
-      color:#e5e7eb;
-    }
-    .badgeDone{
-      background:rgba(52,211,153,.9);
-      color:#052e1a;border-color:transparent;
-    }
-    .badgeShare{ right:8px; left:auto; }
-
-    .modal{position:fixed; inset:0;background:rgba(2,6,23,.92);display:none; align-items:center; justify-content:center;z-index:50; padding:14px;}
-    .modal.open{display:flex}
-    .modalCard{width:min(980px, 96vw);background:var(--card2);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;}
-    .modalBody{display:grid;gap:0}
-    @media (min-width: 900px){
-      .modalBody{grid-template-columns: 1.25fr .75fr}
-    }
-    .modalImg{width:100%;max-height:70vh;object-fit:contain;background:var(--card);}
-    .modalSide{padding:12px;display:grid;gap:10px;align-content:start;background:var(--card2);}
-    .modalTitle{font-weight:900}
-    .modalCloseRow{display:flex;justify-content:space-between;align-items:center;gap:10px}
-
-    /* ✅ Android/PWA: NO usar display:none en file inputs */
-    .hiddenFileInput{
-      position: fixed;
-      left: -9999px;
-      top: -9999px;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    /* Barra de actualización */
-    .updateBar{
-      display:none;
-      margin-top:10px;
-      border:1px solid rgba(var(--accent-rgb),.30);
-      background:rgba(var(--accent-rgb),.10);
-      padding:10px 12px;
-      border-radius:14px;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .updateBar.show{display:flex}
-    .glowBtn{
-      box-shadow: 0 0 0 rgba(var(--accent-rgb),0);
-      animation: glow 1.2s ease-in-out infinite;
-    }
-    @keyframes glow{
-      0%{ box-shadow: 0 0 0 rgba(var(--accent-rgb),0); }
-      50%{ box-shadow: 0 0 22px rgba(var(--accent-rgb),.35); }
-      100%{ box-shadow: 0 0 0 rgba(var(--accent-rgb),0); }
-    }
-
-    /* App bar */
-    .appbar{
-      display:flex;align-items:center;justify-content:space-between;gap:12px;
-      padding:12px 12px 6px;
-    }
-    .appbarLeft{display:grid;gap:2px;min-width:0}
-    .appTitle{
-      font-size:1.25rem;
-      font-weight:950;
-      letter-spacing:.2px;
-      line-height:1.1;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .appSubtitle{font-size:.82rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .iconBtn{
-      width:44px;height:44px;border-radius:14px;
-      background:var(--card2);border:1px solid var(--border);
-      display:grid;place-items:center;cursor:pointer;
-      box-shadow:var(--shadow);
-      user-select:none;-webkit-user-select:none;
-      position:relative;
-    }
-    .iconBtn.hasUpdate::after{
-      content:"";
-      position:absolute;
-      width:10px;height:10px;border-radius:50%;
-      right:8px;top:8px;
-      background:rgba(var(--accent-rgb),1);
-      box-shadow:0 0 0 4px rgba(var(--accent-rgb),.18);
-    }
-    .iconBtn .icon{font-size:1.15rem}
-
-    /* Tabs: ancho completo */
-    .tabs{
-      width:100%;
-      gap:0;
-      background:var(--card);
-      border:1px solid var(--border);
-      padding:4px;
-      border-radius:999px;
-      display:flex;
-      align-items:center;
-    }
-    .tab{
-      flex:1;
-      text-align:center;
-    }
-
-    /* Bottom sheet */
-    .sheetBackdrop{
-      position:fixed;inset:0;
-      background:rgba(2,6,23,.55);
-      display:none;
-      z-index:80;
-      padding:0;
-    }
-    .sheetBackdrop.open{display:block}
-    .sheet{
-      position:absolute;
-      left:0;right:0;bottom:0;
-      background:var(--card2);
-      border:1px solid var(--border);
-      border-bottom:none;
-      border-radius:18px 18px 0 0;
-      box-shadow:0 -18px 60px rgba(0,0,0,.55);
-      transform:translateY(110%);
-      transition:transform .22s ease;
-      touch-action:none;
-      max-height:85vh;
-      overflow:hidden;
-    }
-    .sheet.open{transform:translateY(0)}
-    .sheetHandle{
-      width:54px;height:6px;border-radius:999px;
-      background:rgba(148,163,184,.35);
-      margin:10px auto 6px;
-    }
-    .sheetHeader{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:8px 12px 10px;
-      border-bottom:1px solid var(--border);
-    }
-    .sheetTitle{font-weight:950;font-size:1.02rem}
-    .sheetBody{
-      padding:12px;
-      display:grid;
-      gap:10px;
-      overflow:auto;
-      max-height:calc(85vh - 70px);
-    }
-    .sheetRow{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:10px 10px;
-      border:1px solid var(--border);
-      border-radius:14px;
-      background:var(--card);
-    }
-    .sheetRowMain{min-width:0}
-    .sheetRowTitle{font-weight:900}
-    .accentPalette{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-    .accentDot{
-      width:22px;height:22px;border-radius:999px;
-      border:2px solid rgba(255,255,255,.22);
-      box-shadow:0 8px 18px rgba(0,0,0,.22);
-      cursor:pointer;
-      position:relative;
-    }
-    .storageBar{
-      height:10px;
-      border-radius:999px;
-      background:var(--border);
-      overflow:hidden;
-      margin-top:-4px;
-    }
-    .storageFill{
-      height:100%;
-      width:0%;
-      background:rgba(var(--accent-rgb),.75);
-      transition:width .25s ease;
-    }
-
-    :root[data-theme="light"] .accentDot{border:2px solid rgba(15,23,42,.18)}
-    .accentDot.active::after{
-      content:"✓";
-      position:absolute;inset:0;
-      display:grid;place-items:center;
-      font-size:.85rem;font-weight:950;
-      color:white;
-      text-shadow:0 2px 10px rgba(0,0,0,.6);
-    }
-    :root[data-theme="light"] .accentDot.active::after{color:#0f172a;text-shadow:none}
-
-  
-    /* ===========================
-       🧩 Multi-proyecto (Logi2)
-    ============================ */
-    .projectBar{
-      margin-top:10px;
-      border:1px solid rgba(var(--accent-rgb),.26);
-      background:rgba(var(--accent-rgb),.08);
-      border-radius:14px;
-      padding:10px 12px;
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-    .projectBarTitle{font-weight:950}
-    .projectBarRight{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .projectSelect{min-width:220px;max-width:420px}
-    .projModalCard{width:min(560px, 96vw)}
-
-  </style>
-</head>
-
-<body>
-  <div class="wrap">
-    <div class="appbar">
-      <div class="appbarLeft">
-        <div class="appTitle">Logi</div>
-        <div class="appSubtitle">Registro visual · Guardado local · ZIP (DOCX)</div>
-      </div>
-      <button class="iconBtn" id="btnSettings" aria-label="Configuración">
-        <span class="icon">⚙️</span>
-      </button>
-    </div>
-
-    <div class="card">
-      
-      <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <div class="row">
-          <span class="pill">v0.7b2 · Logi2</span>
-          <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
-        </div>
-        <div class="right">
-          <div id="status" class="status"></div>
-        </div>
-      </div>
-      <!-- Proyecto activo (Logi2) -->
-      <div class="projectBar" id="projectBar">
-        <div style="min-width:220px">
-          <div class="projectBarTitle">Proyecto activo</div>
-          <div class="muted">Este proyecto separa tus fotos y exportes.</div>
-        </div>
-        <div class="projectBarRight">
-          <select id="projectSelect" class="projectSelect"></select>
-          <button class="btn btn-secondary smallBtn" id="btnProjectRename" title="Renombrar proyecto">✏️</button>
-          <button class="btn btn-primary smallBtn" id="btnProjectNew" title="Nuevo proyecto">➕</button>
-        </div>
-      </div>
-
-
-
-      <!-- Barra de update -->
-      <div class="updateBar" id="updateBar">
-        <div class="muted">
-          Hay una versión nueva lista. (Tip: si te da miedo perder algo, exporta HOY antes de actualizar.)
-        </div>
-        <button class="btn btn-primary smallBtn glowBtn" id="btnUpdateNow">✅ Instalar actualización</button>
-      </div>
-
-      
-      <div class="tabs" style="margin-top:10px;">
-        <button class="tab active" id="tabCaptura">Captura</button>
-        <button class="tab" id="tabGaleria">Galería</button>
-      </div>
-
-
-      <div class="row" style="margin-top:10px;">
-        <div style="flex:1;min-width:220px">
-          <label for="fecha">Fecha</label>
-          <input type="date" id="fecha" />
-        </div>
-
-        <div style="flex:1;min-width:220px">
-          <label for="proyecto">Proyecto (opcional)</label>
-          <input type="text" id="proyecto" placeholder="PTAR Cumaral, Malecón, etc." />
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <input id="camInput" class="hiddenFileInput" type="file" accept="image/*" capture="environment" multiple />
-        <input id="galInput" class="hiddenFileInput" type="file" accept="image/*" multiple />
-        <button class="btn btn-primary" id="btnTomarFoto">📷 Cámara</button>
-        <button class="btn btn-secondary" id="btnGaleria">🖼️ Galería</button>
-      </div>
-
-      <!-- LOGO (captura) -->
-      <div class="row" style="margin-top:10px;">
-        <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
-        <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
-        <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-        <button class="btn btn-secondary" id="btnCargarLogo">🖼️ Cargar logo</button>
-        <button class="btn btn-secondary" id="btnQuitarLogo" style="display:none">🗑️ Quitar logo</button>
-
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <input type="checkbox" id="logoEnabled" />
-          <span class="muted">Aplicar logo a nuevas fotos (captura)</span>
-        </label>
-
-        <select id="logoCorner" style="width:auto">
-          <option value="br">Logo: inferior derecha</option>
-          <option value="bl">Logo: inferior izquierda</option>
-          <option value="tr">Logo: superior derecha</option>
-          <option value="tl">Logo: superior izquierda</option>
-        </select>
-
-        <img id="logoPreview" alt="Logo"
-             style="height:34px;width:auto;border-radius:10px;border:1px solid var(--border);display:none"/>
-      </div>
-
-      <div id="capturaView">
-        <div class="muted" style="margin-top:8px">
-          Captura del día: escribe la descripción, marca ✅ Listo y si quieres 📤 WhatsApp (solo imagen).
-        </div>
-
-        <!-- ✅ Opciones WhatsApp -->
-        <div class="row" style="margin-top:10px;">
-          <label style="display:flex;align-items:center;gap:10px;margin:0">
-            <input type="checkbox" id="waAddLogo" checked />
-            <span class="muted">WhatsApp: incluir logo (si hay logo cargado)</span>
-          </label>
-
-
-          <label style="display:flex;align-items:center;gap:10px;margin:0">
-            <input type="checkbox" id="waAddTemplate" checked />
-            <span class="muted">WhatsApp: incluir texto (plantilla) sobre la foto</span>
-          </label>
-
-          <label style="display:flex;align-items:center;gap:10px;margin:0">
-            <input type="checkbox" id="waAddStamp" />
-            <span class="muted">WhatsApp: incluir fecha/hora</span>
-          </label>
-        </div>
-        <div class="muted" style="margin-top:6px">
-          Nota: si una foto ya quedó con logo en la captura, no se puede “quitar” al enviar.
-        </div>
-
-        <div id="lista" class="list"></div>
-      </div>
-
-      <div id="galeriaView" style="display:none">
-        <div class="muted" style="margin-top:8px">
-          Miniaturas por día. El encabezado del día se queda pegado arriba al hacer scroll.
-        </div>
-        <div class="muted" id="rangeInfo" style="margin-top:6px">Rango: —</div>
-        <div id="galleryWrap" class="galleryWrap"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="row" style="justify-content:space-between;">
-        <span class="pill">exportar</span>
-        <div class="muted">ZIP incluye fotos+txt+csv+xls+DOCX (reporte).</div>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <div style="flex:1;min-width:180px">
-          <label for="modoExport">Modo</label>
-          <select id="modoExport">
-            <option value="dia">Día</option>
-            <option value="mes">Mes</option>
-            <option value="rango">Rango</option>
-          </select>
-        </div>
-
-        <div id="desdeWrap" style="flex:1;min-width:180px">
-          <label id="desdeLabel" for="desde">Desde</label>
-          <input type="date" id="desde" />
-        </div>
-
-        <div id="hastaWrap" style="flex:1;min-width:180px">
-          <label for="hasta">Hasta</label>
-          <input type="date" id="hasta" />
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <div style="flex:1;min-width:220px">
-          <label for="templateSelect">Plantilla de salida</label>
-          <select id="templateSelect">
-            <option value="classic">Clásica (actual)</option>
-            <option value="minimal">Minimal (solo descripción)</option>
-            <option value="proyecto">Proyecto + descripción</option>
-            <option value="fecha">Solo fecha/hora</option>
-            <option value="clean">Sin texto</option>
-          </select>
-          <div class="muted" id="templateHelp" style="margin-top:6px">Define cómo se arma el texto (DOCX/TXT y opcionalmente sobre la foto).</div>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <input type="checkbox" id="useTimeNames" />
-          <span class="muted">Nombrar fotos con hora (opcional)</span>
-        </label>
-
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <input type="checkbox" id="onlyDone" />
-          <span class="muted">Solo exportar LISTAS</span>
-        </label>
-
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <span class="muted">Ajuste foto en DOCX</span>
-          <select id="docxFit" style="width:auto">
-            <option value="stretch">Estirar (deforma)</option>
-            <option value="contain">Sin deformar (bordes blancos)</option>
-            <option value="cover">Recortar (rellenar)</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <input type="checkbox" id="exportLogo" />
-          <span class="muted">En exportación: incluir logo (si hay logo cargado)</span>
-        </label>
-
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <input type="checkbox" id="exportStampDT" />
-          <span class="muted">En exportación: escribir fecha y hora sobre la foto</span>
-        </label>
-
-
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <input type="checkbox" id="exportTemplate" checked />
-          <span class="muted">En exportación: incluir texto (plantilla) sobre la foto</span>
-        </label>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <button class="btn btn-primary" id="btnZip">⬇️ Descargar ZIP</button>
-        <button class="btn btn-secondary" id="btnZipHoy">⬇️ Exportar HOY</button>
-        <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
-        <div id="zipInfo" class="muted"></div>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- Bottom sheet: Configuración -->
-  <div class="sheetBackdrop" id="sheetBackdrop" aria-hidden="true">
-    <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Configuración">
-      <div class="sheetHandle" id="sheetHandle"></div>
-      <div class="sheetHeader">
-        <div>
-          <div class="sheetTitle">Configuración</div>
-          <div class="muted">Preferencias del dispositivo</div>
-        </div>
-        <button class="btn btn-secondary smallBtn" id="btnSheetClose">✖</button>
-      </div>
-
-      <div class="sheetBody">
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Tema</div>
-            <div class="muted" id="themeLabel">—</div>
-          </div>
-          <button class="btn btn-secondary smallBtn" id="btnThemeToggle" title="Cambiar tema">🌙</button>
-        </div>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Acento</div>
-            <div class="muted">Color principal de la app</div>
-          </div>
-          <div class="accentPalette" id="accentPalette"></div>
-        </div>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Actualizar app</div>
-            <div class="muted" id="updateLabel">Buscar / instalar actualización</div>
-          </div>
-          <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet">🔄</button>
-        </div>
-
-        <button class="btn btn-secondary" id="btnResetCache" style="width:100%">🧰 Reiniciar caché (si se queda pegada)</button>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Respaldo</div>
-            <div class="muted">Crear / restaurar backup (ZIP con fotos)</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup">⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup">⬆️</button>
-          </div>
-        </div>
-        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
-
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Ítems del proyecto</div>
-            <div class="muted" id="itemsLabel">Cargar listado (Excel) por proyecto</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnItemsTemplate" title="Descargar plantilla">📄</button>
-            <button class="btn btn-secondary smallBtn" id="btnItemsUpload" title="Cargar listado">⬆️</button>
-            <button class="btn btn-danger smallBtn" id="btnItemsClear" title="Borrar ítems del proyecto">🗑️</button>
-          </div>
-        </div>
-        <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
-
-
-      
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Almacenamiento</div>
-            <div class="muted" id="storageLabel">—</div>
-          </div>
-          <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
-        </div>
-        <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
-        <div class="muted" id="storageHint" style="margin-top:-2px">—</div>
-</div>
-    </div>
-  </div>
-
-
-  <!-- Modal -->
-  <div class="modal" id="modal">
-    <div class="modalCard">
-      <div class="modalBody">
-        <img id="modalImg" class="modalImg" alt="Foto" />
-        <div class="modalSide">
-          <div class="modalCloseRow">
-            <div>
-              <div class="modalTitle" id="modalTitle"></div>
-              <div class="muted" id="modalMeta"></div>
-            </div>
-            <button class="btn btn-secondary smallBtn" id="btnModalClose">✖</button>
-          </div>
-
-          <div>
-            <label>Ítem (opcional)</label>
-            <input type="text" id="modalItem" list="datalistItems" placeholder="Código de ítem…" />
-            <div class="muted" id="modalItemHint" style="margin-top:6px">—</div>
-          </div>
-
-          <div>
-            <label>Descripción</label>
-            <textarea id="modalDesc" placeholder="Descripción..."></textarea>
-          </div>
-
-          <div class="row">
-            <button class="btn btn-secondary smallBtn" id="btnModalDone">✅ Listo</button>
-            <button class="btn btn-secondary smallBtn" id="btnModalShare">📤 WhatsApp</button>
-            <button class="btn btn-danger smallBtn" id="btnModalDelete">🗑️</button>
-          </div>
-
-          <div class="muted">
-            WhatsApp: se comparte <b>solo la imagen</b>. TXT/Excel/DOCX van dentro del ZIP.
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal: Proyecto (Logi2) -->
-  <div class="modal" id="projModal" aria-hidden="true">
-    <div class="modalCard projModalCard">
-      <div class="modalBody" style="grid-template-columns:1fr">
-        <div class="modalSide">
-          <div class="modalCloseRow">
-            <div>
-              <div class="modalTitle" id="projModalTitle">Proyecto</div>
-              <div class="muted" id="projModalMeta">—</div>
-            </div>
-            <button class="btn btn-secondary smallBtn" id="btnProjModalClose">✖</button>
-          </div>
-
-          <div>
-            <label>Nombre del proyecto</label>
-            <input type="text" id="projNameInput" placeholder="Ej: Contrato 558 de 2025 · Mejoramiento bóvedas" />
-            <div class="muted" style="margin-top:6px">Tip: usa nombres profesionales. Puedes renombrar cuando quieras.</div>
-          </div>
-
-          <div class="row" style="justify-content:flex-end">
-            <button class="btn btn-secondary" id="btnProjCancel">Cancelar</button>
-            <button class="btn btn-primary" id="btnProjSave">Guardar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Datalist: Ítems del proyecto -->
-  <datalist id="datalistItems"></datalist>
-
-<script>
 function $(id){ return document.getElementById(id); }
 
 /* ===========================
@@ -1342,7 +606,7 @@ $("itemsInput").onchange = async () => {
     setTimeout(()=> refreshCatalogStatus(), 2200);
   }catch(e){
     console.error(e);
-    alert(String(e?.message || e || "No pude importar ese archivo. Asegúrate de usar la plantilla."));
+    alert("No pude importar ese archivo. Asegúrate de usar la plantilla.");
     refreshCatalogStatus();
   }finally{
     $("itemsInput").value = "";
@@ -1523,8 +787,7 @@ function normalizeHeader(s){
 async function importItemsFile(file){
   if (!file) return { added:0, skipped:0, total:0 };
 
-  // Dependemos de SheetJS (XLSX). Si no cargó, no podemos leer Excel.
-  if (!window.XLSX || typeof XLSX.read !== "function"){
+  if (!window.XLSX){
     alert("No puedo leer Excel porque la librería XLSX no cargó. Abre con internet o prueba Chrome.");
     return { added:0, skipped:0, total:0 };
   }
@@ -1532,58 +795,34 @@ async function importItemsFile(file){
   const ext = (file.name || "").toLowerCase();
   let wb;
 
-  // Helper: detecta si parece XLSX (zip) por firma 'PK'
-  const looksLikeXlsxZip = (u8) => u8 && u8.length >= 2 && u8[0] === 0x50 && u8[1] === 0x4B;
-
-  try{
-    if (ext.endsWith(".csv")){
-      const text = await file.text();
-      wb = XLSX.read(text, { type:"string" });
-    } else {
-      const buf = await file.arrayBuffer();
-      const u8 = new Uint8Array(buf);
-
-      // Si no parece XLSX, probablemente el usuario descargó una página (HTML) con nombre .xlsx
-      if (!looksLikeXlsxZip(u8)){
-        // Intentar como texto/CSV por si acaso
-        const asText = new TextDecoder("utf-8").decode(u8);
-        if (asText.includes("<html") || asText.toLowerCase().includes("doctype html")){
-          throw new Error("El archivo no parece un Excel válido (parece HTML). Vuelve a descargar la plantilla desde el botón de la app.");
-        }
-        // Intento CSV
-        wb = XLSX.read(asText, { type:"string" });
-      } else {
-        // SheetJS es más estable con Uint8Array en móviles
-        wb = XLSX.read(u8, { type:"array" });
-      }
-    }
-  }catch(e){
-    console.error(e);
-    throw new Error("No pude leer ese archivo. Detalle: " + (e?.message || e));
+  if (ext.endsWith(".csv")){
+    const text = await file.text();
+    wb = XLSX.read(text, { type:"string" });
+  } else {
+    const buf = await file.arrayBuffer();
+    wb = XLSX.read(buf, { type:"array" });
   }
 
-  const sheetName = (wb.SheetNames || []).includes("ITEMS") ? "ITEMS" : (wb.SheetNames || [])[0];
-  if (!sheetName){
-    throw new Error("No encontré hojas en ese archivo.");
-  }
-
+  const sheetName = wb.SheetNames.includes("ITEMS") ? "ITEMS" : wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"", blankrows:false });
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
 
   if (!rows.length) return { added:0, skipped:0, total:0 };
 
-  const header = (rows[0] || []).map(normalizeHeader);
+  const header = rows[0].map(normalizeHeader);
   const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
   const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
 
   if (idxItem === -1 || idxDesc === -1){
-    throw new Error("Formato inválido. Debe tener columnas: ITEM y DESCRIPCION.");
+    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM y DESCRIPCION.");
+    return { added:0, skipped:0, total:0 };
   }
 
   const p = getActiveProject();
   const projectId = p ? p.id : (getActiveProjectId() || "");
   if (!projectId){
-    throw new Error("No pude determinar el proyecto activo.");
+    alert("No pude determinar el proyecto activo.");
+    return { added:0, skipped:0, total:0 };
   }
 
   const batch = [];
@@ -1593,6 +832,7 @@ async function importItemsFile(file){
     const r = rows[i] || [];
     const item = String(r[idxItem] || "").trim();
     const descripcion = String(r[idxDesc] || "").trim();
+
     if (!item) { skipped++; continue; }
 
     const key = `${projectId}::${item}`;
@@ -1613,31 +853,33 @@ async function importItemsFile(file){
 }
 
 function downloadTemplateItems(){
-  // Descarga forzada (evita que Android/Chrome abra el archivo en lugar de descargarlo)
-  const fileName = "Logi2_Plantilla_Items.xlsx";
-  const url = fileName + "?v=0.7b2";
-  fetch(url, { cache: "no-store" })
-    .then(r => {
-      if (!r.ok) throw new Error("No encontré la plantilla en el servidor.");
-      return r.blob();
-    })
-    .then(blob => {
-      const a = document.createElement("a");
-      const objUrl = URL.createObjectURL(blob);
-      a.href = objUrl;
-      a.download = fileName;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        URL.revokeObjectURL(objUrl);
-        a.remove();
-      }, 1000);
-    })
-    .catch(err => {
-      console.error(err);
-      alert("No pude descargar la plantilla. Revisa conexión y vuelve a intentar.");
-    });
+  // Genera la plantilla oficial (sin depender de archivos estáticos ni del caché)
+  // Columnas: ITEM | DESCRIPCION
+  try{
+    const wb = XLSX.utils.book_new();
+    const data = [
+      ["ITEM","DESCRIPCION"],
+      ["", ""]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws["!cols"] = [{ wch: 18 }, { wch: 60 }];
+    XLSX.utils.book_append_sheet(wb, ws, "ITEMS");
+
+    const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Logi2_Plantilla_Items.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }catch(e){
+    console.error(e);
+    alert("No pude generar la plantilla. Intenta nuevamente.");
+  }
 }
 
 
@@ -1753,26 +995,7 @@ function closeProjModal(){
 
 function onProjectChanged(){
   refreshProjectUI();
-
-  // Evita que la galería se quede mostrando el proyecto anterior mientras cargamos.
-  cache = [];
-  render();
-  updateStorageUI();
-
-  (async () => {
-    try{
-      await loadCacheForActiveProject();
-      await loadCatalogForActiveProject();
-    }catch(e){
-      console.error(e);
-      // No bloqueamos al usuario; solo avisamos si falla.
-      alert("No pude actualizar la galería del proyecto. Si persiste, usa 'Reiniciar caché' en configuración.");
-    }finally{
-      render();
-      updateStorageUI();
-    }
-  })();
-}).catch(() => {});
+  Promise.all([loadCacheForActiveProject(), loadCatalogForActiveProject()]).then(() => { render(); updateStorageUI(); }).catch(() => {});
 }
 
 async function loadCacheForActiveProject(){
@@ -3439,6 +2662,3 @@ function render(){
 
   fechaInput.onchange = () => render();
 })();
-</script>
-</body>
-</html>
