@@ -1,7 +1,7 @@
 {
   "name": "Logi2 (Beta)",
   "short_name": "Logi2",
-  "start_url": "./",
+  "start_url": "./?v=7.0.3",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b1220",
