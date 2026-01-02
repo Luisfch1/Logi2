@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7b2</title>
+  <title>Logi2 v0.7b3</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="favicon.png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7b3">
+  <link rel="icon" href="favicon.png?v=0.7b3">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -373,7 +373,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7b2 · Logi2</span>
+          <span class="pill">v0.7b3 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -1342,7 +1342,40 @@ $("itemsInput").onchange = async () => {
     setTimeout(()=> refreshCatalogStatus(), 2200);
   }catch(e){
     console.error(e);
-    alert(String(e?.message || e || "No pude importar ese archivo. Asegúrate de usar la plantilla."));
+    const ext = (file.name || "").toLowerCase();
+  let wb;
+
+  // CSV: lectura directa
+  if (ext.endsWith(".csv")){
+    const text = await file.text();
+    wb = XLSX.read(text, { type:"string" });
+  } else {
+    // XLSX: lectura robusta (Android/PWA puede fallar con ArrayBuffer directo)
+    const ab = await file.arrayBuffer();
+
+    // Si el archivo no parece ZIP (xlsx) a veces es una página HTML descargada con nombre .xlsx
+    const sig = String.fromCharCode.apply(null, Array.from(new Uint8Array(ab.slice(0,2))));
+    // "PK" => zip
+    if (sig !== "PK"){
+      throw new Error("El archivo no parece un .xlsx válido (firma distinta a PK). Re-descarga la plantilla y vuelve a intentar.");
+    }
+
+    try{
+      const u8 = new Uint8Array(ab);
+      wb = XLSX.read(u8, { type:"array" });
+    }catch(err1){
+      // Fallback: lectura binaria con FileReader
+      const bin = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = () => reject(fr.error || new Error("No pude leer el archivo"));
+        fr.readAsBinaryString(file);
+      });
+      wb = XLSX.read(bin, { type:"binary" });
+    }
+  }
+
+  const sheetName = 
     refreshCatalogStatus();
   }finally{
     $("itemsInput").value = "";
@@ -1523,8 +1556,7 @@ function normalizeHeader(s){
 async function importItemsFile(file){
   if (!file) return { added:0, skipped:0, total:0 };
 
-  // Dependemos de SheetJS (XLSX). Si no cargó, no podemos leer Excel.
-  if (!window.XLSX || typeof XLSX.read !== "function"){
+  if (!window.XLSX){
     alert("No puedo leer Excel porque la librería XLSX no cargó. Abre con internet o prueba Chrome.");
     return { added:0, skipped:0, total:0 };
   }
@@ -1532,58 +1564,34 @@ async function importItemsFile(file){
   const ext = (file.name || "").toLowerCase();
   let wb;
 
-  // Helper: detecta si parece XLSX (zip) por firma 'PK'
-  const looksLikeXlsxZip = (u8) => u8 && u8.length >= 2 && u8[0] === 0x50 && u8[1] === 0x4B;
-
-  try{
-    if (ext.endsWith(".csv")){
-      const text = await file.text();
-      wb = XLSX.read(text, { type:"string" });
-    } else {
-      const buf = await file.arrayBuffer();
-      const u8 = new Uint8Array(buf);
-
-      // Si no parece XLSX, probablemente el usuario descargó una página (HTML) con nombre .xlsx
-      if (!looksLikeXlsxZip(u8)){
-        // Intentar como texto/CSV por si acaso
-        const asText = new TextDecoder("utf-8").decode(u8);
-        if (asText.includes("<html") || asText.toLowerCase().includes("doctype html")){
-          throw new Error("El archivo no parece un Excel válido (parece HTML). Vuelve a descargar la plantilla desde el botón de la app.");
-        }
-        // Intento CSV
-        wb = XLSX.read(asText, { type:"string" });
-      } else {
-        // SheetJS es más estable con Uint8Array en móviles
-        wb = XLSX.read(u8, { type:"array" });
-      }
-    }
-  }catch(e){
-    console.error(e);
-    throw new Error("No pude leer ese archivo. Detalle: " + (e?.message || e));
+  if (ext.endsWith(".csv")){
+    const text = await file.text();
+    wb = XLSX.read(text, { type:"string" });
+  } else {
+    const buf = await file.arrayBuffer();
+    wb = XLSX.read(buf, { type:"array" });
   }
 
-  const sheetName = (wb.SheetNames || []).includes("ITEMS") ? "ITEMS" : (wb.SheetNames || [])[0];
-  if (!sheetName){
-    throw new Error("No encontré hojas en ese archivo.");
-  }
-
+  const sheetName = wb.SheetNames.includes("ITEMS") ? "ITEMS" : wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"", blankrows:false });
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
 
   if (!rows.length) return { added:0, skipped:0, total:0 };
 
-  const header = (rows[0] || []).map(normalizeHeader);
+  const header = rows[0].map(normalizeHeader);
   const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
   const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
 
   if (idxItem === -1 || idxDesc === -1){
-    throw new Error("Formato inválido. Debe tener columnas: ITEM y DESCRIPCION.");
+    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM y DESCRIPCION.");
+    return { added:0, skipped:0, total:0 };
   }
 
   const p = getActiveProject();
   const projectId = p ? p.id : (getActiveProjectId() || "");
   if (!projectId){
-    throw new Error("No pude determinar el proyecto activo.");
+    alert("No pude determinar el proyecto activo.");
+    return { added:0, skipped:0, total:0 };
   }
 
   const batch = [];
@@ -1593,6 +1601,7 @@ async function importItemsFile(file){
     const r = rows[i] || [];
     const item = String(r[idxItem] || "").trim();
     const descripcion = String(r[idxDesc] || "").trim();
+
     if (!item) { skipped++; continue; }
 
     const key = `${projectId}::${item}`;
@@ -1613,31 +1622,43 @@ async function importItemsFile(file){
 }
 
 function downloadTemplateItems(){
-  // Descarga forzada (evita que Android/Chrome abra el archivo en lugar de descargarlo)
-  const fileName = "Logi2_Plantilla_Items.xlsx";
-  const url = fileName + "?v=0.7b2";
-  fetch(url, { cache: "no-store" })
-    .then(r => {
-      if (!r.ok) throw new Error("No encontré la plantilla en el servidor.");
-      return r.blob();
-    })
-    .then(blob => {
-      const a = document.createElement("a");
-      const objUrl = URL.createObjectURL(blob);
-      a.href = objUrl;
-      a.download = fileName;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        URL.revokeObjectURL(objUrl);
-        a.remove();
-      }, 1000);
-    })
-    .catch(err => {
-      console.error(err);
-      alert("No pude descargar la plantilla. Revisa conexión y vuelve a intentar.");
-    });
+  // Descarga la plantilla oficial desde el repo (más confiable en Android/PWA).
+  // Si falla, genera una plantilla mínima.
+  const url = `Logi2_Plantilla_Items.xlsx?v=${Date.now()}`;
+
+  const forceDownload = async (blob, filename) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  };
+
+  (async () => {
+    try{
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("No pude descargar la plantilla desde el servidor.");
+      const blob = await res.blob();
+      await forceDownload(blob, "Logi2_Plantilla_Items.xlsx");
+      return;
+    }catch(e){
+      console.warn("Fallback plantilla (generada):", e);
+      try{
+        if (!window.XLSX) throw new Error("XLSX no cargó.");
+        const wb = XLSX.utils.book_new();
+        const data = [["ITEM","DESCRIPCION"],["",""]];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws["!cols"] = [{ wch: 18 }, { wch: 60 }];
+        XLSX.utils.book_append_sheet(wb, ws, "ITEMS");
+        const out = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+        const blob = new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        await forceDownload(blob, "Logi2_Plantilla_Items.xlsx");
+      }catch(err2){
+        alert("No pude descargar/generar la plantilla.\n\nDetalle: " + (err2?.message || err2));
+      }
+    }
+  })();
 }
 
 
@@ -1754,7 +1775,7 @@ function closeProjModal(){
 function onProjectChanged(){
   refreshProjectUI();
 
-  // Evita que la galería se quede mostrando el proyecto anterior mientras cargamos.
+  // Limpia de inmediato para que NO se quede mostrando el proyecto anterior
   cache = [];
   render();
   updateStorageUI();
@@ -1765,14 +1786,12 @@ function onProjectChanged(){
       await loadCatalogForActiveProject();
     }catch(e){
       console.error(e);
-      // No bloqueamos al usuario; solo avisamos si falla.
       alert("No pude actualizar la galería del proyecto. Si persiste, usa 'Reiniciar caché' en configuración.");
     }finally{
       render();
       updateStorageUI();
     }
   })();
-}).catch(() => {});
 }
 
 async function loadCacheForActiveProject(){
