@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7b3</title>
+  <title>Logi2 v0.7b4</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7b3">
-  <link rel="icon" href="favicon.png?v=0.7b3">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b3">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7b4">
+  <link rel="icon" href="favicon.png?v=0.7b4">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -152,6 +152,14 @@
       color:#052e1a;border-color:transparent;
     }
     .badgeShare{ right:8px; left:auto; }
+
+    /* Ítems (overlay en miniaturas) */
+    .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px; }
+    .badgeItemOk{ background:rgba(96,165,250,.92); color:#071125; border-color:transparent; }
+    .badgeItemMiss{ background:rgba(248,113,113,.92); color:#2b0707; border-color:transparent; }
+    .gThumbMissing{ border-color: rgba(248,113,113,.9); box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
+    .thumbMissing{ border-color: rgba(248,113,113,.9) !important; box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
+
 
     .modal{position:fixed; inset:0;background:rgba(2,6,23,.92);display:none; align-items:center; justify-content:center;z-index:50; padding:14px;}
     .modal.open{display:flex}
@@ -373,7 +381,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7b3 · Logi2</span>
+          <span class="pill">v0.7b4 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -1975,7 +1983,9 @@ function getTemplateMeta(it){
   const mm = pad2(dt.getMinutes());
   const time = `${hh}:${mm}`;
   const stamp = fecha ? `${fecha} ${time}` : time;
-  return { proj, desc, fecha, longDate, time, stamp };
+  const itemCode = String(it.itemCode || "").trim();
+  const itemDesc = String(it.itemDesc || (itemCode && catalogMap[itemCode]) || "").trim();
+  return { proj, desc, fecha, longDate, time, stamp, itemCode, itemDesc };
 }
 
 function buildTemplateLines(meta, templateId){
@@ -2004,19 +2014,39 @@ function buildTemplateLines(meta, templateId){
 
 function buildDocxCaption(n, meta, templateId){
   const id = templateId || "classic";
+
+  const code = String(meta.itemCode || "").trim();
+  const descItem = String(meta.itemDesc || "").trim();
+  const itemPart = code ? (`Ítem ${code}` + (descItem ? ` - ${descItem}` : "")) : "";
+
   if (id === "clean") return `FOTO ${n}.`;
-  if (id === "fecha") return `FOTO ${n}. ${meta.stamp}`;
-  if (id === "minimal") return `FOTO ${n}. ${(meta.desc || "—")} · ${meta.stamp}`;
+
+  if (id === "fecha"){
+    return itemPart ? `FOTO ${n}. ${itemPart} · ${meta.stamp}` : `FOTO ${n}. ${meta.stamp}`;
+  }
+
+  if (id === "minimal"){
+    const base = (meta.desc || "—");
+    return itemPart
+      ? `FOTO ${n}. ${itemPart} · ${base} · ${meta.stamp}`
+      : `FOTO ${n}. ${base} · ${meta.stamp}`;
+  }
+
   if (id === "proyecto"){
     const parts = [];
     if (meta.proj) parts.push(meta.proj);
+    if (itemPart) parts.push(itemPart);
     if (meta.desc) parts.push(meta.desc);
     if (meta.stamp) parts.push(meta.stamp);
     return `FOTO ${n}. ${parts.join(" · ") || "—"}`;
   }
+
   // classic
+  if (itemPart && meta.desc) return `FOTO ${n}. ${itemPart} · ${meta.desc}`;
+  if (itemPart && !meta.desc) return `FOTO ${n}. ${itemPart}`;
   return `FOTO ${n}. ${(meta.desc || "—")}`;
 }
+
 
 function syncTemplateUI(){
   const sel = $("templateSelect");
@@ -2456,7 +2486,7 @@ function renderCaptura(){
 
     div.innerHTML = `
       <div class="itemTop">
-        <img class="thumb" src="${thumbUrl}" data-open="${item.id}" alt="foto">
+        <img class="thumb ${String(item.itemCode||"").trim() ? "" : "thumbMissing"}" src="${thumbUrl}" data-open="${item.id}" alt="foto">
         <div class="grow">
           <div class="mini">
             <span>#${idx+1} · ${item.fecha}</span>
@@ -2575,11 +2605,12 @@ function renderGaleria(){
     const day = document.createElement("div");
     const doneCount = items.filter(x => x.done).length;
     const bytes = items.reduce((a,i)=>a+(i.blob?.size||0),0);
+    const missItemCount = items.filter(x => !(String(x.itemCode || "").trim())).length;
 
     day.innerHTML = `
       <div class="dayHeader">
         <div class="dayTitle"><span class="dayChip">${formatDateLongES(date)}</span></div>
-        <div class="dayMeta">· ${items.length} foto(s) · ${doneCount} listas · ${fmtBytes(bytes)}</div>
+        <div class="dayMeta">· ${items.length} foto(s) · ${doneCount} listas${missItemCount ? ` · ${missItemCount} sin ítem` : ``} · ${fmtBytes(bytes)}</div>
       </div>
       <div class="gridThumbs" data-day="${date}"></div>
     `;
@@ -2590,9 +2621,12 @@ function renderGaleria(){
       const box = document.createElement("div");
       box.className = "gThumbBox";
       const url = trackUrl(URL.createObjectURL(it.blob));
+      const hasItem = !!String(it.itemCode || "").trim();
+      const codeShort = hasItem ? String(it.itemCode || "").trim().slice(0, 14) : "";
       box.innerHTML = `
-        <img class="gThumb" src="${url}" data-open="${it.id}" alt="foto">
+        <img class="gThumb ${hasItem ? "" : "gThumbMissing"}" src="${url}" data-open="${it.id}" alt="foto">
         <div class="badge ${it.done ? "badgeDone" : ""}">${it.done ? "LISTO" : "PEND"}</div>
+        <div class="badge badgeItem ${hasItem ? "badgeItemOk" : "badgeItemMiss"}">${hasItem ? escAttr(codeShort) : "ÍTEM?"}</div>
         <div class="badge badgeShare">📤</div>
       `;
       grid.appendChild(box);
