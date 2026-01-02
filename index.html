@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.3</title>
+  <title>Logi2 v0.7b4</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.3">
-  <link rel="icon" href="favicon.png?v=0.7.3">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.3">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7b4">
+  <link rel="icon" href="favicon.png?v=0.7b4">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -21,7 +21,6 @@
 
   <!-- XLSX (Excel import) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 
   <style>
     *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -87,21 +86,6 @@
     .ok{color:#34d399}
 
     .list{display:grid;gap:10px;margin-top:10px}
-    /* Chips: filtro de ítems (v0.7.3) */
-    .chipsWrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-    .chipItem{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:6px 10px;border-radius:999px;
-      background:rgba(var(--accent-rgb),.12);
-      border:1px solid rgba(var(--accent-rgb),.24);
-      color:var(--text);font-size:.86rem
-    }
-    .chipItem .x{
-      border:none;background:transparent;color:var(--muted);
-      font-weight:900;cursor:pointer;padding:0 2px;line-height:1
-    }
-    .chipItem .x:active{transform:scale(.96)}
-
     .item{border:1px solid var(--border);border-radius:14px;padding:10px;background:var(--card)}
     .item.done{border-color:#34d39955}
     .itemTop{display:flex;gap:10px;align-items:flex-start}
@@ -397,7 +381,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.3 · Logi2</span>
+          <span class="pill">v0.7b4 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -543,30 +527,7 @@
         </div>
       </div>
 
-      
-      <!-- Filtro de ítems (v0.7.3) -->
-      <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1;min-width:220px">
-          <label for="itemsExportMode">Ítems</label>
-          <select id="itemsExportMode">
-            <option value="all">Todos</option>
-            <option value="only">Solo ítems seleccionados</option>
-          </select>
-          <div class="muted" id="itemsExportHint" style="margin-top:6px">—</div>
-        </div>
-
-        <div id="itemsExportPickWrap" style="flex:2;min-width:280px;display:none">
-          <label for="itemsExportAdd">Agregar ítem</label>
-          <div class="row" style="margin-top:6px">
-            <input type="text" id="itemsExportAdd" list="datalistItems" placeholder="Código de ítem…" />
-            <button class="btn btn-secondary" id="btnItemsExportAdd" title="Agregar">➕</button>
-            <button class="btn btn-secondary" id="btnItemsExportClear" title="Limpiar selección">Limpiar</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="itemsExportChips" class="chipsWrap" style="display:none"></div>
-<div class="row" style="margin-top:10px;">
+      <div class="row" style="margin-top:10px;">
         <div style="flex:1;min-width:220px">
           <label for="templateSelect">Plantilla de salida</label>
           <select id="templateSelect">
@@ -625,21 +586,6 @@
         <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
         <div id="zipInfo" class="muted"></div>
       </div>
-      <!-- Export Express (v0.7.3): solo Word o PDF, sin ZIP -->
-      <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1;min-width:220px">
-          <label for="expressType">Export express (sin ZIP)</label>
-          <div class="row" style="margin-top:6px">
-            <select id="expressType" style="min-width:180px">
-              <option value="docx">Word (.docx)</option>
-              <option value="pdf">PDF</option>
-            </select>
-            <button class="btn btn-secondary" id="btnExpress">⚡ Exportar</button>
-          </div>
-          <div class="muted" style="margin-top:6px">Genera solo el archivo y lo comparte por WhatsApp/Drive (si tu navegador lo permite).</div>
-        </div>
-      </div>
-
     </div>
   </div>
 
@@ -1582,8 +1528,6 @@ async function loadCatalogForActiveProject(){
   rebuildCatalogMap();
   refreshCatalogDatalist();
   refreshCatalogStatus();
-  renderExportItemChips();
-  updateItemsExportUI();
 }
 
 function refreshCatalogDatalist(){
@@ -1867,8 +1811,6 @@ async function loadCacheForActiveProject(){
   // Sin migración pesada: los legacy (sin projectId) se consideran del primer proyecto.
   cache = all.filter(it => (it.projectId ? it.projectId === activeId : activeId === firstId));
   setProyectoInputFromActive();
-  loadExportItemCodes();
-
 }
 
 function attachProjectHandlers(){
@@ -3252,364 +3194,7 @@ function buildManifestXlsHtml(registros){
 }
 
 /* ===========================
-   
-/* ===========================
-   Filtro de ítems en export (v0.7.3)
-=========================== */
-
-function escapeHtml(s){
-  return String(s ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#39;");
-}
-
-let exportItemCodes = [];
-
-function exportItemsStorageKey(){
-  return "logi2_export_items_" + (getActiveProjectId() || "default");
-}
-
-function loadExportItemCodes(){
-  try{
-    const raw = localStorage.getItem(exportItemsStorageKey());
-    exportItemCodes = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(exportItemCodes)) exportItemCodes = [];
-  }catch{ exportItemCodes = []; }
-  renderExportItemChips();
-  updateItemsExportUI();
-}
-
-function saveExportItemCodes(){
-  try{ localStorage.setItem(exportItemsStorageKey(), JSON.stringify(exportItemCodes || [])); }catch{}
-}
-
-function getExportItemCodes(){
-  return (exportItemCodes || []).map(s => (s || "").trim()).filter(Boolean);
-}
-
-function addExportItemCode(code){
-  const c = (code || "").trim();
-  if (!c) return;
-  if (!exportItemCodes.includes(c)){
-    exportItemCodes.push(c);
-    saveExportItemCodes();
-    renderExportItemChips();
-    updateItemsExportUI();
-  }
-}
-
-function removeExportItemCode(code){
-  exportItemCodes = (exportItemCodes || []).filter(x => x !== code);
-  saveExportItemCodes();
-  renderExportItemChips();
-  updateItemsExportUI();
-}
-
-function clearExportItemCodes(){
-  exportItemCodes = [];
-  saveExportItemCodes();
-  renderExportItemChips();
-  updateItemsExportUI();
-}
-
-function renderExportItemChips(){
-  const wrap = $("itemsExportChips");
-  if (!wrap) return;
-  wrap.innerHTML = "";
-  const codes = getExportItemCodes();
-  if (!codes.length){
-    wrap.style.display = "none";
-    return;
-  }
-  wrap.style.display = "flex";
-  codes.forEach(code => {
-    const el = document.createElement("span");
-    el.className = "chipItem";
-    const desc = catalogMap?.[code] ? ` — ${catalogMap[code]}` : "";
-    el.innerHTML = `<span><b>${escapeHtml(code)}</b>${escapeHtml(desc)}</span><button class="x" title="Quitar">✖</button>`;
-    el.querySelector("button.x").onclick = () => removeExportItemCode(code);
-    wrap.appendChild(el);
-  });
-}
-
-function updateItemsExportUI(){
-  const mode = $("itemsExportMode")?.value || "all";
-  const pickWrap = $("itemsExportPickWrap");
-  const hint = $("itemsExportHint");
-  const chips = $("itemsExportChips");
-
-  if (pickWrap) pickWrap.style.display = (mode === "only") ? "block" : "none";
-  if (chips) chips.style.display = (mode === "only" && getExportItemCodes().length) ? "flex" : "none";
-
-  if (hint){
-    if (mode === "all") hint.textContent = "Se exportan todos los ítems.";
-    else {
-      const n = getExportItemCodes().length;
-      hint.textContent = n ? `Se exportan solo ${n} ítem(s) seleccionados.` : "Selecciona uno o más ítems para exportar.";
-    }
-  }
-}
-
-/* ===========================
-   Export Express (v0.7.3)
-=========================== */
-let isExporting = false;
-
-async function shareFileOrDownload(blob, filename, mime){
-  const file = new File([blob], filename, { type: mime });
-  if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))){
-    try { await navigator.share({ files: [file], title: filename }); return true; }
-    catch { /* fallback */ }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  return true;
-}
-
-function getSelectedByMode(modo, desde, hasta){
-  let selected = [];
-  if (modo === "dia"){
-    selected = cache.filter(x => x.fecha === desde);
-  } else if (modo === "mes"){
-    const ym = (desde || "").slice(0,7);
-    selected = cache.filter(x => (x.fecha || "").slice(0,7) === ym);
-  } else { // rango
-    selected = cache.filter(x => x.fecha >= desde && x.fecha <= hasta);
-  }
-  const onlyDone = !!$("onlyDone")?.checked;
-  if (onlyDone) selected = selected.filter(x => !!x.done);
-
-  // Filtro por ítems
-  const itemMode = $("itemsExportMode")?.value || "all";
-  const codes = getExportItemCodes();
-  if (itemMode === "only"){
-    if (!codes.length) return [];
-    selected = selected.filter(x => codes.includes((x.itemCode || "").trim()));
-  }
-  return selected;
-}
-
-async function exportExpress(modo, desde, hasta){
-  if (isExporting) return;
-  isExporting = true;
-  $("btnZip")?.setAttribute("disabled","disabled");
-  $("btnZipHoy")?.setAttribute("disabled","disabled");
-  $("btnExpress")?.setAttribute("disabled","disabled");
-
-  const zipInfo = $("zipInfo");
-  try{
-    if (!window.docx){ alert("La librería DOCX no cargó. Abre con internet o en Chrome."); return; }
-    const type = $("expressType")?.value || "docx";
-
-    if (modo !== "rango") hasta = desde;
-
-    const selected = getSelectedByMode(modo, desde, hasta);
-    if (!selected.length){
-      alert("No hay fotos para exportar con ese filtro.");
-      return;
-    }
-
-    const exportLogo = !!$("exportLogo")?.checked;
-    const exportStampDT = !!$("exportStampDT")?.checked;
-    const exportTemplate = !!$("exportTemplate")?.checked;
-    const templateId = getTemplateId();
-
-    const { start, end } = computeRangeForTitle(modo, desde, hasta);
-    const tituloProyecto = (proyectoInput.value || "").trim();
-
-    // constantes iguales al ZIP
-    const IMG_W_CM = 7.6;
-    const IMG_H_CM = 4.6;
-    const MODULES_PER_PAGE = 4;
-
-    if (type === "docx"){
-      zipInfo.textContent = "Generando Word...";
-      await new Promise(r=>setTimeout(r,0));
-
-      const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate,
-          templateId, logoCornerHint: (localStorage.getItem("logi_logo_corner") || "br") }
-      );
-
-      const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-      const name = `Logi_Reporte_${start}_a_${end}.docx`;
-      await shareFileOrDownload(blob, name, blob.type);
-      zipInfo.textContent = "Export express listo ✅";
-      setTimeout(()=> zipInfo.textContent = "", 1800);
-      return;
-    }
-
-    // PDF
-    if (!window.html2pdf){
-      alert("No se pudo cargar la librería PDF. Abre con internet (Chrome) e intenta de nuevo.");
-      return;
-    }
-
-    zipInfo.textContent = "Armando PDF...";
-    await new Promise(r=>setTimeout(r,0));
-
-    const pdfBlob = await buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, end, {
-      applyLogo: exportLogo && !!logoBitmap,
-      applyStamp: exportStampDT,
-      applyTemplate: exportTemplate,
-      templateId,
-      logoCornerHint: (localStorage.getItem("logi_logo_corner") || "br")
-    });
-
-    const pdfName = `Logi_Reporte_${start}_a_${end}.pdf`;
-    await shareFileOrDownload(pdfBlob, pdfName, "application/pdf");
-    zipInfo.textContent = "Export express listo ✅";
-    setTimeout(()=> zipInfo.textContent = "", 1800);
-  } finally {
-    isExporting = false;
-    $("btnZip")?.removeAttribute("disabled");
-    $("btnZipHoy")?.removeAttribute("disabled");
-    $("btnExpress")?.removeAttribute("disabled");
-    if ($("zipInfo")?.textContent === "Generando Word..." || $("zipInfo")?.textContent === "Armando PDF...") $("zipInfo").textContent = "";
-  }
-}
-
-async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, startISO, endISO, exportOpts){
-  // Render HTML oculto
-  let host = $("pdfHost");
-  if (!host){
-    host = document.createElement("div");
-    host.id = "pdfHost";
-    host.style.position = "fixed";
-    host.style.left = "-99999px";
-    host.style.top = "0";
-    host.style.width = "794px"; // aprox A4 @96dpi
-    document.body.appendChild(host);
-  }
-  host.innerHTML = "";
-
-  const h = document.createElement("div");
-  h.style.fontFamily = "Calibri, Arial, sans-serif";
-  h.style.fontSize = "12px";
-  h.innerHTML = `
-    <div style="margin-bottom:10px">
-      <div style="font-size:18px;font-weight:800">Registro fotográfico</div>
-      <div style="margin-top:2px;color:#555">Proyecto: ${escapeHtml(tituloProyecto || "—")}</div>
-      <div style="margin-top:2px;color:#555">Rango: ${escapeHtml(startISO)} a ${escapeHtml(endISO)}</div>
-    </div>
-  `;
-  host.appendChild(h);
-
-  // 2 columnas
-  const grid = document.createElement("div");
-  grid.style.display = "grid";
-  grid.style.gridTemplateColumns = "1fr 1fr";
-  grid.style.gap = "10px";
-  host.appendChild(grid);
-
-  for (let i=0;i<selected.length;i++){
-    const it = selected[i];
-
-    // Normalizar + overlays igual que DOCX (para que quede consistente)
-    let finalBlob = it.blob;
-    try{
-      const frameW = 1600;
-      const frameH = 960;
-      const fixed = await normalizeToFixedFrameJpg(it.blob, frameW, frameH, 0.9, "contain");
-      finalBlob = fixed;
-      if (exportOpts?.applyLogo || exportOpts?.applyStamp || exportOpts?.applyTemplate){
-        finalBlob = await applyExportOverlaysToBlob(fixed, {
-          addLogo: !!exportOpts.applyLogo,
-          addStamp: !!exportOpts.applyStamp,
-          stampText: exportOpts.applyStamp ? formatStampDateTime(it) : "",
-          addTemplate: !!exportOpts.applyTemplate && (exportOpts.templateId !== "classic") && (exportOpts.templateId !== "clean"),
-          templateLines: (!!exportOpts.applyTemplate && (exportOpts.templateId !== "classic") && (exportOpts.templateId !== "clean"))
-            ? buildTemplateLines(getTemplateMeta(it), exportOpts.templateId)
-            : [],
-          logoCornerHint: exportOpts.logoCornerHint || "br"
-        });
-      }
-    }catch{}
-
-    const dataUrl = await blobToDataUrl(finalBlob);
-
-    const card = document.createElement("div");
-    card.style.border = "1px solid #e5e7eb";
-    card.style.borderRadius = "10px";
-    card.style.overflow = "hidden";
-    card.style.background = "#fff";
-
-    const img = document.createElement("img");
-    img.src = dataUrl;
-    img.style.width = "100%";
-    img.style.display = "block";
-    card.appendChild(img);
-
-    const body = document.createElement("div");
-    body.style.padding = "8px 10px";
-    body.style.lineHeight = "1.25";
-
-    const meta = getTemplateMeta(it);
-    const lines = buildTemplateLines(meta, exportOpts?.templateId || getTemplateId());
-
-    const itemLine = (it.itemCode ? `<b>${escapeHtml(it.itemCode)}</b>${it.itemDesc ? " — " + escapeHtml(it.itemDesc) : ""}<br/>` : "");
-    const descLine = it.descripcion ? `${escapeHtml(it.descripcion)}<br/>` : "";
-    const dtLine = meta.longDate ? `<span style="color:#555">${escapeHtml(meta.longDate)} ${escapeHtml(meta.time || "")}</span><br/>` : "";
-
-    // Mostrar igual que el template (siempre textual en PDF)
-    let extra = "";
-    if (lines?.length && (exportOpts?.templateId || getTemplateId()) !== "classic"){
-      extra = `<div style="margin-top:6px;color:#111">${lines.map(l => escapeHtml(l)).join("<br/>")}</div>`;
-    } else {
-      extra = `<div style="margin-top:6px;color:#111">${itemLine}${descLine}${dtLine}</div>`;
-    }
-
-    body.innerHTML = extra;
-    card.appendChild(body);
-
-    grid.appendChild(card);
-
-    if (i % 6 === 0) await new Promise(r=>setTimeout(r,0));
-  }
-
-  // Generar PDF
-  const opt = {
-    margin:       [10, 10, 10, 10],
-    filename:     `Logi_Reporte_${startISO}_a_${endISO}.pdf`,
-    image:        { type: "jpeg", quality: 0.92 },
-    html2canvas:  { scale: 2, useCORS: true, logging: false },
-    jsPDF:        { unit: "mm", format: "a4", orientation: "portrait" }
-  };
-
-  const worker = window.html2pdf().set(opt).from(host);
-  let blob = null;
-  try{
-    blob = await worker.outputPdf("blob");
-  }catch{
-    try{
-      // alternativos (según versión de html2pdf)
-      blob = await worker.toPdf().output("blob");
-    }catch{
-      blob = await worker.output("blob");
-    }
-  }
-  return blob;
-}
-
-function blobToDataUrl(blob){
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-}
-Export ZIP (incluye DOCX)
+   Export ZIP (incluye DOCX)
 =========================== */
 async function exportZipByMode(modo, desde, hasta){
   if (!window.JSZip){ alert("JSZip no cargó. Abre con internet o en Chrome."); return; }
@@ -3640,18 +3225,6 @@ async function exportZipByMode(modo, desde, hasta){
   }
 
   if (onlyDone) selected = selected.filter(x => !!x.done);
-
-  // Filtro por ítems (v0.7.3)
-  const itemMode = $("itemsExportMode")?.value || "all";
-  const itemCodes = getExportItemCodes();
-  if (itemMode === "only" && !itemCodes.length){
-    alert("Seleccionaste 'Solo ítems seleccionados' pero no has agregado ítems.");
-    return;
-  }
-  if (itemMode === "only"){
-    selected = selected.filter(x => itemCodes.includes((x.itemCode || "").trim()));
-  }
-
 
   if (!selected.length){
     alert("No hay fotos en ese periodo" + (onlyDone ? " (o ninguna marcada como LISTA)." : "."));
@@ -3758,41 +3331,6 @@ $("btnZipHoy").onclick = async () => {
   const hoy = hoyISO();
   await exportZipByMode("dia", hoy, hoy);
 };
-
-/* ===========================
-   Export Express + filtro ítems (hooks UI) (v0.7.3)
-=========================== */
-$("btnExpress").onclick = async () => {
-  const modo = $("modoExport").value;
-  const desde = $("desde").value || (fechaInput.value || hoyISO());
-  let hasta = $("hasta").value || (fechaInput.value || hoyISO());
-  if (modo !== "rango") hasta = desde;
-  await exportExpress(modo, desde, hasta);
-};
-
-$("itemsExportMode").addEventListener("change", () => {
-  updateItemsExportUI();
-});
-
-$("btnItemsExportAdd").onclick = () => {
-  addExportItemCode($("itemsExportAdd").value);
-  $("itemsExportAdd").value = "";
-  $("itemsExportAdd").focus();
-};
-
-$("itemsExportAdd").addEventListener("keydown", (e) => {
-  if (e.key === "Enter"){
-    e.preventDefault();
-    $("btnItemsExportAdd").click();
-  }
-});
-
-$("btnItemsExportClear").onclick = () => {
-  if (!confirm("¿Limpiar la selección de ítems para exportar?")) return;
-  clearExportItemCodes();
-};
-
-
 
 
 function updateExportUI(){
