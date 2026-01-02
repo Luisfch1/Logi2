@@ -2013,38 +2013,20 @@ function buildTemplateLines(meta, templateId){
 }
 
 function buildDocxCaption(n, meta, templateId){
-  const id = templateId || "classic";
-
+  // Formato solicitado (DOCX):
+  // "Foto No. x, ítem: código - descripción de ítem. Descripción de foto."
   const code = String(meta.itemCode || "").trim();
   const descItem = String(meta.itemDesc || "").trim();
-  const itemPart = code ? (`Ítem ${code}` + (descItem ? ` - ${descItem}` : "")) : "";
 
-  if (id === "clean") return `FOTO ${n}.`;
+  let itemLabel = "";
+  if (code && descItem) itemLabel = `${code} - ${descItem}`;
+  else if (code) itemLabel = code;
+  else if (descItem) itemLabel = descItem;
+  else itemLabel = "SIN ASIGNAR";
 
-  if (id === "fecha"){
-    return itemPart ? `FOTO ${n}. ${itemPart} · ${meta.stamp}` : `FOTO ${n}. ${meta.stamp}`;
-  }
+  const photoDesc = String(meta.desc || "—").trim() || "—";
 
-  if (id === "minimal"){
-    const base = (meta.desc || "—");
-    return itemPart
-      ? `FOTO ${n}. ${itemPart} · ${base} · ${meta.stamp}`
-      : `FOTO ${n}. ${base} · ${meta.stamp}`;
-  }
-
-  if (id === "proyecto"){
-    const parts = [];
-    if (meta.proj) parts.push(meta.proj);
-    if (itemPart) parts.push(itemPart);
-    if (meta.desc) parts.push(meta.desc);
-    if (meta.stamp) parts.push(meta.stamp);
-    return `FOTO ${n}. ${parts.join(" · ") || "—"}`;
-  }
-
-  // classic
-  if (itemPart && meta.desc) return `FOTO ${n}. ${itemPart} · ${meta.desc}`;
-  if (itemPart && !meta.desc) return `FOTO ${n}. ${itemPart}`;
-  return `FOTO ${n}. ${(meta.desc || "—")}`;
+  return `Foto No. ${n}, ítem: ${itemLabel}. ${photoDesc}`;
 }
 
 
@@ -2894,9 +2876,19 @@ async function loadLogiLogoArrayBuffer(){
 
 function buildCaptionRuns(n, meta, templateId){
   const caption = buildDocxCaption(n, meta, templateId);
-  const prefix = `FOTO ${n}.`;
-  const rest = caption.startsWith(prefix) ? caption.slice(prefix.length).trimStart() : caption;
+  const prefixNew = `Foto No. ${n},`;
+  const prefixOld = `FOTO ${n}.`;
+  let prefix = prefixNew;
+  if (caption.startsWith(prefixNew)) prefix = prefixNew;
+  else if (caption.startsWith(prefixOld)) prefix = prefixOld;
+  else prefix = "";
+
+  const rest = prefix ? caption.slice(prefix.length).trimStart() : caption;
   const { TextRun } = window.docx;
+
+  if (!prefix){
+    return [ new TextRun({ text: caption }) ];
+  }
 
   return [
     new TextRun({ text: prefix, bold: true }),
