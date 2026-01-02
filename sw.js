@@ -1,14 +1,14 @@
 // sw.js
-const CACHE_VERSION = "logi2-v0.7.2s2";
+const CACHE_VERSION = "logi2-v0.7.2s2a";
 const CACHE = `logi2-cache-${CACHE_VERSION}`;
 
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./manifest.webmanifest?v=0.7.2s2",
-  "./favicon.png?v=0.7.2s2",
-  "./apple-touch-icon.png?v=0.7.2s2",
+  "./manifest.webmanifest?v=0.7.2s2a",
+  "./favicon.png?v=0.7.2s2a",
+  "./apple-touch-icon.png?v=0.7.2s2a",
   "./Logi2_Plantilla_Items.xlsx",
 
   "./favicon.png",
