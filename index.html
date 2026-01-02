@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2a</title>
+  <title>Logi2 v0.7.2s2b</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2a">
-  <link rel="icon" href="favicon.png?v=0.7.2s2a">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2a">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2b">
+  <link rel="icon" href="favicon.png?v=0.7.2s2b">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -3467,30 +3467,41 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, startIS
   }
 
   // offscreen render
+  // offscreen render (evita PDF en blanco en algunos Android)
   container.style.position = "fixed";
-  container.style.left = "-10000px";
+  container.style.left = "0";
   container.style.top = "0";
+  container.style.transform = "translateX(-200vw)";
+  container.style.pointerEvents = "none";
   document.body.appendChild(container);
+  // deja que el layout se estabilice
+  await new Promise(r => setTimeout(r, 80));
 
   const opts = {
     margin: 10,
     image: { type: "jpeg", quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, allowTaint: true },
+    html2canvas: { scale: 1.5, useCORS: true, allowTaint: true },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
   };
 
   try{
-    const worker = window.html2pdf().set(opts).from(container);
-    // Diferentes builds de html2pdf exponen APIs distintas
+    // Forzamos el pipeline a PDF antes de pedir el blob (evita PDFs vacíos en algunos builds)
+    const worker = window.html2pdf().set(opts).from(container).toPdf();
     let blob = null;
-    try { blob = await worker.outputPdf("blob"); } catch {}
-    if (!blob){
-      try { blob = await worker.toPdf().output("blob"); } catch {}
+
+    // Ruta robusta: obtener el objeto pdf y pedir el blob desde ahí
+    try {
+      const pdf = await worker.get("pdf");
+      blob = pdf.output("blob");
+    } catch(e) {
+      // Fallbacks según build
+      try { blob = await worker.outputPdf("blob"); } catch {}
+      if (!blob){
+        try { blob = await worker.output("blob"); } catch {}
+      }
     }
-    if (!blob){
-      // fallback: fuerza toPdf
-      blob = await worker.toPdf().output("blob");
-    }
+
+    if (!blob) throw new Error("No se pudo generar el PDF");
     return blob;
   } finally {
     document.body.removeChild(container);
