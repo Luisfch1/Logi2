@@ -362,13 +362,7 @@
     .projectSelect{min-width:220px;max-width:420px}
     .projModalCard{width:min(560px, 96vw)}
 
-  
-  .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#111B2E;border:1px solid rgba(255,255,255,.12);font-size:12px}
-  .chip .x{cursor:pointer;opacity:.9;font-weight:700}
-  .chip .x:hover{opacity:1}
-
-</style>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  </style>
 </head>
 
 <body>
@@ -387,7 +381,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7b4 · Logi2</span>
+          <span class="pill">v7.0.3 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -586,7 +580,7 @@
         </label>
       </div>
 
-      
+
       <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
         <div style="flex:2;min-width:260px">
           <label for="expItemInput">Ítems (opcional, multi)</label>
@@ -601,12 +595,12 @@
       </div>
 
       <div class="row" style="margin-top:10px;">
-        <button class="btn btn-secondary" id="btnExpressDocx">📄 Descargar Word (solo)</button>
-        <button class="btn btn-secondary" id="btnExpressPdf">🧾 Descargar PDF (solo)</button>
+        <button class="btn btn-secondary" id="btnExpressDocx" type="button">📄 Descargar Word (solo)</button>
+        <button class="btn btn-secondary" id="btnExpressPdf" type="button">🧾 PDF (imprimir/guardar)</button>
         <div class="muted">Express = 1 archivo (mismo formato). ZIP sigue igual.</div>
       </div>
 
-<div class="row" style="margin-top:10px;">
+      <div class="row" style="margin-top:10px;">
         <button class="btn btn-primary" id="btnZip">⬇️ Descargar ZIP</button>
         <button class="btn btn-secondary" id="btnZipHoy">⬇️ Exportar HOY</button>
         <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
@@ -769,17 +763,6 @@
 
 <script>
 function $(id){ return document.getElementById(id); }
-
-
-function escapeHtml(s){
-  return String(s||"")
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;")
-    .replace(/'/g,"&#039;");
-}
-
 
 /* ===========================
    🎨 Tema (por dispositivo)
@@ -1434,23 +1417,6 @@ $("itemsInput").onchange = async () => {
 const DB_NAME = "logi2_db_v1";
 const DB_VERSION = 2;
 
-// ⚠️ Guardia anti-mezcla Logi vs Logi2 (evita "desaparecieron mis fotos")
-(function(){
-  try{
-    const path = (location.pathname || "").toLowerCase();
-    const isLogi2 = path.includes("/logi2");
-    const isLogi1 = path.includes("/logi") && !isLogi2;
-    if (isLogi2 && String(DB_NAME||"").startsWith("logi_db")){
-      alert("⚠️ Esta versión está apuntando a la base de LOGI (no LOGI2). No continúes: restaura los archivos correctos de Logi2.");
-    }
-    if (isLogi1 && String(DB_NAME||"").startsWith("logi2_db")){
-      alert("⚠️ Esta versión está apuntando a la base de LOGI2 (no LOGI). No continúes: restaura los archivos correctos de Logi.");
-    }
-  }catch(_){}
-})();
-
-
-
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
 
@@ -1582,6 +1548,7 @@ async function loadCatalogForActiveProject(){
   rebuildCatalogMap();
   refreshCatalogDatalist();
   refreshCatalogStatus();
+  renderExpItemChips();
 }
 
 function refreshCatalogDatalist(){
@@ -1595,8 +1562,6 @@ function refreshCatalogDatalist(){
     opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}` : String(r.item || "");
     dl.appendChild(opt);
   }
-
-  try{ renderExpItemChips(); }catch(_e){}
 }
 
 function refreshCatalogStatus(){
@@ -1838,6 +1803,9 @@ function closeProjModal(){
 
 function onProjectChanged(){
   refreshProjectUI();
+
+  // Reset filtros de exportación al cambiar de proyecto
+  try{ expClearItems(); }catch(_){ }
 
   // Limpia de inmediato para que NO se quede mostrando el proyecto anterior
   cache = [];
@@ -3252,7 +3220,59 @@ function buildManifestXlsHtml(registros){
 /* ===========================
    Export ZIP (incluye DOCX)
 =========================== */
-async function exportZipByMode(modo, desde, hasta){
+
+/* ===========================
+   🔎 Filtro por ítems para exportación (multi, combinable)
+=========================== */
+let expItemCodes = [];
+
+function normalizeItemCode(v){
+  return String(v || "").trim();
+}
+
+function renderExpItemChips(){
+  const box = $("expItemChips");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const code of expItemCodes){
+    const desc = (catalogMap && catalogMap[code]) ? String(catalogMap[code]) : "";
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.title = desc ? `${code} — ${desc}` : code;
+    chip.innerHTML = `<span>${escapeHtml(code)}</span><span class="x" aria-label="Quitar">✕</span>`;
+    chip.querySelector(".x").onclick = () => {
+      expItemCodes = expItemCodes.filter(c => c !== code);
+      renderExpItemChips();
+    };
+    box.appendChild(chip);
+  }
+}
+
+function expAddItemFromInput(){
+  const inp = $("expItemInput");
+  if (!inp) return;
+  const code = normalizeItemCode(inp.value);
+  if (!code) return;
+  if (!expItemCodes.includes(code)) expItemCodes.push(code);
+  inp.value = "";
+  renderExpItemChips();
+}
+
+function expClearItems(){
+  expItemCodes = [];
+  const inp = $("expItemInput");
+  if (inp) inp.value = "";
+  renderExpItemChips();
+}
+
+function filterItemsByCodes(arr, codes){
+  const clean = (codes || []).map(normalizeItemCode).filter(Boolean);
+  if (!clean.length) return arr;
+  const set = new Set(clean);
+  return arr.filter(it => set.has(normalizeItemCode(it.itemCode)));
+}
+
+async function exportZipByMode(modo, desde, hasta, itemCodes){
   if (!window.JSZip){ alert("JSZip no cargó. Abre con internet o en Chrome."); return; }
   if (!window.docx){ alert("La librería DOCX no cargó. Abre con internet o en Chrome."); return; }
 
@@ -3281,6 +3301,9 @@ async function exportZipByMode(modo, desde, hasta){
   }
 
   if (onlyDone) selected = selected.filter(x => !!x.done);
+
+  // Filtro por ítems (si el usuario seleccionó)
+  selected = filterItemsByCodes(selected, itemCodes);
 
   if (!selected.length){
     alert("No hay fotos en ese periodo" + (onlyDone ? " (o ninguna marcada como LISTA)." : "."));
@@ -3366,93 +3389,50 @@ async function exportZipByMode(modo, desde, hasta){
   const a = document.createElement("a");
   a.href = url;
   a.download = packName + ".zip";
-  document.body.
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  zipInfo.textContent = "ZIP descargado ✅";
+  setTimeout(()=> zipInfo.textContent = "", 1800);
+}
+
+
 /* ===========================
-   🔎 Export Express (Word/PDF) con filtros combinables
+   📄 Export Express (1 archivo) — mismos filtros (fecha + ítems)
 =========================== */
-let expItemCodes = [];
+function getExportFilters(){
+  const modo = $("modoExport")?.value || "rango";
+  const desde = $("desde")?.value || hoyISO();
+  const hasta = $("hasta")?.value || desde;
+  const onlyDone = !!$("onlyDone")?.checked;
+  const itemCodes = (expItemCodes || []).slice();
+  return { modo, desde, hasta, onlyDone, itemCodes };
+}
 
-function renderExpItemChips(){
-  const box = $("expItemChips");
-  if (!box) return;
-  box.innerHTML = "";
-  for (const code of expItemCodes){
-    const desc = (catalogMap.get(code) || "");
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.title = desc ? `${code} — ${desc}` : code;
-    chip.innerHTML = `<span>${escapeHtml(code)}</span><span class="x" aria-label="Quitar">✕</span>`;
-    chip.querySelector(".x").onclick = () => {
-      expItemCodes = expItemCodes.filter(x => x !== code);
-      renderExpItemChips();
-    };
-    box.appendChild(chip);
+function selectForExport({ modo, desde, hasta, onlyDone, itemCodes }){
+  let selected = [];
+  if (modo === "dia"){
+    selected = cache.filter(x => x.fecha === desde);
+  } else if (modo === "mes"){
+    const ym = (desde || hoyISO()).slice(0,7);
+    selected = cache.filter(x => (x.fecha || "").startsWith(ym));
+  } else {
+    const a = ymdToNum(desde);
+    const b = ymdToNum(hasta);
+    const lo = Math.min(a,b), hi = Math.max(a,b);
+    selected = cache.filter(x => {
+      const n = ymdToNum(x.fecha);
+      return n >= lo && n <= hi;
+    });
   }
-}
 
-function normalizeItemCode(v){
-  return String(v || "").trim();
-}
+  if (onlyDone) selected = selected.filter(x => !!x.done);
+  selected = filterItemsByCodes(selected, itemCodes);
 
-function expAddItemFromInput(){
-  const inp = $("expItemInput");
-  if (!inp) return;
-  const code = normalizeItemCode(inp.value);
-  if (!code) return;
-  if (!expItemCodes.includes(code)) expItemCodes.push(code);
-  inp.value = "";
-  renderExpItemChips();
-}
-
-$("btnExpAddItem")?.addEventListener("click", expAddItemFromInput);
-$("btnExpClearItems")?.addEventListener("click", () => { expItemCodes = []; renderExpItemChips(); });
-
-$("expItemInput")?.addEventListener("keydown", (e) => {
-  if (e.key === "Enter"){
-    e.preventDefault();
-    expAddItemFromInput();
-  }
-});
-
-// Cuando cambia proyecto, limpiar selección (para evitar confusiones)
-async function onActiveProjectChangedForExpress(){
-  expItemCodes = [];
-  renderExpItemChips();
-}
-const __oldSetActiveProject = window.setActiveProject;
-if (typeof __oldSetActiveProject === "function"){
-  window.setActiveProject = async function(pid){
-    const r = await __oldSetActiveProject(pid);
-    try{ await onActiveProjectChangedForExpress(); }catch(_){}
-    return r;
-  };
-}
-
-function getExpressSelected(){
-  let selected = (cache || []).slice();
-
-  const desde = ($("desde")?.value || "").trim();
-  const hasta = ($("hasta")?.value || "").trim();
-
-  if (desde) selected = selected.filter(x => x.fecha >= desde);
-  if (hasta) selected = selected.filter(x => x.fecha <= hasta);
-
-  if (expItemCodes.length){
-    const set = new Set(expItemCodes.map(normalizeItemCode));
-    selected = selected.filter(x => set.has(normalizeItemCode(x.itemCode)));
-  }
-  return { selected, desde, hasta };
-}
-
-function computeStartEndFromSelection(selected, desde, hasta){
-  let start = desde || "";
-  let end = hasta || "";
-  if (!start || !end){
-    const fechas = selected.map(x => x.fecha).filter(Boolean).sort();
-    if (!start) start = fechas[0] || (fechaInput.value || hoyISO());
-    if (!end)   end   = fechas[fechas.length-1] || start;
-  }
-  return { start, end };
+  selected.sort((a,b)=> (a.fecha.localeCompare(b.fecha) || a.createdAt - b.createdAt));
+  return selected;
 }
 
 function downloadBlob(blob, filename){
@@ -3466,211 +3446,133 @@ function downloadBlob(blob, filename){
   URL.revokeObjectURL(url);
 }
 
+function blobToDataURL(blob){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
 async function exportExpressDocx(){
   if (!window.docx){ alert("La librería DOCX no cargó. Abre con internet o en Chrome."); return; }
 
-  const { selected, desde, hasta } = getExpressSelected();
-  if (!selected.length){ alert("No hay fotos para exportar con esos filtros."); return; }
+  const filters = getExportFilters();
+  const selected = selectForExport(filters);
 
-  const useTime = !!$("useTimeNames")?.checked;
+  if (!selected.length){
+    alert("No hay fotos para exportar con esos filtros.");
+    return;
+  }
+
   const exportLogo = !!$("exportLogo")?.checked;
   const exportStampDT = !!$("exportStampDT")?.checked;
   const exportTemplate = !!$("exportTemplate")?.checked;
   const templateId = getTemplateId();
 
-  const { start, end } = computeStartEndFromSelection(selected, desde, hasta);
-  const tituloProyecto = (proyectoInput.value || "").trim();
+  const IMG_W_CM = 7.6;
+  const IMG_H_CM = 4.6;
+  const MODULES_PER_PAGE = 4;
 
-  $("zipInfo").textContent = `Generando Word (${selected.length} foto(s))...`;
-  const buf = await buildRegistroFotograficoDocxBuffer(
+  const { start, end } = computeRangeForTitle(filters.modo, filters.desde, filters.hasta);
+  const tituloProyecto = (proyectoInput.value || "").trim();
+  const fileProject = sanitizeName(tituloProyecto) || "Proyecto";
+
+  zipInfo.textContent = "Generando Word (Express)...";
+
+  const docxBuffer = await buildRegistroFotograficoDocxBuffer(
     selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
     { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
   );
 
-  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  downloadBlob(blob, `Logi_Express_${start}_a_${end}_${fileProject}.docx`);
 
-  let suffix = "";
-  if (expItemCodes.length) suffix = `_ITEMS_${expItemCodes.slice(0,6).join("-")}${expItemCodes.length>6?"-MAS":""}`;
-  downloadBlob(blob, `Logi_Reporte_${start}_a_${end}${suffix}.docx`);
-
-  $("zipInfo").textContent = "Word descargado ✅";
-  setTimeout(()=> $("zipInfo").textContent = "", 1800);
-}
-
-async function blobToDataURL(blob){
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error);
-    fr.readAsDataURL(blob);
-  });
-}
-
-function cmToPt(cm){ return cm * 28.3464567; }
-
-async function exportExpressPdf(){
-  const jspdf = (window.jspdf || {});
-  const jsPDF = jspdf.jsPDF;
-  if (!jsPDF){ alert("La librería PDF no cargó. Abre con internet una vez (para cachearla) y reintenta."); return; }
-
-  const { selected, desde, hasta } = getExpressSelected();
-  if (!selected.length){ alert("No hay fotos para exportar con esos filtros."); return; }
-
-  const exportLogo = !!$("exportLogo")?.checked;
-  const exportStampDT = !!$("exportStampDT")?.checked;
-  const exportTemplate = !!$("exportTemplate")?.checked;
-  const templateId = getTemplateId();
-
-  const { start, end } = computeStartEndFromSelection(selected, desde, hasta);
-  const tituloProyecto = (proyectoInput.value || "").trim();
-
-  $("zipInfo").textContent = `Generando PDF (${selected.length} foto(s))...`;
-
-  const pdf = new jsPDF({ unit:"pt", format:"a4" });
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 32;
-  const gapX = 16;
-  const gapY = 18;
-
-  // Header simple (Formato Logi)
-  const headerH = 68;
-  pdf.setFillColor(11,18,32);
-  pdf.rect(0,0,pageW,headerH,"F");
-  pdf.setFillColor(59,130,246);
-  pdf.rect(0,headerH-3,pageW,3,"F");
-
-  // Logo en header (si existe)
-  try{
-    const logoAb = await loadLogiLogoArrayBuffer();
-    if (logoAb){
-      const logoBlob = new Blob([logoAb], { type:"image/png" });
-      const logoUrl = await blobToDataURL(logoBlob);
-      pdf.addImage(logoUrl, "PNG", margin, 14, 40, 40);
-    }
-  }catch(_){}
-
-  pdf.setTextColor(255,255,255);
-  pdf.setFont("helvetica","bold");
-  pdf.setFontSize(14);
-  pdf.text("Registro fotográfico", margin+54, 32);
-
-  pdf.setFont("helvetica","normal");
-  pdf.setFontSize(10);
-  const projLine = tituloProyecto ? `Proyecto: ${tituloProyecto}` : "Proyecto: —";
-  const rangeLine = `Rango: ${start} a ${end}`;
-  pdf.text(projLine, margin+54, 48);
-  pdf.text(rangeLine, margin+54, 62);
-
-  // Reset text for body
-  pdf.setTextColor(0,0,0);
-
-  const bodyTop = headerH + 18;
-  const cellW = (pageW - margin*2 - gapX)/2;
-  const imgW = Math.min(cellW, cmToPt(IMG_W_CM));
-  const imgH = cmToPt(IMG_H_CM);
-  const captionH = 34;
-
-  const perPage = 4;
-
-  for (let i=0;i<selected.length;i++){
-    if (i>0 && i%perPage===0){
-      pdf.addPage();
-      // repetir header en cada página
-      pdf.setFillColor(11,18,32);
-      pdf.rect(0,0,pageW,headerH,"F");
-      pdf.setFillColor(59,130,246);
-      pdf.rect(0,headerH-3,pageW,3,"F");
-      try{
-        const logoAb = await loadLogiLogoArrayBuffer();
-        if (logoAb){
-          const logoBlob = new Blob([logoAb], { type:"image/png" });
-          const logoUrl = await blobToDataURL(logoBlob);
-          pdf.addImage(logoUrl, "PNG", margin, 14, 40, 40);
-        }
-      }catch(_){}
-      pdf.setTextColor(255,255,255);
-      pdf.setFont("helvetica","bold");
-      pdf.setFontSize(14);
-      pdf.text("Registro fotográfico", margin+54, 32);
-      pdf.setFont("helvetica","normal");
-      pdf.setFontSize(10);
-      pdf.text(projLine, margin+54, 48);
-      pdf.text(rangeLine, margin+54, 62);
-      pdf.setTextColor(0,0,0);
-    }
-
-    const it = selected[i];
-    const pos = i % perPage;
-    const col = pos % 2;
-    const row = Math.floor(pos / 2);
-
-    const x0 = margin + col*(cellW + gapX);
-    const y0 = bodyTop + row*(captionH + imgH + gapY);
-
-    const meta = getTemplateMeta(it);
-    const caption = buildDocxCaption((i+1), meta, templateId);
-
-    pdf.setFont("helvetica","bold");
-    pdf.setFontSize(9);
-    const lines = pdf.splitTextToSize(caption, cellW);
-    const maxLines = 3;
-    const clipped = lines.length > maxLines ? (lines.slice(0,maxLines-1).concat([lines[maxLines-1].slice(0,70)+"…"])) : lines;
-    let ty = y0 + 10;
-    for (const ln of clipped){
-      pdf.text(ln, x0, ty);
-      ty += 11;
-    }
-
-    // Imagen con overlays (si aplica)
-    let outBlob = it.blob;
-    if (exportLogo || exportStampDT || (exportTemplate && (templateId !== "classic") && (templateId !== "clean"))){
-      outBlob = await applyExportOverlaysToBlob(it.blob, {
-        addLogo: exportLogo && !!logoBitmap,
-        addStamp: exportStampDT,
-        stampText: exportStampDT ? formatStampDateTime(it) : "",
-        avoidDoubleLogo: exportLogo && !!it.hasLogo,
-        addTemplate: exportTemplate && (templateId !== "classic") && (templateId !== "clean"),
-        templateLines: (exportTemplate && (templateId !== "classic") && (templateId !== "clean")) ? buildTemplateLines(meta, templateId) : [],
-        logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
-      });
-    }
-
-    const dataUrl = await blobToDataURL(outBlob);
-    const xi = x0 + (cellW - imgW)/2;
-    const yi = y0 + captionH;
-    pdf.addImage(dataUrl, "JPEG", xi, yi, imgW, imgH);
-  }
-
-  let suffix = "";
-  if (expItemCodes.length) suffix = `_ITEMS_${expItemCodes.slice(0,6).join("-")}${expItemCodes.length>6?"-MAS":""}`;
-
-  const pdfBlob = pdf.output("blob");
-  downloadBlob(pdfBlob, `Logi_Reporte_${start}_a_${end}${suffix}.pdf`);
-
-  $("zipInfo").textContent = "PDF descargado ✅";
-  setTimeout(()=> $("zipInfo").textContent = "", 1800);
-}
-
-$("btnExpressDocx")?.addEventListener("click", () => exportExpressDocx());
-$("btnExpressPdf")?.addEventListener("click", () => exportExpressPdf());
-
-
-appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-
-  zipInfo.textContent = "ZIP descargado ✅";
+  zipInfo.textContent = "Word descargado ✅";
   setTimeout(()=> zipInfo.textContent = "", 1800);
 }
+
+async function exportExpressPdf(){
+  const filters = getExportFilters();
+  const selected = selectForExport(filters);
+
+  if (!selected.length){
+    alert("No hay fotos para exportar con esos filtros.");
+    return;
+  }
+
+  const { start, end } = computeRangeForTitle(filters.modo, filters.desde, filters.hasta);
+  const tituloProyecto = (proyectoInput.value || "").trim();
+
+  const cleanCodes = (filters.itemCodes || []).map(normalizeItemCode).filter(Boolean);
+  const codesText = cleanCodes.length ? cleanCodes.join(", ") : "—";
+
+  zipInfo.textContent = `Preparando PDF (imprimir)... 0/${selected.length}`;
+
+  // Construir HTML imprimible (guardar como PDF desde el diálogo de impresión)
+  let photoNo = 1;
+  const groups = groupByDate(selected);
+
+  const parts = [];
+  parts.push(`<!doctype html><html><head><meta charset="utf-8"><title>Logi2 Reporte</title>
+  <style>
+    @page { margin: 14mm; }
+    body { font-family: Arial, Helvetica, sans-serif; color:#111; }
+    h1 { font-size: 16pt; margin:0 0 6mm 0; }
+    .meta { font-size: 10pt; color:#444; margin:0 0 6mm 0; }
+    h2 { font-size: 12pt; margin:8mm 0 3mm 0; }
+    .grid { display:flex; flex-wrap:wrap; gap:6mm; }
+    figure { width: 7.6cm; margin:0; }
+    img { width: 7.6cm; height: 4.6cm; object-fit: cover; border: 1px solid #ddd; border-radius: 6px; }
+    figcaption { font-size: 9pt; line-height: 1.25; margin-top: 2mm; }
+    .capMuted { color:#555; }
+  </style></head><body>`);
+
+  parts.push(`<h1>Registro Fotográfico — ${escapeHtml(tituloProyecto || "Proyecto")}</h1>`);
+  parts.push(`<div class="meta"><div><b>Periodo:</b> ${escapeHtml(start)} a ${escapeHtml(end)}</div><div><b>Ítems:</b> ${escapeHtml(codesText)}</div></div>`);
+
+  for (const [date, items] of groups){
+    parts.push(`<h2>${escapeHtml(formatDateLongES(date))}</h2>`);
+    parts.push(`<div class="grid">`);
+    for (const it of items){
+      const imgSrc = await blobToDataURL(it.blob);
+      const code = normalizeItemCode(it.itemCode);
+      const desc = normalizeItemCode(it.itemDesc) || (catalogMap && catalogMap[code] ? String(catalogMap[code]) : "");
+      const itemText = code ? `${code}${desc ? " - " + desc : ""}` : "SIN ÍTEM";
+      const fotoDesc = normalizeItemCode(it.descripcion);
+
+      const caption = `Foto No. ${photoNo}, ítem: ${escapeHtml(itemText)}<br><span class="capMuted">${escapeHtml(fotoDesc || "")}</span>`;
+      parts.push(`<figure><img src="${imgSrc}" alt="foto"><figcaption>${caption}</figcaption></figure>`);
+
+      photoNo++;
+      const done = photoNo-1;
+      zipInfo.textContent = `Preparando PDF (imprimir)... ${done}/${selected.length}`;
+    }
+    parts.push(`</div>`);
+  }
+
+  parts.push(`<script>
+    window.onload = () => { setTimeout(() => { window.print(); }, 250); };
+  </script></body></html>`);
+
+  const blob = new Blob([parts.join("")], { type:"text/html" });
+  const url = URL.createObjectURL(blob);
+
+  // Abrir e imprimir
+  window.open(url, "_blank");
+
+  zipInfo.textContent = "Abriendo impresión… (elige 'Guardar como PDF')";
+  setTimeout(()=> zipInfo.textContent = "", 3000);
+}
+
 
 $("btnZip").onclick = async () => {
   const modo = $("modoExport").value;
   const desde = $("desde").value || (fechaInput.value || hoyISO());
   let hasta = $("hasta").value || (fechaInput.value || hoyISO());
   if (modo !== "rango") hasta = desde; // Día/Mes ignoran "hasta"
-  await exportZipByMode(modo, desde, hasta);
+  await exportZipByMode(modo, desde, hasta, expItemCodes);
 };
 
 $("btnZipHoy").onclick = async () => {
@@ -3707,6 +3609,23 @@ $("desde").addEventListener("change", () => {
   if (proyectoInput) proyectoInput.value = getProjectDefault();
   syncTemplateUI();
 });
+
+
+// Export Express + filtro de ítems
+if ($("btnExpAddItem")) $("btnExpAddItem").onclick = expAddItemFromInput;
+if ($("btnExpClearItems")) $("btnExpClearItems").onclick = expClearItems;
+
+if ($("expItemInput")){
+  $("expItemInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter"){
+      e.preventDefault();
+      expAddItemFromInput();
+    }
+  });
+}
+
+if ($("btnExpressDocx")) $("btnExpressDocx").onclick = exportExpressDocx;
+if ($("btnExpressPdf")) $("btnExpressPdf").onclick = exportExpressPdf;
 
 $("btnBorrarTodo").onclick = async () => {
   if (!confirm("¿Borrar TODO (todas las fotos y descripciones del dispositivo)?")) return;
