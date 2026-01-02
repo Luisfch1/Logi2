@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_VERSION = "logi2-v0.7b0";
+const CACHE_VERSION = "logi2-v0.7b1";
 const CACHE = `logi2-cache-${CACHE_VERSION}`;
 
 const ASSETS = [
