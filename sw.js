@@ -1,91 +1,48 @@
 // sw.js
-const CACHE_VERSION = "logi2-v0.6b4";
+const CACHE_VERSION = "logi2-v0.6b5";
 const CACHE = `logi2-cache-${CACHE_VERSION}`;
 
-// Archivos "core" (offline básico)
-const CORE_ASSETS = [
+const ASSETS = [
   "./",
   "./index.html",
+  "./index.html?v=0.6b5",
   "./manifest.webmanifest",
-  "./manifest.webmanifest?v=0.6b4",
+  "./manifest.webmanifest?v=0.6b5",
+
   "./favicon.png",
-  "./favicon.png?v=0.6b4",
+  "./favicon.png?v=0.6b5",
   "./apple-touch-icon.png",
-  "./apple-touch-icon.png?v=0.6b4",
+  "./apple-touch-icon.png?v=0.6b5",
+
   "./icon-192.png",
-  "./icon-192.png?v=0.6b4",
-  "./icon-192-maskable.png",
-  "./icon-192-maskable.png?v=0.6b4",
+  "./icon-192.png?v=0.6b5",
   "./icon-512.png",
-  "./icon-512.png?v=0.6b4",
+  "./icon-512.png?v=0.6b5",
+  "./icon-192-maskable.png",
+  "./icon-192-maskable.png?v=0.6b5",
   "./icon-512-maskable.png",
-  "./icon-512-maskable.png?v=0.6b4"
+  "./icon-512-maskable.png?v=0.6b5"
 ];
 
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
-async function precacheCore() {
-  const cache = await caches.open(CACHE);
-  await Promise.allSettled(CORE_ASSETS.map(async (u) => {
-    try {
-      // "reload" evita que el navegador sirva la versión vieja desde HTTP cache
-      const req = new Request(u, { cache: "reload" });
-      const res = await fetch(req);
-      if (res && res.ok) {
-        await cache.put(u, res.clone());
-      }
-    } catch {}
-  }));
-}
-
 self.addEventListener("install", (event) => {
-  event.waitUntil(precacheCore().then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE).then(async (cache) => {
+      await Promise.allSettled(ASSETS.map((u) => cache.add(u)));
+    }).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(
-      keys
-        .filter(k => k.startsWith("logi2-cache-") && k !== CACHE)
-        .map(k => caches.delete(k))
-    );
+    await Promise.all(keys.filter(k => k.startsWith("logi2-cache-") && k !== CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
-
-function isIconOrManifest(url) {
-  const p = url.pathname;
-  return (
-    p.endsWith(".png") ||
-    p.endsWith("manifest.webmanifest") ||
-    p.endsWith(".webmanifest") ||
-    p.endsWith("favicon.ico")
-  );
-}
-
-async function staleWhileRevalidate(req) {
-  const cache = await caches.open(CACHE);
-  const cached = await cache.match(req);
-  const fetchPromise = (async () => {
-    try {
-      const fresh = await fetch(req);
-      if (fresh && fresh.ok) await cache.put(req, fresh.clone());
-      return fresh;
-    } catch {
-      return null;
-    }
-  })();
-  // si hay cache, respondemos de una, pero actualizamos en background
-  if (cached) {
-    fetchPromise.catch(() => {});
-    return cached;
-  }
-  const fresh = await fetchPromise;
-  return fresh || Response.error();
-}
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
@@ -94,8 +51,18 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   const isNav = req.mode === "navigate";
+  const path = url.pathname;
 
-  // Navegación: network-first (para que el HTML se actualice fácil)
+  const isPwaMeta =
+    path.endsWith(".webmanifest") ||
+    path.endsWith("favicon.png") ||
+    path.endsWith("apple-touch-icon.png") ||
+    path.endsWith("icon-192.png") ||
+    path.endsWith("icon-512.png") ||
+    path.endsWith("icon-192-maskable.png") ||
+    path.endsWith("icon-512-maskable.png");
+
+  // NAV: network-first (si falla, cache)
   if (isNav) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
@@ -107,7 +74,6 @@ self.addEventListener("fetch", (event) => {
         }
         throw new Error("bad response");
       } catch {
-        // fallback offline
         const cached = await cache.match(req, { ignoreSearch: true });
         return cached || cache.match("./index.html") || cache.match("./") || Response.error();
       }
@@ -115,16 +81,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Íconos/manifest: stale-while-revalidate (evita quedarnos pegados a un ícono viejo)
-  if (isIconOrManifest(url)) {
-    event.respondWith(staleWhileRevalidate(req));
+  // PWA meta (manifest / icons): stale-while-revalidate, y NO ignorar query
+  if (isPwaMeta) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      const cached = await cache.match(req);
+      const fetchPromise = (async () => {
+        try{
+          const fresh = await fetch(req, { cache: "reload" });
+          if (fresh && fresh.ok) await cache.put(req, fresh.clone());
+          return fresh;
+        }catch{
+          return null;
+        }
+      })();
+
+      // Si hay cache, devuelve rápido; si no, espera red
+      return cached || (await fetchPromise) || Response.error();
+    })());
     return;
   }
 
-  // Otros assets: cache-first, y si no está, lo bajamos y cacheamos
+  // Otros ASSETS: cache-first (ignorando query, para no duplicar)
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(req);
+    const cached = await cache.match(req, { ignoreSearch: true });
     if (cached) return cached;
 
     try {

@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.6b4</title>
+  <title>Logi2 v0.6b5</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.6b4">
-  <link rel="icon" href="favicon.png?v=0.6b4">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.6b4">
+  <link rel="manifest" href="manifest.webmanifest?v=0.6b5">
+  <link rel="icon" href="favicon.png?v=0.6b5">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.6b5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -351,6 +351,21 @@
     .projectSelect{min-width:220px;max-width:420px}
     .projModalCard{width:min(560px, 96vw)}
 
+/* ===========================
+   🔔 Sistema: avisos (update / backup)
+============================ */
+.sysModalCard{width:min(640px, 96vw)}
+.sysModalBody{padding:12px;display:grid;gap:10px;align-content:start}
+.sysList{margin:0;padding-left:18px;font-size:.92rem;line-height:1.35}
+.sysList li{margin:6px 0}
+.sysHint{font-size:.82rem;color:var(--muted)}
+.sysWarn{
+  padding:10px 12px;border-radius:14px;
+  border:1px solid rgba(239,68,68,.35);
+  background:rgba(239,68,68,.10);
+  font-size:.86rem;
+}
+
   </style>
 </head>
 
@@ -370,7 +385,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.6b4 · Logi2</span>
+          <span class="pill">v0.6b5 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -706,8 +721,162 @@
   </div>
 
 
+<!-- Modal: Sistema (Updates / Backup) -->
+<div class="modal" id="sysModal" aria-hidden="true">
+  <div class="modalCard sysModalCard">
+    <div class="modalBody" style="grid-template-columns:1fr">
+      <div class="modalSide sysModalBody">
+        <div class="modalCloseRow">
+          <div>
+            <div class="modalTitle" id="sysModalTitle">—</div>
+            <div class="muted" id="sysModalMeta">—</div>
+          </div>
+          <button class="btn btn-secondary smallBtn" id="btnSysModalClose">✖</button>
+        </div>
+
+        <div id="sysModalContent"></div>
+
+        <div class="row" id="sysModalButtons" style="justify-content:flex-end;gap:8px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 function $(id){ return document.getElementById(id); }
+
+/* ===========================
+   🔔 Modales del sistema (Update / Backup)
+=========================== */
+let sysModalOpenType = null;
+
+function closeSysModal(){
+  const m = $("sysModal");
+  if (!m) return;
+  m.classList.remove("open");
+  m.setAttribute("aria-hidden","true");
+  sysModalOpenType = null;
+}
+
+function openSysModal({ title="Aviso", meta="", contentHTML="", buttons=[] } ){
+  const m = $("sysModal");
+  if (!m) return;
+  // Evitar abrir encima de otro modal del sistema
+  if (m.classList.contains("open")) return;
+
+  $("sysModalTitle").textContent = title;
+  $("sysModalMeta").textContent  = meta || "";
+  $("sysModalContent").innerHTML = contentHTML || "";
+  const btnWrap = $("sysModalButtons");
+  btnWrap.innerHTML = "";
+
+  for (const b of buttons){
+    const btn = document.createElement("button");
+    btn.className = "btn " + (b.kind || "btn-secondary");
+    if (b.small) btn.classList.add("smallBtn");
+    btn.textContent = b.text || "OK";
+    btn.onclick = () => {
+      try{ b.onClick && b.onClick(); }catch{}
+    };
+    btnWrap.appendChild(btn);
+  }
+
+  m.classList.add("open");
+  m.setAttribute("aria-hidden","false");
+}
+
+$("btnSysModalClose").onclick = closeSysModal;
+
+/* ---------- Update modal ---------- */
+let updateHelpShownThisSession = false;
+
+function openUpdateModal(){
+  sysModalOpenType = "update";
+  const steps = `
+    <ul class="sysList">
+      <li><b>Si estás en obra</b> o tienes muchas fotos: primero toca <b>Exportar HOY</b> y súbelo a <b>Drive</b>.</li>
+      <li>Luego toca <b>Instalar actualización</b>.</li>
+      <li>La app se <b>recarga sola</b> y quedas en la versión nueva.</li>
+    </ul>
+    <div class="sysHint" style="margin-top:6px">Tip: WhatsApp Web puede fallar con ZIP grandes (mejor Drive/cable/correo).</div>
+  `;
+  openSysModal({
+    title: "Nueva versión disponible",
+    meta: "Actualiza con un toque (sin borrar datos).",
+    contentHTML: steps,
+    buttons: [
+      { text:"⬇️ Exportar HOY", kind:"btn-secondary", onClick: () => { try{ $("btnZipHoy").click(); }catch{} } },
+      { text:"✅ Instalar actualización", kind:"btn-primary", onClick: () => { closeSysModal(); triggerSWUpdate(); } },
+      { text:"Más tarde", kind:"btn-secondary", onClick: () => closeSysModal() },
+    ]
+  });
+}
+
+/* ---------- Backup reminder ---------- */
+const BACKUP_OK_DATE_KEY = "logi2_backup_ok_date";
+const BACKUP_SNOOZE_UNTIL_KEY = "logi2_backup_snooze_until";
+
+function shouldRemindBackup(){
+  const today = hoyISO();
+  const ok = localStorage.getItem(BACKUP_OK_DATE_KEY);
+  if (ok === today) return false;
+
+  const snoozeUntil = Number(localStorage.getItem(BACKUP_SNOOZE_UNTIL_KEY) || "0");
+  if (snoozeUntil && Date.now() < snoozeUntil) return false;
+
+  return true;
+}
+
+function markBackupDone(){
+  localStorage.setItem(BACKUP_OK_DATE_KEY, hoyISO());
+  localStorage.removeItem(BACKUP_SNOOZE_UNTIL_KEY);
+  const bs = $("backupStatus");
+  if (bs) bs.textContent = "✅ Backup marcado como hecho hoy.";
+}
+
+function snoozeBackup(hours=2){
+  localStorage.setItem(BACKUP_SNOOZE_UNTIL_KEY, String(Date.now() + hours*3600*1000));
+}
+
+function openBackupModal(){
+  if (!shouldRemindBackup()) return;
+  sysModalOpenType = "backup";
+  const html = `
+    <div class="sysWarn">
+      <b>Recomendación:</b> haz backup con frecuencia.<br>
+      En obra (y con muchas fotos) es mejor guardar el ZIP en <b>Drive</b> o por <b>cable</b>.
+    </div>
+    <ul class="sysList" style="margin-top:8px">
+      <li>Toca <b>Exportar HOY</b> (o “Descargar ZIP”).</li>
+      <li>Sube el archivo a <b>Drive</b> o guárdalo en el PC.</li>
+      <li>Luego marca “<b>Listo</b>” para no molestarte más hoy.</li>
+    </ul>
+    <div class="sysHint" style="margin-top:6px">Este aviso sale 1 vez al día. Si lo aplazas, vuelve a aparecer más tarde.</div>
+  `;
+  openSysModal({
+    title: "Backup recomendado",
+    meta: "Evita sustos si se borra caché / se desinstala la PWA.",
+    contentHTML: html,
+    buttons: [
+      { text:"⬇️ Exportar HOY", kind:"btn-primary", onClick: () => { try{ $("btnZipHoy").click(); }catch{} } },
+      { text:"Listo, ya hice backup", kind:"btn-secondary", onClick: () => { markBackupDone(); closeSysModal(); } },
+      { text:"Recordar en 2 horas", kind:"btn-secondary", onClick: () => { snoozeBackup(2); closeSysModal(); } },
+    ]
+  });
+}
+
+function scheduleBackupReminder(){
+  // Primera vez: un ratito después de abrir (para no interrumpir)
+  setTimeout(() => {
+    if (shouldRemindBackup()) openBackupModal();
+  }, 45_000);
+
+  // Revisión periódica: si el usuario pospone, vuelve luego
+  setInterval(() => {
+    if (shouldRemindBackup()) openBackupModal();
+  }, 20 * 60 * 1000);
+}
+
 
 /* ===========================
    🎨 Tema (por dispositivo)
@@ -757,6 +926,12 @@ function showUpdateUI(){
   if (sbtn) sbtn.classList.add("hasUpdate");
   const ul = $("updateLabel");
   if (ul) ul.textContent = "✅ Hay una actualización lista";
+
+  // Popup con pasos (una vez por sesión)
+  if (!updateHelpShownThisSession){
+    updateHelpShownThisSession = true;
+    try{ openUpdateModal(); }catch{}
+  }
 }
 
 async function triggerSWUpdate(){
@@ -774,17 +949,6 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try{
       const reg = await navigator.serviceWorker.register("./sw.js");
-
-      // 🔄 Revisa actualizaciones de forma proactiva (sin pedirle al usuario borrar caché)
-      try{ await reg.update(); }catch{}
-      try{
-        setInterval(() => { try{ reg.update(); }catch{} }, 60*60*1000); // cada hora
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible"){
-            try{ reg.update(); }catch{}
-          }
-        });
-      }catch{}
 
       if (reg.waiting){
         waitingSW = reg.waiting;
@@ -992,6 +1156,11 @@ function syncUpdateLabel(){
   else ul.textContent = "Buscar / instalar actualización";
 }
 $("btnUpdateFromSheet").onclick = async () => {
+  // Si ya hay update listo, mostrar pasos y botón
+  if (waitingSW){
+    try{ openUpdateModal(); }catch{}
+    return;
+  }
   await triggerSWUpdate();
   // Feedback suave
   if (!waitingSW) $("updateLabel").textContent = "🔎 Revisando…";
@@ -3062,6 +3231,7 @@ function render(){
     const ri = $("rangeInfo");
     if (ri) ri.style.display = "none";
     render();
+    try{ scheduleBackupReminder(); }catch{}
   }catch{
     alert("No se pudo abrir la base local (IndexedDB). Prueba Chrome.");
   }
