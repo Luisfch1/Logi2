@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7b4</title>
+  <title>Logi2 v0.7.2s1</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7b4">
-  <link rel="icon" href="favicon.png?v=0.7b4">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b4">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s1">
+  <link rel="icon" href="favicon.png?v=0.7.2s1">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -21,7 +21,6 @@
 
   <!-- XLSX (Excel import) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 
   <style>
     *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -382,7 +381,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7b4 · Logi2</span>
+          <span class="pill">v0.7.2s1 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -528,27 +527,6 @@
         </div>
       </div>
 
-      <!-- ✅ Filtro por ítem(s) para exportación -->
-      <div class="row" style="margin-top:10px;align-items:flex-end;">
-        <div style="flex:1;min-width:220px">
-          <label for="exportItemScope">Ítems</label>
-          <select id="exportItemScope">
-            <option value="all">Todos</option>
-            <option value="selected">Solo ítems seleccionados</option>
-          </select>
-        </div>
-
-        <div id="exportItemsPick" style="flex:2;min-width:320px;display:none">
-          <label for="exportItemInput">Agregar ítem</label>
-          <div class="row" style="gap:8px;align-items:flex-end;margin-top:0">
-            <input type="text" id="exportItemInput" list="datalistItems" placeholder="Código de ítem…" />
-            <button class="btn btn-secondary" id="btnAddExportItem" type="button">➕</button>
-          </div>
-          <div id="exportItemChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
-          <div class="muted" id="exportItemHint" style="margin-top:6px">—</div>
-        </div>
-      </div>
-
       <div class="row" style="margin-top:10px;">
         <div style="flex:1;min-width:220px">
           <label for="templateSelect">Plantilla de salida</label>
@@ -605,11 +583,6 @@
       <div class="row" style="margin-top:10px;">
         <button class="btn btn-primary" id="btnZip">⬇️ Descargar ZIP</button>
         <button class="btn btn-secondary" id="btnZipHoy">⬇️ Exportar HOY</button>
-        <select id="expressFormat" style="max-width:170px">
-          <option value="docx">⚡ Express: Word</option>
-          <option value="pdf">⚡ Express: PDF</option>
-        </select>
-        <button class="btn btn-primary" id="btnExpress">⚡ Exportar</button>
         <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
         <div id="zipInfo" class="muted"></div>
       </div>
@@ -720,6 +693,7 @@
 
           <div>
             <label>Descripción</label>
+            <input type="text" id="modalDescSug" list="datalistDescs" placeholder="Sugerencias (hoy)…" style="margin-bottom:6px" />
             <textarea id="modalDesc" placeholder="Descripción..."></textarea>
           </div>
 
@@ -765,7 +739,12 @@
     </div>
   </div>
 
- 
+  <!-- Datalist: Ítems del proyecto -->
+  <datalist id="datalistItems"></datalist>
+  <!-- Datalist: Descripciones del día -->
+  <datalist id="datalistDescs"></datalist>
+
+<script>
 function $(id){ return document.getElementById(id); }
 
 /* ===========================
@@ -2469,11 +2448,46 @@ function groupByDate(items){
 /* ===========================
    Render: Captura
 =========================== */
+
+/* ===========================
+   Sugerencias de descripción (por fecha)
+=========================== */
+function getUniqueDescsForDate(fecha){
+  const seen = new Set();
+  const out = [];
+  // Recorremos en orden inverso para priorizar lo más reciente
+  for (let i = cache.length - 1; i >= 0; i--){
+    const it = cache[i];
+    if (it.fecha !== fecha) continue;
+    const d = (it.descripcion || "").trim();
+    if (!d) continue;
+    const key = d.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(d);
+    if (out.length >= 60) break; // límite razonable
+  }
+  return out.reverse(); // que queden en orden "más común/antiguo" → "más reciente"
+}
+
+function refreshDescDatalist(fecha){
+  const dl = $("datalistDescs");
+  if (!dl) return;
+  const descs = getUniqueDescsForDate(fecha);
+  dl.innerHTML = "";
+  descs.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    dl.appendChild(opt);
+  });
+}
+
 function renderCaptura(){
   lista.innerHTML = "";
   setStatus();
 
   const fecha = fechaInput.value || hoyISO();
+  refreshDescDatalist(fecha);
   const items = cache
     .filter(x => x.fecha === fecha)
     .sort((a,b)=> (a.done === b.done ? (a.createdAt - b.createdAt) : (a.done - b.done)));
@@ -2506,6 +2520,7 @@ function renderCaptura(){
           <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (catalogMap[item.itemCode] ? catalogMap[item.itemCode] : "") : ""}</div>
 
           <label style="margin-top:6px">Descripción</label>
+          <input data-id="${item.id}" class="descSug" type="text" list="datalistDescs" placeholder="Sugerencias (hoy)…" ${item.done ? "disabled" : ""} value=""/>
           <textarea data-id="${item.id}" class="desc" ${item.done ? "disabled" : ""}>${item.descripcion || ""}</textarea>
 
           <div class="row" style="margin-top:8px;justify-content:space-between;">
@@ -2540,9 +2555,28 @@ function wireEventsCaptura(){
       if (!obj) return;
       obj.descripcion = t.value;
       await dbPut(obj);
+      refreshDescDatalist(obj.fecha || (fechaInput.value || hoyISO()));
     };
   });
 
+
+
+  document.querySelectorAll("input.descSug").forEach(inp => {
+    inp.onchange = inp.oninput = async () => {
+      const id = Number(inp.dataset.id);
+      const obj = cache.find(x => x.id === id);
+      if (!obj || obj.done) return;
+      const val = (inp.value || "").trim();
+      if (!val) return;
+      obj.descripcion = val;
+      await dbPut(obj);
+      // reflejar en textarea
+      const ta = document.querySelector(`textarea.desc[data-id="${id}"]`);
+      if (ta) ta.value = val;
+      inp.value = "";
+      refreshDescDatalist(obj.fecha || (fechaInput.value || hoyISO()));
+    };
+  });
 
   document.querySelectorAll("input.itSel").forEach(inp => {
     inp.oninput = async () => {
@@ -2662,12 +2696,19 @@ function openModal(id){
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
   $("modalMeta").textContent = `${it.fecha} · ${it.done ? "LISTA" : "PENDIENTE"}`;
 
+  refreshDescDatalist(it.fecha);
+
   $("modalItem").value = it.itemCode || "";
   $("modalItem").disabled = !!it.done;
   $("modalItemHint").textContent = (it.itemCode && catalogMap[it.itemCode]) ? catalogMap[it.itemCode] : "—";
 
   $("modalDesc").value = it.descripcion || "";
   $("modalDesc").disabled = !!it.done;
+
+  if ($("modalDescSug")){
+    $("modalDescSug").value = "";
+    $("modalDescSug").disabled = !!it.done;
+  }
 
   $("btnModalDone").textContent = it.done ? "✏️ Editar" : "✅ Listo";
   $("btnModalShare").disabled = !it.done;
@@ -2698,12 +2739,30 @@ $("modalItem").oninput = async () => {
   if (h) h.textContent = it.itemDesc || "";
 };
 
+
+$("modalDescSug").onchange = $("modalDescSug").oninput = async () => {
+  if (modalId == null) return;
+  const it = cache.find(x => x.id === modalId);
+  if (!it || it.done) return;
+  const val = ($("modalDescSug").value || "").trim();
+  if (!val) return;
+  it.descripcion = val;
+  $("modalDesc").value = val;
+  $("modalDescSug").value = "";
+  await dbPut(it);
+  refreshDescDatalist(it.fecha);
+  // reflejar en captura si está visible
+  const ta = document.querySelector(`textarea.desc[data-id="${it.id}"]`);
+  if (ta) ta.value = val;
+};
+
 $("modalDesc").oninput = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
   it.descripcion = $("modalDesc").value;
   await dbPut(it);
+  refreshDescDatalist(it.fecha);
 };
 
 $("btnModalDone").onclick = async () => {
@@ -2796,6 +2855,7 @@ async function ingestPhotos(fileList){
   if (!files.length) return;
 
   const fecha = fechaInput.value || hoyISO();
+  refreshDescDatalist(fecha);
   const activeProject = getActiveProject();
   const proyecto = activeProject ? activeProject.name : (proyectoInput.value || "").trim();
   const projectId = activeProject ? activeProject.id : null;
@@ -3257,13 +3317,6 @@ async function exportZipByMode(modo, desde, hasta){
 
   selected.sort((a,b)=> (a.fecha.localeCompare(b.fecha) || a.createdAt - b.createdAt));
 
-  // ✅ Filtro por ítems seleccionados
-  const __codes = getExportItemFilter();
-  if (__codes){
-    selected = __codes.length ? selected.filter(x => __codes.includes(x.itemCode)) : [];
-  }
-
-
   const proyecto = sanitizeName(proyectoInput.value);
   const packName =
     (modo==="dia") ? `${desde}_${proyecto}` :
@@ -3351,80 +3404,17 @@ async function exportZipByMode(modo, desde, hasta){
 }
 
 $("btnZip").onclick = async () => {
-  if (isExporting) return;
-  isExporting = true;
-  setExportBusy(true);
-  try{
-    const modo = $("modoExport").value;
-    const desde = $("desde").value || (fechaInput.value || hoyISO());
-    let hasta = $("hasta").value || (fechaInput.value || hoyISO());
-    if (modo !== "rango") hasta = desde; // Día/Mes ignoran "hasta"
-    await exportZipByMode(modo, desde, hasta);
-  } finally {
-    isExporting = false;
-    setExportBusy(false);
-  }
+  const modo = $("modoExport").value;
+  const desde = $("desde").value || (fechaInput.value || hoyISO());
+  let hasta = $("hasta").value || (fechaInput.value || hoyISO());
+  if (modo !== "rango") hasta = desde; // Día/Mes ignoran "hasta"
+  await exportZipByMode(modo, desde, hasta);
 };
 
 $("btnZipHoy").onclick = async () => {
-  if (isExporting) return;
-  isExporting = true;
-  setExportBusy(true);
-  try{
-    const hoy = hoyISO();
-    await exportZipByMode("dia", hoy, hoy);
-  } finally {
-    isExporting = false;
-    setExportBusy(false);
-  }
+  const hoy = hoyISO();
+  await exportZipByMode("dia", hoy, hoy);
 };
-
-
-// ⚡ Express export (solo Word/PDF)
-$("btnExpress").onclick = async () => {
-  if (isExporting) return;
-  isExporting = true;
-  setExportBusy(true);
-  try{
-    const kind = ($("expressFormat")?.value || "docx");
-    const modo = $("modoExport").value;
-    const desde = $("desde").value || (fechaInput.value || hoyISO());
-    let hasta = $("hasta").value || (fechaInput.value || hoyISO());
-    if (modo !== "rango") hasta = desde;
-    await exportExpressByMode(modo, desde, hasta, kind);
-  } finally {
-    isExporting = false;
-    setExportBusy(false);
-  }
-};
-
-// ✅ Filtro de ítems para exportación
-$("exportItemScope").onchange = () => { updateExportItemsUI(); };
-
-function addExportItemFromInput(){
-  const scope = $("exportItemScope")?.value || "all";
-  if (scope !== "selected") return;
-  const code = ($("exportItemInput")?.value || "").trim();
-  if (!code) return;
-  exportItemCodes.add(code);
-  $("exportItemInput").value = "";
-  updateExportItemHint();
-  renderExportItemChips();
-}
-
-$("btnAddExportItem").onclick = addExportItemFromInput;
-
-$("exportItemInput").oninput = updateExportItemHint;
-$("exportItemInput").onkeydown = (e) => {
-  if (e.key === "Enter"){
-    e.preventDefault();
-    addExportItemFromInput();
-  }
-};
-
-// init UI
-updateExportItemsUI();
-updateExportItemHint();
 
 
 function updateExportUI(){
@@ -3444,238 +3434,6 @@ function updateExportUI(){
     desdeLabel.textContent = "Mes (elige un día)";
     $("hasta").value = $("desde").value;
   }
-}
-
-
-/* ===========================
-   ⚡ Export Express + filtros por ítem
-=========================== */
-let isExporting = false;
-const exportItemCodes = new Set();
-
-function setExportBusy(busy){
-  const ids = ["btnZip","btnZipHoy","btnExpress","btnBorrarTodo","btnAddExportItem","expressFormat","exportItemScope","exportItemInput"];
-  for (const id of ids){
-    const el = $(id);
-    if (!el) continue;
-    el.disabled = !!busy;
-    el.classList.toggle("btn-disabled", !!busy);
-  }
-}
-
-function getExportItemFilter(){
-  const scope = $("exportItemScope")?.value || "all";
-  if (scope !== "selected") return null;
-  return Array.from(exportItemCodes);
-}
-
-function renderExportItemChips(){
-  const wrap = $("exportItemChips");
-  if (!wrap) return;
-  wrap.innerHTML = "";
-  const codes = Array.from(exportItemCodes);
-  for (const code of codes){
-    const pill = document.createElement("span");
-    pill.className = "pill";
-    pill.style.display = "inline-flex";
-    pill.style.alignItems = "center";
-    pill.style.gap = "8px";
-    pill.style.paddingRight = "6px";
-    pill.textContent = code;
-
-    const x = document.createElement("button");
-    x.type = "button";
-    x.className = "btn btn-secondary smallBtn";
-    x.textContent = "✖";
-    x.style.padding = "2px 8px";
-    x.onclick = () => { exportItemCodes.delete(code); renderExportItemChips(); };
-    pill.appendChild(x);
-
-    wrap.appendChild(pill);
-  }
-}
-
-function updateExportItemsUI(){
-  const scope = $("exportItemScope")?.value || "all";
-  const pick = $("exportItemsPick");
-  if (pick) pick.style.display = (scope === "selected") ? "block" : "none";
-  if (scope === "selected") renderExportItemChips();
-}
-
-function updateExportItemHint(){
-  const code = ($("exportItemInput")?.value || "").trim();
-  const hint = $("exportItemHint");
-  if (!hint) return;
-  hint.textContent = (code && catalogMap && catalogMap[code]) ? catalogMap[code] : "—";
-}
-
-async function shareOrDownloadFile(blob, filename, mime){
-  const file = new File([blob], filename, { type: mime });
-  if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))){
-    try { await navigator.share({ files: [file], title: filename }); return true; }
-    catch { /* fallback */ }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 1500);
-  return true;
-}
-
-async function exportExpressByMode(modo, desde, hasta, kind){
-  if (!window.docx){ alert("La librería DOCX no cargó. Abre con internet o en Chrome."); return; }
-  if (kind === "pdf" && !window.html2pdf){
-    alert("PDF express requiere html2pdf.js (internet la primera vez). Intenta de nuevo con datos o usa Word.");
-    return;
-  }
-
-  const zipInfo = $("zipInfo");
-  const useTime = !!$("useTimeNames")?.checked;
-  const onlyDone = !!$("onlyDone")?.checked;
-
-  const exportLogo = !!$("exportLogo")?.checked;
-  const exportStampDT = !!$("exportStampDT")?.checked;
-  const exportTemplate = !!$("exportTemplate")?.checked;
-  const templateId = getTemplateId();
-
-  let selected = [];
-  if (modo === "dia"){
-    selected = cache.filter(x => x.fecha === desde);
-  } else if (modo === "mes"){
-    const ym = (desde || hoyISO()).slice(0,7);
-    selected = cache.filter(x => (x.fecha || "").startsWith(ym));
-  } else {
-    const a = ymdToNum(desde);
-    const b = ymdToNum(hasta);
-    const lo = Math.min(a,b), hi = Math.max(a,b);
-    selected = cache.filter(x => {
-      const n = ymdToNum(x.fecha);
-      return n >= lo && n <= hi;
-    });
-  }
-
-  const codes = getExportItemFilter();
-  if (codes){
-    selected = codes.length ? selected.filter(x => codes.includes(x.itemCode)) : [];
-  }
-  if (onlyDone) selected = selected.filter(x => x.done);
-
-  if (!selected.length){ alert("No hay fotos para exportar con ese filtro."); return; }
-
-  const start = (modo==="mes") ? (desde || hoyISO()).slice(0,7) + "-01" : desde;
-  const end = (modo==="mes") ? (desde || hoyISO()).slice(0,7) + "-31" : hasta;
-  const tituloProyecto = (proyectoInput.value || "").trim() || "Proyecto";
-
-  if (kind === "docx"){
-    if (zipInfo) zipInfo.textContent = `Generando Word (${selected.length} foto(s))...`;
-    const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-      selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-      { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
-    );
-    const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-    const fname = `Logi_Reporte_${start}_a_${end}.docx`;
-    await shareOrDownloadFile(blob, fname, blob.type);
-    if (zipInfo) zipInfo.textContent = "Word express listo ✅";
-    setTimeout(()=>{ if(zipInfo) zipInfo.textContent=""; }, 1800);
-    return;
-  }
-
-  // PDF express (HTML -> PDF)
-  if (zipInfo) zipInfo.textContent = `Generando PDF (${selected.length} foto(s))...`;
-
-  const wrap = document.createElement("div");
-  wrap.style.fontFamily = "Calibri, Arial, sans-serif";
-  wrap.style.fontSize = "12px";
-  wrap.style.padding = "12px";
-  wrap.style.color = "#111";
-  wrap.style.width = "210mm";
-
-  const header = document.createElement("div");
-  header.innerHTML = `<h2 style="margin:0 0 6px 0;">${esc(tituloProyecto)}</h2>
-    <div style="margin-bottom:12px;">Registro fotográfico · ${esc(start)} a ${esc(end)}</div>`;
-  wrap.appendChild(header);
-
-  for (const it of selected){
-    // ceder UI
-    await new Promise(r=>setTimeout(r, 0));
-
-    let outBlob = it.blob;
-    if (exportLogo || exportStampDT || (exportTemplate && (templateId !== "classic") && (templateId !== "clean"))){
-      try{
-        outBlob = await applyExportOverlaysToBlob(it.blob, {
-          addLogo: exportLogo && !!logoBitmap,
-          addStamp: exportStampDT,
-          stampText: exportStampDT ? formatStampDateTime(it) : "",
-          avoidDoubleLogo: exportLogo && !!it.hasLogo,
-          addTemplate: exportTemplate && (templateId !== "classic") && (templateId !== "clean"),
-          templateLines: (exportTemplate && (templateId !== "classic") && (templateId !== "clean")) ? buildTemplateLines(getTemplateMeta(it), templateId) : [],
-          logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
-        });
-      } catch {}
-    }
-
-    const dataUrl = await new Promise((res, rej)=>{
-      const fr = new FileReader();
-      fr.onload = ()=>res(fr.result);
-      fr.onerror = rej;
-      fr.readAsDataURL(outBlob);
-    });
-
-    const card = document.createElement("div");
-    card.style.border = "1px solid #ddd";
-    card.style.borderRadius = "10px";
-    card.style.padding = "10px";
-    card.style.margin = "10px 0";
-    card.innerHTML = `
-      <div><b>Fecha:</b> ${esc(it.fecha || "")}</div>
-      <div><b>Ítem:</b> ${esc(it.itemCode || "—")}${(it.itemCode && catalogMap[it.itemCode]) ? " · " + esc(catalogMap[it.itemCode]) : ""}</div>
-      <div style="margin-top:6px;"><b>Descripción:</b> ${esc(it.descripcion || "")}</div>
-      <img src="${dataUrl}" style="margin-top:10px;width:100%;max-height:520px;object-fit:contain;border-radius:8px;" />
-    `;
-    wrap.appendChild(card);
-  }
-
-  wrap.style.position = "fixed";
-  wrap.style.left = "-10000px";
-  wrap.style.top = "0";
-  document.body.appendChild(wrap);
-
-  const fname = `Logi_Reporte_${start}_a_${end}.pdf`;
-  const opt = {
-    margin: 8,
-    filename: fname,
-    image: { type: "jpeg", quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-  };
-
-  let pdfBlob = null;
-  try{
-    const inst = html2pdf().set(opt).from(wrap);
-    if (inst.outputPdf){
-      pdfBlob = await inst.outputPdf("blob");
-    } else {
-      const worker = inst.toPdf();
-      if (worker && worker.output) pdfBlob = await worker.output("blob");
-    }
-  } catch(e){
-    pdfBlob = null;
-  } finally {
-    wrap.remove();
-  }
-
-  if (!pdfBlob){
-    alert("No pude generar el PDF en este navegador. Usa Word express o prueba Chrome.");
-    return;
-  }
-
-  await shareOrDownloadFile(pdfBlob, fname, "application/pdf");
-  if (zipInfo) zipInfo.textContent = "PDF express listo ✅";
-  setTimeout(()=>{ if(zipInfo) zipInfo.textContent=""; }, 1800);
 }
 
 $("modoExport").addEventListener("change", updateExportUI);
@@ -3806,11 +3564,6 @@ function render(){
     render();
   }catch{
     alert("No se pudo abrir la base local (IndexedDB). Prueba Chrome.");
-  }
-
-  fechaInput.onchange = () => render();
-})();
-se local (IndexedDB). Prueba Chrome.");
   }
 
   fechaInput.onchange = () => render();

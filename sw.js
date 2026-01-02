@@ -1,14 +1,14 @@
 // sw.js
-const CACHE_VERSION = "logi2-v0.7.3";
+const CACHE_VERSION = "logi2-v0.7.2-s1";
 const CACHE = `logi2-cache-${CACHE_VERSION}`;
 
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./manifest.webmanifest?v=0.7.3",
-  "./favicon.png?v=0.7.3",
-  "./apple-touch-icon.png?v=0.7.3",
+  "./manifest.webmanifest?v=0.7.2s1",
+  "./favicon.png?v=0.7.2s1",
+  "./apple-touch-icon.png?v=0.7.2s1",
   "./Logi2_Plantilla_Items.xlsx",
 
   "./favicon.png",
@@ -75,10 +75,7 @@ self.addEventListener("fetch", (event) => {
 
     try {
       const fresh = await fetch(req);
-      if (fresh) {
-        // cache also opaque (CDN) responses (status 0)
-        if (fresh.ok || fresh.type === "opaque") await cache.put(req, fresh.clone());
-      }
+      if (fresh && fresh.ok) await cache.put(req, fresh.clone());
       return fresh;
     } catch {
       return Response.error();
