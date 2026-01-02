@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2b</title>
+  <title>Logi2 v0.7.2s2c</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2b">
-  <link rel="icon" href="favicon.png?v=0.7.2s2b">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2b">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2c">
+  <link rel="icon" href="favicon.png?v=0.7.2s2c">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -383,7 +383,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7b4 · Logi2</span>
+          <span class="pill">v0.7.2s2c · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -3450,6 +3450,7 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, startIS
     }
 
     const img = document.createElement("img");
+    try{ img.crossOrigin = "anonymous"; }catch{}
     img.style.width = "100%";
     img.style.borderRadius = "8px";
     img.style.objectFit = "contain";
@@ -3466,27 +3467,27 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, startIS
     photoN++;
   }
 
-  // offscreen render
-  // offscreen render (evita PDF en blanco en algunos Android)
+  // render invisible (en viewport) — más compatible que moverlo fuera de pantalla
   container.style.position = "fixed";
   container.style.left = "0";
   container.style.top = "0";
-  container.style.transform = "translateX(-200vw)";
+  container.style.opacity = "0";
+  container.style.zIndex = "-1";
   container.style.pointerEvents = "none";
   document.body.appendChild(container);
   // deja que el layout se estabilice
-  await new Promise(r => setTimeout(r, 80));
+  await new Promise(r => setTimeout(r, 120));
 
   const opts = {
     margin: 10,
     image: { type: "jpeg", quality: 0.95 },
-    html2canvas: { scale: 1.5, useCORS: true, allowTaint: true },
+    html2canvas: { scale: 1.4, useCORS: true, allowTaint: false, backgroundColor: "#ffffff", scrollY: 0, scrollX: 0 },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
   };
 
   try{
     // Forzamos el pipeline a PDF antes de pedir el blob (evita PDFs vacíos en algunos builds)
-    const worker = window.html2pdf().set(opts).from(container).toPdf();
+    const worker = window.html2pdf().set(opts).from(container).toContainer().toCanvas().toPdf();
     let blob = null;
 
     // Ruta robusta: obtener el objeto pdf y pedir el blob desde ahí
@@ -3502,6 +3503,7 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, startIS
     }
 
     if (!blob) throw new Error("No se pudo generar el PDF");
+    if (blob.size < 1500) throw new Error("PDF generado vacío (compatibilidad del navegador)");
     return blob;
   } finally {
     document.body.removeChild(container);
