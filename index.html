@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2c</title>
+  <title>Logi2 v0.7.2s2d</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2c">
-  <link rel="icon" href="favicon.png?v=0.7.2s2c">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2c">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2d">
+  <link rel="icon" href="favicon.png?v=0.7.2s2d">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -18,13 +18,12 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <!-- DOCX (Word) -->
   <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
-  <!-- PDF (html2pdf) -->
-  <script src="https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 
   <!-- XLSX (Excel import) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <style>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<style>
     *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
 
     :root{
@@ -383,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2c · Logi2</span>
+          <span class="pill">v0.7.2s2d · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -589,20 +588,15 @@
         <div id="zipInfo" class="muted"></div>
       </div>
 
-      <!-- Export Express (Paso 2): solo Word o PDF, sin ZIP -->
-      <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1;min-width:220px">
-          <label for="expressType">Export express (sin ZIP)</label>
-          <div class="row" style="margin-top:6px">
-            <select id="expressType" style="min-width:180px">
-              <option value="docx">Word (.docx)</option>
-              <option value="pdf">PDF</option>
-            </select>
-            <button class="btn btn-secondary" id="btnExpress">⚡ Exportar</button>
-          </div>
-          <div class="muted" style="margin-top:6px">Genera solo el archivo y lo comparte por WhatsApp/Drive (si tu navegador lo permite). Si no, lo descarga.</div>
-        </div>
+      <div class="row" style="margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="muted">Express (sin ZIP):</span>
+        <select id="expressFormat" style="min-width:160px">
+          <option value="docx">Word (.docx)</option>
+          <option value="pdf">PDF</option>
+        </select>
+        <button class="btn btn-primary" id="btnExpress">⚡ Exportar</button>
       </div>
+
     </div>
   </div>
 
@@ -3336,269 +3330,6 @@ async function exportZipByMode(modo, desde, hasta){
   setTimeout(()=> zipInfo.textContent = "", 1800);
 }
 
-
-// ===== Paso 2: Export express (Word/PDF, sin ZIP) =====
-async function shareBlobAsFile(blob, filename, mime, title){
-  try{
-    const file = new File([blob], filename, { type: mime });
-    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))){
-      try { await navigator.share({ files: [file], title: title || filename }); return; }
-      catch { /* usuario canceló o navegador falló */ }
-    }
-  }catch{}
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-
-  alert("Tu navegador no permite compartir archivos directo.\nSe descargó el archivo para que lo envíes por WhatsApp/Drive.");
-}
-
-async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, startISO, endISO, exportOpts){
-  if (typeof window.html2pdf !== "function") throw new Error("html2pdf no está disponible");
-
-  const container = document.createElement("div");
-  container.style.fontFamily = "Arial, sans-serif";
-  container.style.fontSize = "12px";
-  container.style.color = "#111";
-  container.style.background = "#fff";
-  container.style.padding = "16px";
-  container.style.width = "794px"; // ~A4 @96dpi
-  container.style.boxSizing = "border-box";
-
-  const header = document.createElement("div");
-  header.style.borderBottom = "2px solid #111";
-  header.style.paddingBottom = "10px";
-  header.style.marginBottom = "14px";
-
-  const h1 = document.createElement("div");
-  h1.textContent = "Reporte fotográfico";
-  h1.style.fontSize = "18px";
-  h1.style.fontWeight = "700";
-
-  const h2 = document.createElement("div");
-  const startLong = formatDateLongES(startISO);
-  const endLong = formatDateLongES(endISO);
-  h2.textContent = (startISO === endISO) ? startLong : `${startLong} — ${endLong}`;
-  h2.style.marginTop = "4px";
-  h2.style.color = "#333";
-
-  header.appendChild(h1);
-  header.appendChild(h2);
-
-  if ((tituloProyecto || "").trim()){
-    const proj = document.createElement("div");
-    proj.textContent = `Proyecto: ${(tituloProyecto || "").trim()}`;
-    proj.style.marginTop = "6px";
-    proj.style.fontWeight = "600";
-    header.appendChild(proj);
-  }
-
-  container.appendChild(header);
-
-  const urls = [];
-  let photoN = 1;
-
-  for (const it of selected){
-    const block = document.createElement("div");
-    block.style.border = "1px solid #ddd";
-    block.style.borderRadius = "10px";
-    block.style.padding = "12px";
-    block.style.marginBottom = "12px";
-    block.style.pageBreakInside = "avoid";
-
-    const meta = document.createElement("div");
-    meta.style.display = "flex";
-    meta.style.justifyContent = "space-between";
-    meta.style.gap = "10px";
-    meta.style.marginBottom = "8px";
-
-    const left = document.createElement("div");
-    left.textContent = `Foto No. ${photoN}`;
-    left.style.fontWeight = "700";
-
-    const right = document.createElement("div");
-    right.textContent = `${it.fecha || ""}${it.itemCode ? (" · " + it.itemCode) : ""}`;
-    right.style.color = "#555";
-
-    meta.appendChild(left);
-    meta.appendChild(right);
-    block.appendChild(meta);
-
-    const desc = document.createElement("div");
-    desc.textContent = (it.descripcion || "").trim();
-    desc.style.whiteSpace = "pre-wrap";
-    desc.style.marginBottom = "10px";
-    block.appendChild(desc);
-
-    let outBlob = it.blob;
-    if (exportOpts?.applyLogo || exportOpts?.applyStamp || (exportOpts?.applyTemplate && (exportOpts.templateId !== "classic") && (exportOpts.templateId !== "clean"))){
-      outBlob = await applyExportOverlaysToBlob(it.blob, {
-        addLogo: !!exportOpts.applyLogo && !!logoBitmap,
-        addStamp: !!exportOpts.applyStamp,
-        stampText: exportOpts.applyStamp ? formatStampDateTime(it) : "",
-        avoidDoubleLogo: !!(exportOpts.applyLogo && it.hasLogo),
-        addTemplate: !!exportOpts.applyTemplate && (exportOpts.templateId !== "classic") && (exportOpts.templateId !== "clean"),
-        templateLines: (!!exportOpts.applyTemplate && (exportOpts.templateId !== "classic") && (exportOpts.templateId !== "clean")) ? buildTemplateLines(getTemplateMeta(it), exportOpts.templateId) : [],
-        logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
-      });
-    }
-
-    const img = document.createElement("img");
-    try{ img.crossOrigin = "anonymous"; }catch{}
-    img.style.width = "100%";
-    img.style.borderRadius = "8px";
-    img.style.objectFit = "contain";
-    img.style.display = "block";
-
-    const url = URL.createObjectURL(outBlob);
-    urls.push(url);
-    img.src = url;
-
-    await new Promise(res => { img.onload = () => res(); img.onerror = () => res(); });
-    block.appendChild(img);
-
-    container.appendChild(block);
-    photoN++;
-  }
-
-  // render invisible (en viewport) — más compatible que moverlo fuera de pantalla
-  container.style.position = "fixed";
-  container.style.left = "0";
-  container.style.top = "0";
-  container.style.opacity = "0";
-  container.style.zIndex = "-1";
-  container.style.pointerEvents = "none";
-  document.body.appendChild(container);
-  // deja que el layout se estabilice
-  await new Promise(r => setTimeout(r, 120));
-
-  const opts = {
-    margin: 10,
-    image: { type: "jpeg", quality: 0.95 },
-    html2canvas: { scale: 1.4, useCORS: true, allowTaint: false, backgroundColor: "#ffffff", scrollY: 0, scrollX: 0 },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-  };
-
-  try{
-    // Forzamos el pipeline a PDF antes de pedir el blob (evita PDFs vacíos en algunos builds)
-    const worker = window.html2pdf().set(opts).from(container).toContainer().toCanvas().toPdf();
-    let blob = null;
-
-    // Ruta robusta: obtener el objeto pdf y pedir el blob desde ahí
-    try {
-      const pdf = await worker.get("pdf");
-      blob = pdf.output("blob");
-    } catch(e) {
-      // Fallbacks según build
-      try { blob = await worker.outputPdf("blob"); } catch {}
-      if (!blob){
-        try { blob = await worker.output("blob"); } catch {}
-      }
-    }
-
-    if (!blob) throw new Error("No se pudo generar el PDF");
-    if (blob.size < 1500) throw new Error("PDF generado vacío (compatibilidad del navegador)");
-    return blob;
-  } finally {
-    document.body.removeChild(container);
-    urls.forEach(u => URL.revokeObjectURL(u));
-  }
-}
-
-async function exportExpress(modo, desde, hasta){
-  const type = $("expressType")?.value || "docx";
-  const onlyDone = !!$("onlyDone")?.checked;
-
-  const exportLogo = !!$("exportLogo")?.checked;
-  const exportStampDT = !!$("exportStampDT")?.checked;
-  const exportTemplate = !!$("exportTemplate")?.checked;
-  const templateId = getTemplateId();
-
-  if (type === "docx" && !window.docx){
-    alert("La librería DOCX no cargó. Abre con internet o en Chrome.");
-    return;
-  }
-  if (type === "pdf" && typeof window.html2pdf !== "function"){
-    alert("La librería PDF (html2pdf) no cargó. Abre con internet o en Chrome.");
-    return;
-  }
-
-  let selected = [];
-  if (modo === "dia"){
-    selected = cache.filter(x => x.fecha === desde);
-  } else if (modo === "mes"){
-    const ym = (desde || hoyISO()).slice(0,7);
-    selected = cache.filter(x => (x.fecha || "").startsWith(ym));
-  } else {
-    const a = ymdToNum(desde);
-    const b = ymdToNum(hasta);
-    const lo = Math.min(a,b), hi = Math.max(a,b);
-    selected = cache.filter(x => {
-      const n = ymdToNum(x.fecha);
-      return n >= lo && n <= hi;
-    });
-  }
-
-  if (onlyDone) selected = selected.filter(x => !!x.done);
-
-  if (!selected.length){
-    alert("No hay fotos en ese periodo" + (onlyDone ? " (o ninguna marcada como LISTA)." : "."));
-    return;
-  }
-
-  selected.sort((a,b)=> (a.fecha.localeCompare(b.fecha) || a.createdAt - b.createdAt));
-
-  const IMG_W_CM = 7.6;
-  const IMG_H_CM = 4.6;
-  const MODULES_PER_PAGE = 4;
-
-  const { start, end } = computeRangeForTitle(modo, desde, hasta);
-  const tituloProyecto = (proyectoInput.value || "").trim();
-
-  const btn = $("btnExpress");
-  if (btn) btn.disabled = true;
-
-  try{
-    zipInfo.textContent = (type === "docx") ? "Generando Word..." : "Generando PDF...";
-
-    if (type === "docx"){
-      const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
-      );
-
-      const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-      const filename = `Logi_Reporte_${start}_a_${end}.docx`;
-      await shareBlobAsFile(blob, filename, blob.type, "Reporte Logi");
-      zipInfo.textContent = "Word listo ✅";
-    } else {
-      const pdfBlob = await buildRegistroFotograficoPdfBlob(
-        selected, tituloProyecto, start, end,
-        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
-      );
-      const filename = `Logi_Reporte_${start}_a_${end}.pdf`;
-      await shareBlobAsFile(pdfBlob, filename, "application/pdf", "Reporte Logi");
-      zipInfo.textContent = "PDF listo ✅";
-    }
-
-  } catch(err){
-    console.error(err);
-    alert("Error exportando: " + (err?.message || err));
-    zipInfo.textContent = "";
-  } finally {
-    if (btn) btn.disabled = false;
-    setTimeout(()=> zipInfo.textContent = "", 2200);
-  }
-}
-
-// ===== Fin Paso 2 =====
-
 $("btnZip").onclick = async () => {
   const modo = $("modoExport").value;
   const desde = $("desde").value || (fechaInput.value || hoyISO());
@@ -3612,14 +3343,270 @@ $("btnZipHoy").onclick = async () => {
   await exportZipByMode("dia", hoy, hoy);
 };
 
-// Paso 2: Export express (Word/PDF, sin ZIP)
-$("btnExpress").onclick = async () => {
-  const modo = $("modoExport").value;
-  const desde = $("desde").value || (fechaInput.value || hoyISO());
-  let hasta = $("hasta").value || (fechaInput.value || hoyISO());
-  if (modo !== "rango") hasta = desde;
-  await exportExpress(modo, desde, hasta);
-};
+/* =========================
+   Export Express (Paso 2D)
+   PDF robusto con pdf-lib
+   ========================= */
+
+let _isExpressing = false;
+
+async function shareBlobAsFile(blob, filename, mime, title) {
+  const file = new File([blob], filename, { type: mime });
+
+  if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    try { await navigator.share({ files: [file], title: title || filename }); return true; }
+    catch (e) { /* fallback */ }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2500);
+  return false;
+}
+
+function wrapTextPdf(text, font, size, maxWidth, maxLines=0) {
+  const clean = (text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  const words = clean.split(" ");
+  const lines = [];
+  let line = "";
+
+  for (const w of words) {
+    const test = line ? (line + " " + w) : w;
+    if (font.widthOfTextAtSize(test, size) <= maxWidth) {
+      line = test;
+    } else {
+      if (line) lines.push(line);
+      line = w;
+      if (maxLines && lines.length >= maxLines) break;
+    }
+  }
+  if ((!maxLines || lines.length < maxLines) && line) lines.push(line);
+
+  if (maxLines && lines.length === maxLines && words.length > 0) {
+    // si recorta, añade "…" al final si cabe
+    const last = lines[lines.length - 1];
+    const ell = last.endsWith("…") ? last : (last + "…");
+    if (font.widthOfTextAtSize(ell, size) <= maxWidth) lines[lines.length - 1] = ell;
+  }
+  return lines;
+}
+
+async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, end, opts) {
+  if (!window.PDFLib) {
+    alert("PDFLib no cargó. Abre con internet o en Chrome y vuelve a intentar.");
+    return null;
+  }
+
+  const { PDFDocument, StandardFonts } = PDFLib;
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // A4 en puntos
+  const pageW = 595.28;
+  const pageH = 841.89;
+  const margin = 40;
+
+  const maxW = pageW - margin * 2;
+
+  let i = 0;
+  for (const it of selected) {
+    i++;
+
+    // aplica overlays si están activados (logo/sello/plantilla)
+    let imgBlob = it.blob;
+
+    const wantsTemplate = !!(opts.applyTemplate && (opts.templateId !== "classic") && (opts.templateId !== "clean"));
+
+    if (opts.applyLogo || opts.applyStamp || wantsTemplate) {
+      imgBlob = await applyExportOverlaysToBlob(it.blob, {
+        addLogo: opts.applyLogo && !!logoBitmap,
+        addStamp: opts.applyStamp,
+        stampText: opts.applyStamp ? formatStampDateTime(it) : "",
+        avoidDoubleLogo: opts.applyLogo && !!it.hasLogo,
+        addTemplate: wantsTemplate,
+        templateLines: wantsTemplate ? buildTemplateLines(getTemplateMeta(it), opts.templateId) : [],
+        logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
+      });
+    }
+
+    const ab = await imgBlob.arrayBuffer();
+    const u8 = new Uint8Array(ab);
+
+    // detectar PNG vs JPG
+    const isPng = (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47);
+    const img = isPng ? await pdfDoc.embedPng(u8) : await pdfDoc.embedJpg(u8);
+
+    const page = pdfDoc.addPage([pageW, pageH]);
+
+    let y = pageH - margin;
+
+    page.drawText("Logi — Registro fotográfico", {
+      x: margin,
+      y: y - 18,
+      size: 14,
+      font: fontB
+    });
+
+    const sub = `${tituloProyecto ? (tituloProyecto + " · ") : ""}${start} a ${end}`;
+    page.drawText(sub, {
+      x: margin,
+      y: y - 36,
+      size: 10,
+      font
+    });
+
+    const meta = `${it.fecha || ""}${it.hora ? (" " + it.hora) : ""}`;
+    page.drawText(meta, {
+      x: margin,
+      y: y - 52,
+      size: 10,
+      font
+    });
+
+    // descripción
+    const desc = (it.descripcion || "").trim();
+    const lines = wrapTextPdf(desc, font, 10, maxW, 6);
+    let ty = y - 70;
+    for (const line of lines) {
+      page.drawText(line, { x: margin, y: ty, size: 10, font });
+      ty -= 12;
+    }
+
+    // caja de imagen (del margen inferior hasta debajo del texto)
+    const boxTop = ty - 10;
+    const boxH = Math.max(200, boxTop - margin);
+
+    const scale = Math.min(maxW / img.width, boxH / img.height);
+    const drawW = img.width * scale;
+    const drawH = img.height * scale;
+
+    const xImg = margin + (maxW - drawW) / 2;
+    const yImg = margin + (boxH - drawH) / 2;
+
+    page.drawImage(img, {
+      x: xImg,
+      y: yImg,
+      width: drawW,
+      height: drawH
+    });
+
+    // pie de página
+    page.drawText(`${i}/${selected.length}`, {
+      x: pageW - margin - 45,
+      y: 18,
+      size: 9,
+      font
+    });
+
+    if ($("zipInfo")) $("zipInfo").textContent = `Generando PDF... ${i}/${selected.length}`;
+    await new Promise(r => setTimeout(r, 0)); // deja respirar UI
+  }
+
+  const bytes = await pdfDoc.save();
+  return new Blob([bytes], { type: "application/pdf" });
+}
+
+async function exportExpressByMode(modo, desde, hasta, fmt) {
+  if (_isExpressing) return;
+  _isExpressing = true;
+
+  const btn = $("btnExpress");
+  const btnZip = $("btnZip");
+  const btnZipHoy = $("btnZipHoy");
+  if (btn) btn.disabled = true;
+  if (btnZip) btnZip.disabled = true;
+  if (btnZipHoy) btnZipHoy.disabled = true;
+
+  try {
+    const useTime = !!$("useTimeNames")?.checked;
+    const onlyDone = !!$("onlyDone")?.checked;
+
+    const exportLogo = !!$("exportLogo")?.checked;
+    const exportStampDT = !!$("exportStampDT")?.checked;
+    const exportTemplate = !!$("exportTemplate")?.checked;
+    const templateId = getTemplateId();
+
+    let selected = [];
+    if (modo === "dia") {
+      selected = cache.filter(x => x.fecha === desde);
+    } else if (modo === "mes") {
+      selected = cache.filter(x => (x.fecha || "").startsWith(desde.slice(0,7)));
+    } else {
+      selected = cache.filter(x => x.fecha >= desde && x.fecha <= hasta);
+    }
+
+    if (onlyDone) selected = selected.filter(x => !!x.listo);
+
+    if (!selected.length) {
+      alert("No hay fotos en ese rango / filtro.");
+      return;
+    }
+
+    const start = (modo === "mes") ? desde.slice(0,7) : desde;
+    const end   = (modo === "rango") ? hasta : ((modo === "mes") ? desde.slice(0,7) : desde);
+
+    const tituloProyecto = (proyectoInput.value || "").trim();
+
+    if (fmt === "docx") {
+      if (!window.docx) {
+        alert("La librería DOCX no cargó. Abre con internet o en Chrome.");
+        return;
+      }
+      $("zipInfo").textContent = "Generando Word...";
+      const docxBuffer = await buildRegistroFotograficoDocxBuffer(
+        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
+        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
+      );
+
+      const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      await shareBlobAsFile(blob, `Logi_Reporte_${start}_a_${end}.docx`, blob.type, "Logi - Word");
+      $("zipInfo").textContent = "Word listo ✅";
+      setTimeout(()=> $("zipInfo").textContent = "", 1800);
+      return;
+    }
+
+    // PDF
+    $("zipInfo").textContent = "Generando PDF...";
+    const pdfBlob = await buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, end, {
+      applyLogo: exportLogo && !!logoBitmap,
+      applyStamp: exportStampDT,
+      applyTemplate: exportTemplate,
+      templateId
+    });
+
+    if (!pdfBlob) return;
+
+    await shareBlobAsFile(pdfBlob, `Logi_Reporte_${start}_a_${end}.pdf`, "application/pdf", "Logi - PDF");
+    $("zipInfo").textContent = "PDF listo ✅";
+    setTimeout(()=> $("zipInfo").textContent = "", 1800);
+
+  } finally {
+    _isExpressing = false;
+    if (btn) btn.disabled = false;
+    if (btnZip) btnZip.disabled = false;
+    if (btnZipHoy) btnZipHoy.disabled = false;
+  }
+}
+
+if ($("btnExpress")) {
+  $("btnExpress").onclick = async () => {
+    const fmt = $("expressFormat")?.value || "docx";
+    const modo = $("modoExport").value;
+    const desde = $("desde").value || (fechaInput.value || hoyISO());
+    let hasta = $("hasta").value || (fechaInput.value || hoyISO());
+    if (modo !== "rango") hasta = desde;
+    await exportExpressByMode(modo, desde, hasta, fmt);
+  };
+}
+
+
 
 
 function updateExportUI(){
