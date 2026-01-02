@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s1</title>
+  <title>Logi2 v0.7.2s2</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s1">
-  <link rel="icon" href="favicon.png?v=0.7.2s1">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s1">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2">
+  <link rel="icon" href="favicon.png?v=0.7.2s2">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -18,6 +18,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <!-- DOCX (Word) -->
   <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+  <!-- PDF (html2pdf) -->
+  <script src="https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 
   <!-- XLSX (Excel import) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -381,7 +383,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s1 · Logi2</span>
+          <span class="pill">v0.7b4 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -586,6 +588,21 @@
         <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
         <div id="zipInfo" class="muted"></div>
       </div>
+
+      <!-- Export Express (Paso 2): solo Word o PDF, sin ZIP -->
+      <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <label for="expressType">Export express (sin ZIP)</label>
+          <div class="row" style="margin-top:6px">
+            <select id="expressType" style="min-width:180px">
+              <option value="docx">Word (.docx)</option>
+              <option value="pdf">PDF</option>
+            </select>
+            <button class="btn btn-secondary" id="btnExpress">⚡ Exportar</button>
+          </div>
+          <div class="muted" style="margin-top:6px">Genera solo el archivo y lo comparte por WhatsApp/Drive (si tu navegador lo permite). Si no, lo descarga.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -693,7 +710,6 @@
 
           <div>
             <label>Descripción</label>
-            <input type="text" id="modalDescSug" list="datalistDescs" placeholder="Sugerencias (hoy)…" style="margin-bottom:6px" />
             <textarea id="modalDesc" placeholder="Descripción..."></textarea>
           </div>
 
@@ -741,8 +757,6 @@
 
   <!-- Datalist: Ítems del proyecto -->
   <datalist id="datalistItems"></datalist>
-  <!-- Datalist: Descripciones del día -->
-  <datalist id="datalistDescs"></datalist>
 
 <script>
 function $(id){ return document.getElementById(id); }
@@ -2448,46 +2462,11 @@ function groupByDate(items){
 /* ===========================
    Render: Captura
 =========================== */
-
-/* ===========================
-   Sugerencias de descripción (por fecha)
-=========================== */
-function getUniqueDescsForDate(fecha){
-  const seen = new Set();
-  const out = [];
-  // Recorremos en orden inverso para priorizar lo más reciente
-  for (let i = cache.length - 1; i >= 0; i--){
-    const it = cache[i];
-    if (it.fecha !== fecha) continue;
-    const d = (it.descripcion || "").trim();
-    if (!d) continue;
-    const key = d.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(d);
-    if (out.length >= 60) break; // límite razonable
-  }
-  return out.reverse(); // que queden en orden "más común/antiguo" → "más reciente"
-}
-
-function refreshDescDatalist(fecha){
-  const dl = $("datalistDescs");
-  if (!dl) return;
-  const descs = getUniqueDescsForDate(fecha);
-  dl.innerHTML = "";
-  descs.forEach(d => {
-    const opt = document.createElement("option");
-    opt.value = d;
-    dl.appendChild(opt);
-  });
-}
-
 function renderCaptura(){
   lista.innerHTML = "";
   setStatus();
 
   const fecha = fechaInput.value || hoyISO();
-  refreshDescDatalist(fecha);
   const items = cache
     .filter(x => x.fecha === fecha)
     .sort((a,b)=> (a.done === b.done ? (a.createdAt - b.createdAt) : (a.done - b.done)));
@@ -2520,7 +2499,6 @@ function renderCaptura(){
           <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (catalogMap[item.itemCode] ? catalogMap[item.itemCode] : "") : ""}</div>
 
           <label style="margin-top:6px">Descripción</label>
-          <input data-id="${item.id}" class="descSug" type="text" list="datalistDescs" placeholder="Sugerencias (hoy)…" ${item.done ? "disabled" : ""} value=""/>
           <textarea data-id="${item.id}" class="desc" ${item.done ? "disabled" : ""}>${item.descripcion || ""}</textarea>
 
           <div class="row" style="margin-top:8px;justify-content:space-between;">
@@ -2555,28 +2533,9 @@ function wireEventsCaptura(){
       if (!obj) return;
       obj.descripcion = t.value;
       await dbPut(obj);
-      refreshDescDatalist(obj.fecha || (fechaInput.value || hoyISO()));
     };
   });
 
-
-
-  document.querySelectorAll("input.descSug").forEach(inp => {
-    inp.onchange = inp.oninput = async () => {
-      const id = Number(inp.dataset.id);
-      const obj = cache.find(x => x.id === id);
-      if (!obj || obj.done) return;
-      const val = (inp.value || "").trim();
-      if (!val) return;
-      obj.descripcion = val;
-      await dbPut(obj);
-      // reflejar en textarea
-      const ta = document.querySelector(`textarea.desc[data-id="${id}"]`);
-      if (ta) ta.value = val;
-      inp.value = "";
-      refreshDescDatalist(obj.fecha || (fechaInput.value || hoyISO()));
-    };
-  });
 
   document.querySelectorAll("input.itSel").forEach(inp => {
     inp.oninput = async () => {
@@ -2696,19 +2655,12 @@ function openModal(id){
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
   $("modalMeta").textContent = `${it.fecha} · ${it.done ? "LISTA" : "PENDIENTE"}`;
 
-  refreshDescDatalist(it.fecha);
-
   $("modalItem").value = it.itemCode || "";
   $("modalItem").disabled = !!it.done;
   $("modalItemHint").textContent = (it.itemCode && catalogMap[it.itemCode]) ? catalogMap[it.itemCode] : "—";
 
   $("modalDesc").value = it.descripcion || "";
   $("modalDesc").disabled = !!it.done;
-
-  if ($("modalDescSug")){
-    $("modalDescSug").value = "";
-    $("modalDescSug").disabled = !!it.done;
-  }
 
   $("btnModalDone").textContent = it.done ? "✏️ Editar" : "✅ Listo";
   $("btnModalShare").disabled = !it.done;
@@ -2739,30 +2691,12 @@ $("modalItem").oninput = async () => {
   if (h) h.textContent = it.itemDesc || "";
 };
 
-
-$("modalDescSug").onchange = $("modalDescSug").oninput = async () => {
-  if (modalId == null) return;
-  const it = cache.find(x => x.id === modalId);
-  if (!it || it.done) return;
-  const val = ($("modalDescSug").value || "").trim();
-  if (!val) return;
-  it.descripcion = val;
-  $("modalDesc").value = val;
-  $("modalDescSug").value = "";
-  await dbPut(it);
-  refreshDescDatalist(it.fecha);
-  // reflejar en captura si está visible
-  const ta = document.querySelector(`textarea.desc[data-id="${it.id}"]`);
-  if (ta) ta.value = val;
-};
-
 $("modalDesc").oninput = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
   it.descripcion = $("modalDesc").value;
   await dbPut(it);
-  refreshDescDatalist(it.fecha);
 };
 
 $("btnModalDone").onclick = async () => {
@@ -2855,7 +2789,6 @@ async function ingestPhotos(fileList){
   if (!files.length) return;
 
   const fecha = fechaInput.value || hoyISO();
-  refreshDescDatalist(fecha);
   const activeProject = getActiveProject();
   const proyecto = activeProject ? activeProject.name : (proyectoInput.value || "").trim();
   const projectId = activeProject ? activeProject.id : null;
@@ -3414,6 +3347,15 @@ $("btnZip").onclick = async () => {
 $("btnZipHoy").onclick = async () => {
   const hoy = hoyISO();
   await exportZipByMode("dia", hoy, hoy);
+};
+
+// Paso 2: Export express (Word/PDF, sin ZIP)
+$("btnExpress").onclick = async () => {
+  const modo = $("modoExport").value;
+  const desde = $("desde").value || (fechaInput.value || hoyISO());
+  let hasta = $("hasta").value || (fechaInput.value || hoyISO());
+  if (modo !== "rango") hasta = desde;
+  await exportExpress(modo, desde, hasta);
 };
 
 
