@@ -1,15 +1,11 @@
 // sw.js
-const CACHE_VERSION = "logi2-v0.7b4";
-const CACHE = `logi2-cache-${CACHE_VERSION}`;
+const CACHE_VERSION = "v7.0.2";
+const CACHE = `logi-cache-${CACHE_VERSION}`;
 
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./manifest.webmanifest?v=0.7b4",
-  "./favicon.png?v=0.7b4",
-  "./apple-touch-icon.png?v=0.7b4",
-  "./Logi2_Plantilla_Items.xlsx",
 
   "./favicon.png",
   "./apple-touch-icon.png",
@@ -35,7 +31,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k.startsWith("logi2-cache-") && k !== CACHE).map(k => caches.delete(k)));
+    await Promise.all(keys.filter(k => k.startsWith("logi-cache-") && k !== CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -60,7 +56,7 @@ self.addEventListener("fetch", (event) => {
         }
         throw new Error("bad response");
       } catch {
-        const cached = await cache.match(req);
+        const cached = await cache.match(req, { ignoreSearch: true });
         return cached || cache.match("./index.html") || cache.match("./") || Response.error();
       }
     })());
@@ -70,7 +66,7 @@ self.addEventListener("fetch", (event) => {
   // ASSETS: cache-first
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(req);
+    const cached = await cache.match(req, { ignoreSearch: true });
     if (cached) return cached;
 
     try {

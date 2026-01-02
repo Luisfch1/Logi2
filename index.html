@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7b4</title>
+  <title>Logi v7.0.2</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7b4">
-  <link rel="icon" href="favicon.png?v=0.7b4">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b4">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -18,9 +18,6 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <!-- DOCX (Word) -->
   <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
-
-  <!-- XLSX (Excel import) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
     *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -152,14 +149,6 @@
       color:#052e1a;border-color:transparent;
     }
     .badgeShare{ right:8px; left:auto; }
-
-    /* Ítems (overlay en miniaturas) */
-    .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px; }
-    .badgeItemOk{ background:rgba(96,165,250,.92); color:#071125; border-color:transparent; }
-    .badgeItemMiss{ background:rgba(248,113,113,.92); color:#2b0707; border-color:transparent; }
-    .gThumbMissing{ border-color: rgba(248,113,113,.9); box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
-    .thumbMissing{ border-color: rgba(248,113,113,.9) !important; box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
-
 
     .modal{position:fixed; inset:0;background:rgba(2,6,23,.92);display:none; align-items:center; justify-content:center;z-index:50; padding:14px;}
     .modal.open{display:flex}
@@ -341,27 +330,6 @@
     }
     :root[data-theme="light"] .accentDot.active::after{color:#0f172a;text-shadow:none}
 
-  
-    /* ===========================
-       🧩 Multi-proyecto (Logi2)
-    ============================ */
-    .projectBar{
-      margin-top:10px;
-      border:1px solid rgba(var(--accent-rgb),.26);
-      background:rgba(var(--accent-rgb),.08);
-      border-radius:14px;
-      padding:10px 12px;
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-    .projectBarTitle{font-weight:950}
-    .projectBarRight{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .projectSelect{min-width:220px;max-width:420px}
-    .projModalCard{width:min(560px, 96vw)}
-
   </style>
 </head>
 
@@ -381,26 +349,13 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7b4 · Logi2</span>
+          <span class="pill">v7.0.2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
           <div id="status" class="status"></div>
         </div>
       </div>
-      <!-- Proyecto activo (Logi2) -->
-      <div class="projectBar" id="projectBar">
-        <div style="min-width:220px">
-          <div class="projectBarTitle">Proyecto activo</div>
-          <div class="muted">Este proyecto separa tus fotos y exportes.</div>
-        </div>
-        <div class="projectBarRight">
-          <select id="projectSelect" class="projectSelect"></select>
-          <button class="btn btn-secondary smallBtn" id="btnProjectRename" title="Renombrar proyecto">✏️</button>
-          <button class="btn btn-primary smallBtn" id="btnProjectNew" title="Nuevo proyecto">➕</button>
-        </div>
-      </div>
-
 
 
       <!-- Barra de update -->
@@ -441,7 +396,6 @@
       <div class="row" style="margin-top:10px;">
         <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
         <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
-        <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
         <button class="btn btn-secondary" id="btnCargarLogo">🖼️ Cargar logo</button>
         <button class="btn btn-secondary" id="btnQuitarLogo" style="display:none">🗑️ Quitar logo</button>
 
@@ -641,21 +595,6 @@
         </div>
         <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
 
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Ítems del proyecto</div>
-            <div class="muted" id="itemsLabel">Cargar listado (Excel) por proyecto</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnItemsTemplate" title="Descargar plantilla">📄</button>
-            <button class="btn btn-secondary smallBtn" id="btnItemsUpload" title="Cargar listado">⬆️</button>
-            <button class="btn btn-danger smallBtn" id="btnItemsClear" title="Borrar ítems del proyecto">🗑️</button>
-          </div>
-        </div>
-        <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
-
-
       
         <div class="sheetRow">
           <div class="sheetRowMain">
@@ -686,12 +625,6 @@
           </div>
 
           <div>
-            <label>Ítem (opcional)</label>
-            <input type="text" id="modalItem" list="datalistItems" placeholder="Código de ítem…" />
-            <div class="muted" id="modalItemHint" style="margin-top:6px">—</div>
-          </div>
-
-          <div>
             <label>Descripción</label>
             <textarea id="modalDesc" placeholder="Descripción..."></textarea>
           </div>
@@ -709,37 +642,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Modal: Proyecto (Logi2) -->
-  <div class="modal" id="projModal" aria-hidden="true">
-    <div class="modalCard projModalCard">
-      <div class="modalBody" style="grid-template-columns:1fr">
-        <div class="modalSide">
-          <div class="modalCloseRow">
-            <div>
-              <div class="modalTitle" id="projModalTitle">Proyecto</div>
-              <div class="muted" id="projModalMeta">—</div>
-            </div>
-            <button class="btn btn-secondary smallBtn" id="btnProjModalClose">✖</button>
-          </div>
-
-          <div>
-            <label>Nombre del proyecto</label>
-            <input type="text" id="projNameInput" placeholder="Ej: Contrato 558 de 2025 · Mejoramiento bóvedas" />
-            <div class="muted" style="margin-top:6px">Tip: usa nombres profesionales. Puedes renombrar cuando quieras.</div>
-          </div>
-
-          <div class="row" style="justify-content:flex-end">
-            <button class="btn btn-secondary" id="btnProjCancel">Cancelar</button>
-            <button class="btn btn-primary" id="btnProjSave">Guardar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Datalist: Ítems del proyecto -->
-  <datalist id="datalistItems"></datalist>
 
 <script>
 function $(id){ return document.getElementById(id); }
@@ -1077,16 +979,12 @@ async function createBackupZip(){
   }
 
   $("backupStatus").textContent = "Preparando backup…";
-  const allItems = await dbGetAll();
-  const activeId = getActiveProjectId() || ensureProjects().activeId;
-  const { projects } = ensureProjects();
-  const firstId = projects[0]?.id || activeId;
-  const items = allItems.filter(it => (it.projectId ? it.projectId === activeId : activeId === firstId));
+  const items = await dbGetAll();
 
   const settings = {
     theme: localStorage.getItem(THEME_KEY) || "dark",
     accent: localStorage.getItem(ACCENT_KEY) || "blue",
-    project: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
+    project: getProjectDefault(),
     template: getTemplateId(),
     docxFit: localStorage.getItem("logi_docx_fit") || "stretch",
     logoEnabled: localStorage.getItem("logi_logo_enabled") === "1",
@@ -1240,7 +1138,6 @@ async function restoreBackupZip(file){
     $("backupStatus").textContent = `Importando… (${idx+1}/${total})`;
 
     const blob = await f.async("blob");
-    const activeP = getActiveProject();
     const it = {
       id,
       fecha: meta.fecha || "",
@@ -1250,8 +1147,7 @@ async function restoreBackupZip(file){
       blob,
       mime: meta.mime || blob.type || "image/jpeg",
       createdAt: meta.createdAt || Date.now(),
-      hasLogo: !!meta.hasLogo,
-      projectId: activeP ? activeP.id : null
+      hasLogo: !!meta.hasLogo
     };
 
     await dbPut(it);
@@ -1313,126 +1209,26 @@ $("backupInput").onchange = async () => {
   }
 };
 
-/* ===========================
-   📋 Ítems: plantilla + carga (por proyecto)
-=========================== */
-$("btnItemsTemplate").onclick = () => {
-  try{ downloadTemplateItems(); }catch{}
-};
-
-$("btnItemsUpload").onclick = () => {
-  $("itemsInput").value = "";
-  $("itemsInput").click();
-};
-
-$("btnItemsClear").onclick = async () => {
-  const p = getActiveProject();
-  if (!p) return;
-  const ok = confirm(`Vas a borrar el LISTADO de ítems del proyecto:\n\n${p.name}\n\n(Esto NO borra fotos)\n\n¿Continuar?`);
-  if (!ok) return;
-  try{
-    await catClearProject(p.id);
-    await loadCatalogForActiveProject();
-    render();
-  }catch{
-    alert("No pude borrar el listado. Intenta de nuevo.");
-  }
-};
-
-$("itemsInput").onchange = async () => {
-  const file = $("itemsInput").files?.[0];
-  if (!file) return;
-
-  $("itemsStatus").textContent = "Importando…";
-  try{
-    const res = await importItemsFile(file);
-    $("itemsStatus").textContent = `Importado ✅ (leídos: ${res.total}, cargados: ${res.added}, omitidos: ${res.skipped})`;
-    setTimeout(()=> refreshCatalogStatus(), 2200);
-  }catch(e){
-    console.error(e);
-    const ext = (file.name || "").toLowerCase();
-  let wb;
-
-  // CSV: lectura directa
-  if (ext.endsWith(".csv")){
-    const text = await file.text();
-    wb = XLSX.read(text, { type:"string" });
-  } else {
-    // XLSX: lectura robusta (Android/PWA puede fallar con ArrayBuffer directo)
-    const ab = await file.arrayBuffer();
-
-    // Si el archivo no parece ZIP (xlsx) a veces es una página HTML descargada con nombre .xlsx
-    const sig = String.fromCharCode.apply(null, Array.from(new Uint8Array(ab.slice(0,2))));
-    // "PK" => zip
-    if (sig !== "PK"){
-      throw new Error("El archivo no parece un .xlsx válido (firma distinta a PK). Re-descarga la plantilla y vuelve a intentar.");
-    }
-
-    try{
-      const u8 = new Uint8Array(ab);
-      wb = XLSX.read(u8, { type:"array" });
-    }catch(err1){
-      // Fallback: lectura binaria con FileReader
-      const bin = await new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(fr.result);
-        fr.onerror = () => reject(fr.error || new Error("No pude leer el archivo"));
-        fr.readAsBinaryString(file);
-      });
-      wb = XLSX.read(bin, { type:"binary" });
-    }
-  }
-
-  const sheetName = 
-    refreshCatalogStatus();
-  }finally{
-    $("itemsInput").value = "";
-  }
-};
-
 
 /* ===========================
    IndexedDB
 =========================== */
-const DB_NAME = "logi2_db_v1";
-const DB_VERSION = 2;
-
-const DB_STORE = "items";          // fotos (registros)
-const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
+const DB_NAME = "logi_db_v1";
+const DB_STORE = "items";
 
 function openDB(){
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-
-    req.onupgradeneeded = (ev) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
       const db = req.result;
-
-      // Store fotos (legacy)
-      if (!db.objectStoreNames.contains(DB_STORE)){
-        const store = db.createObjectStore(DB_STORE, { keyPath: "id" });
-        store.createIndex("byDate", "fecha");
-        store.createIndex("byCreated", "createdAt");
-      } else {
-        // Asegurar índices (por si el usuario viene de una versión rara)
-        const tx = req.transaction;
-        const store = tx.objectStore(DB_STORE);
-        if (!store.indexNames.contains("byDate")) store.createIndex("byDate", "fecha");
-        if (!store.indexNames.contains("byCreated")) store.createIndex("byCreated", "createdAt");
-      }
-
-      // Store catálogo ítems (nuevo)
-      if (!db.objectStoreNames.contains(DB_STORE_CATALOG)){
-        const cat = db.createObjectStore(DB_STORE_CATALOG, { keyPath: "key" });
-        cat.createIndex("byProject", "projectId");
-        cat.createIndex("byItem", "item");
-      }
+      const store = db.createObjectStore(DB_STORE, { keyPath: "id" });
+      store.createIndex("byDate", "fecha");
+      store.createIndex("byCreated", "createdAt");
     };
-
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
-
 
 async function dbPut(item){
   const db = await openDB();
@@ -1472,205 +1268,6 @@ async function dbClear(){
 }
 
 /* ===========================
-   Catálogo de ítems (por proyecto)
-=========================== */
-let catalog = [];          // rows: {key, projectId, item, descripcion, createdAt}
-let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
-
-async function catGetByProject(projectId){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE_CATALOG, "readonly");
-    const idx = tx.objectStore(DB_STORE_CATALOG).index("byProject");
-    const req = idx.getAll(projectId);
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function catPutMany(rows){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE_CATALOG, "readwrite");
-    const store = tx.objectStore(DB_STORE_CATALOG);
-    for (const r of rows) store.put(r);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function catClearProject(projectId){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE_CATALOG, "readwrite");
-    const store = tx.objectStore(DB_STORE_CATALOG);
-    const idx = store.index("byProject");
-    const req = idx.getAllKeys(projectId);
-    req.onsuccess = () => {
-      const keys = req.result || [];
-      keys.forEach(k => store.delete(k));
-    };
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-function rebuildCatalogMap(){
-  catalogMap = {};
-  for (const r of catalog){
-    if (r?.item) catalogMap[String(r.item).trim()] = (r.descripcion || "").trim();
-  }
-}
-
-async function loadCatalogForActiveProject(){
-  const activeId = getActiveProjectId() || ensureProjects().activeId;
-  catalog = await catGetByProject(activeId);
-  rebuildCatalogMap();
-  refreshCatalogDatalist();
-  refreshCatalogStatus();
-}
-
-function refreshCatalogDatalist(){
-  const dl = $("datalistItems");
-  if (!dl) return;
-  dl.innerHTML = "";
-  const rows = (catalog || []).slice().sort((a,b) => String(a.item).localeCompare(String(b.item)));
-  for (const r of rows){
-    const opt = document.createElement("option");
-    opt.value = String(r.item || "").trim();
-    opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}` : String(r.item || "");
-    dl.appendChild(opt);
-  }
-}
-
-function refreshCatalogStatus(){
-  const lab = $("itemsLabel");
-  const st  = $("itemsStatus");
-  const p = getActiveProject();
-  const pname = p ? p.name : "—";
-  if (lab) lab.textContent = `Listado por proyecto: ${pname}`;
-  if (st) st.textContent = (catalog && catalog.length) ? `Ítems cargados: ${catalog.length}` : "Sin ítems cargados (aún).";
-}
-
-function normalizeHeader(s){
-  return String(s || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g,"")
-    .replace(/\s+/g,"_");
-}
-
-async function importItemsFile(file){
-  if (!file) return { added:0, skipped:0, total:0 };
-
-  if (!window.XLSX){
-    alert("No puedo leer Excel porque la librería XLSX no cargó. Abre con internet o prueba Chrome.");
-    return { added:0, skipped:0, total:0 };
-  }
-
-  const ext = (file.name || "").toLowerCase();
-  let wb;
-
-  if (ext.endsWith(".csv")){
-    const text = await file.text();
-    wb = XLSX.read(text, { type:"string" });
-  } else {
-    const buf = await file.arrayBuffer();
-    wb = XLSX.read(buf, { type:"array" });
-  }
-
-  const sheetName = wb.SheetNames.includes("ITEMS") ? "ITEMS" : wb.SheetNames[0];
-  const ws = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
-
-  if (!rows.length) return { added:0, skipped:0, total:0 };
-
-  const header = rows[0].map(normalizeHeader);
-  const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
-  const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
-
-  if (idxItem === -1 || idxDesc === -1){
-    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM y DESCRIPCION.");
-    return { added:0, skipped:0, total:0 };
-  }
-
-  const p = getActiveProject();
-  const projectId = p ? p.id : (getActiveProjectId() || "");
-  if (!projectId){
-    alert("No pude determinar el proyecto activo.");
-    return { added:0, skipped:0, total:0 };
-  }
-
-  const batch = [];
-  let added = 0, skipped = 0;
-
-  for (let i=1; i<rows.length; i++){
-    const r = rows[i] || [];
-    const item = String(r[idxItem] || "").trim();
-    const descripcion = String(r[idxDesc] || "").trim();
-
-    if (!item) { skipped++; continue; }
-
-    const key = `${projectId}::${item}`;
-    batch.push({
-      key,
-      projectId,
-      item,
-      descripcion,
-      createdAt: Date.now()
-    });
-    added++;
-  }
-
-  await catPutMany(batch);
-  await loadCatalogForActiveProject();
-
-  return { added, skipped, total: rows.length-1 };
-}
-
-function downloadTemplateItems(){
-  // Descarga la plantilla oficial desde el repo (más confiable en Android/PWA).
-  // Si falla, genera una plantilla mínima.
-  const url = `Logi2_Plantilla_Items.xlsx?v=${Date.now()}`;
-
-  const forceDownload = async (blob, filename) => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  };
-
-  (async () => {
-    try{
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) throw new Error("No pude descargar la plantilla desde el servidor.");
-      const blob = await res.blob();
-      await forceDownload(blob, "Logi2_Plantilla_Items.xlsx");
-      return;
-    }catch(e){
-      console.warn("Fallback plantilla (generada):", e);
-      try{
-        if (!window.XLSX) throw new Error("XLSX no cargó.");
-        const wb = XLSX.utils.book_new();
-        const data = [["ITEM","DESCRIPCION"],["",""]];
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        ws["!cols"] = [{ wch: 18 }, { wch: 60 }];
-        XLSX.utils.book_append_sheet(wb, ws, "ITEMS");
-        const out = XLSX.write(wb, { bookType:"xlsx", type:"array" });
-        const blob = new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        await forceDownload(blob, "Logi2_Plantilla_Items.xlsx");
-      }catch(err2){
-        alert("No pude descargar/generar la plantilla.\n\nDetalle: " + (err2?.message || err2));
-      }
-    }
-  })();
-}
-
-
-/* ===========================
    Utilidades
 =========================== */
 const fechaInput = $("fecha");
@@ -1684,209 +1281,6 @@ const statusEl = $("status");
 const rangeInfo = $("rangeInfo");
 const zipInfo = $("zipInfo");
 
-/* ===========================
-   🧩 Multi-proyecto (Logi2)
-   - Separa fotos por "projectId" (en la misma DB)
-   - NO toca /Logi/ porque usa DB_NAME distinto + keys logi2_*
-=========================== */
-const PROJECTS_KEY = "logi2_projects";
-const ACTIVE_PROJECT_KEY = "logi2_active_project";
-
-function genPid(){
-  return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2,7);
-}
-function loadProjects(){
-  try{ return JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]") || []; }catch{ return []; }
-}
-function saveProjects(arr){ localStorage.setItem(PROJECTS_KEY, JSON.stringify(arr)); }
-function getActiveProjectId(){
-  return localStorage.getItem(ACTIVE_PROJECT_KEY) || "";
-}
-function setActiveProjectId(id){
-  localStorage.setItem(ACTIVE_PROJECT_KEY, id);
-}
-function ensureProjects(){
-  let projects = loadProjects();
-  if (!projects.length){
-    const id = genPid();
-    projects = [{ id, name: "Proyecto 1", createdAt: Date.now() }];
-    saveProjects(projects);
-    setActiveProjectId(id);
-  }
-  let activeId = getActiveProjectId();
-  if (!activeId || !projects.some(p => p.id === activeId)){
-    activeId = projects[0].id;
-    setActiveProjectId(activeId);
-  }
-  return { projects, activeId };
-}
-function getActiveProject(){
-  const { projects, activeId } = ensureProjects();
-  return projects.find(p => p.id === activeId) || projects[0] || null;
-}
-function setProyectoInputFromActive(){
-  // Mantener compatibilidad con UI vieja (campo "proyecto")
-  const p = getActiveProject();
-  if (proyectoInput && p){
-    proyectoInput.value = p.name;
-    proyectoInput.readOnly = true;   // el nombre se cambia con Renombrar
-  }
-}
-function refreshProjectUI(){
-  const sel = $("projectSelect");
-  if (!sel) return;
-  const { projects, activeId } = ensureProjects();
-  sel.innerHTML = "";
-  for (const p of projects){
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.name;
-    sel.appendChild(opt);
-  }
-  sel.value = activeId;
-  setProyectoInputFromActive();
-}
-
-let projModalMode = null; // "new" | "rename"
-function openProjModal(mode){
-  projModalMode = mode;
-  const p = getActiveProject();
-  const modal = $("projModal");
-  const title = $("projModalTitle");
-  const meta = $("projModalMeta");
-  const input = $("projNameInput");
-  if (!modal || !input) return;
-
-  if (mode === "new"){
-    title.textContent = "Nuevo proyecto";
-    meta.textContent = "Crea un proyecto para separar las fotos.";
-    input.value = "";
-  } else {
-    title.textContent = "Renombrar proyecto";
-    meta.textContent = "Este cambio solo afecta el nombre (las fotos quedan en el mismo proyecto).";
-    input.value = p ? p.name : "";
-  }
-
-  modal.classList.add("open");
-  modal.setAttribute("aria-hidden","false");
-
-  // Focus suave para abrir teclado
-  setTimeout(() => { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 60);
-}
-function closeProjModal(){
-  const modal = $("projModal");
-  if (!modal) return;
-  modal.classList.remove("open");
-  modal.setAttribute("aria-hidden","true");
-}
-
-function onProjectChanged(){
-  refreshProjectUI();
-
-  // Limpia de inmediato para que NO se quede mostrando el proyecto anterior
-  cache = [];
-  render();
-  updateStorageUI();
-
-  (async () => {
-    try{
-      await loadCacheForActiveProject();
-      await loadCatalogForActiveProject();
-    }catch(e){
-      console.error(e);
-      alert("No pude actualizar la galería del proyecto. Si persiste, usa 'Reiniciar caché' en configuración.");
-    }finally{
-      render();
-      updateStorageUI();
-    }
-  })();
-}
-
-async function loadCacheForActiveProject(){
-  const activeId = getActiveProjectId() || ensureProjects().activeId;
-  const all = await dbGetAll();
-  const { projects } = ensureProjects();
-  const firstId = projects[0]?.id || activeId;
-
-  // Sin migración pesada: los legacy (sin projectId) se consideran del primer proyecto.
-  cache = all.filter(it => (it.projectId ? it.projectId === activeId : activeId === firstId));
-  setProyectoInputFromActive();
-}
-
-function attachProjectHandlers(){
-  const sel = $("projectSelect");
-  const btnNew = $("btnProjectNew");
-  const btnRen = $("btnProjectRename");
-  const btnClose = $("btnProjModalClose");
-  const btnCancel = $("btnProjCancel");
-  const btnSave = $("btnProjSave");
-  const modal = $("projModal");
-
-  if (sel){
-    sel.addEventListener("change", () => {
-      setActiveProjectId(sel.value);
-      onProjectChanged();
-    });
-  }
-  if (btnNew) btnNew.onclick = () => openProjModal("new");
-  if (btnRen) btnRen.onclick = () => openProjModal("rename");
-  if (btnClose) btnClose.onclick = closeProjModal;
-  if (btnCancel) btnCancel.onclick = closeProjModal;
-
-  if (modal){
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) closeProjModal();
-    });
-  }
-
-  if (btnSave){
-    btnSave.onclick = async () => {
-      const input = $("projNameInput");
-      if (!input) return;
-      const name = (input.value || "").trim();
-      if (!name){
-        alert("Ponle un nombre al proyecto.");
-        input.focus();
-        return;
-      }
-
-      const { projects, activeId } = ensureProjects();
-
-      if (projModalMode === "new"){
-        const id = genPid();
-        projects.push({ id, name, createdAt: Date.now() });
-        saveProjects(projects);
-        setActiveProjectId(id);
-        refreshProjectUI();
-        await loadCacheForActiveProject();
-        render();
-        updateStorageUI();
-        closeProjModal();
-        return;
-      }
-
-      // rename
-      const p = projects.find(x => x.id === activeId);
-      if (p){
-        p.name = name;
-        saveProjects(projects);
-
-        // opcional: sincronizar campo "proyecto" en items del proyecto (para DOCX/nombres)
-        // lo hacemos ligero: actualiza solo los del cache actual
-        for (const it of cache){
-          it.proyecto = name;
-          await dbPut(it);
-        }
-      }
-      refreshProjectUI();
-      render();
-      updateStorageUI();
-      closeProjModal();
-    };
-  }
-}
-
-
 function hoyISO(){ return new Date().toISOString().slice(0,10); }
 function ymdToNum(ymd){ return Number((ymd || "0000-00-00").replaceAll("-","")); }
 function pad2(n){ return String(n).padStart(2,"0"); }
@@ -1898,16 +1292,6 @@ function sanitizeName(s){
     .replace(/\s+/g,"_")
     .slice(0,60) || "Proyecto";
 }
-
-
-function escAttr(s){
-  return String(s ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;");
-}
-
 
 function fmtBytes(bytes){
   if (bytes < 1024) return bytes + " B";
@@ -1983,9 +1367,7 @@ function getTemplateMeta(it){
   const mm = pad2(dt.getMinutes());
   const time = `${hh}:${mm}`;
   const stamp = fecha ? `${fecha} ${time}` : time;
-  const itemCode = String(it.itemCode || "").trim();
-  const itemDesc = String(it.itemDesc || (itemCode && catalogMap[itemCode]) || "").trim();
-  return { proj, desc, fecha, longDate, time, stamp, itemCode, itemDesc };
+  return { proj, desc, fecha, longDate, time, stamp };
 }
 
 function buildTemplateLines(meta, templateId){
@@ -2013,22 +1395,20 @@ function buildTemplateLines(meta, templateId){
 }
 
 function buildDocxCaption(n, meta, templateId){
-  // Formato solicitado (DOCX):
-  // "Foto No. x, ítem: código - descripción de ítem. Descripción de foto."
-  const code = String(meta.itemCode || "").trim();
-  const descItem = String(meta.itemDesc || "").trim();
-
-  let itemLabel = "";
-  if (code && descItem) itemLabel = `${code} - ${descItem}`;
-  else if (code) itemLabel = code;
-  else if (descItem) itemLabel = descItem;
-  else itemLabel = "SIN ASIGNAR";
-
-  const photoDesc = String(meta.desc || "—").trim() || "—";
-
-  return `Foto No. ${n}, ítem: ${itemLabel}. ${photoDesc}`;
+  const id = templateId || "classic";
+  if (id === "clean") return `FOTO ${n}.`;
+  if (id === "fecha") return `FOTO ${n}. ${meta.stamp}`;
+  if (id === "minimal") return `FOTO ${n}. ${(meta.desc || "—")} · ${meta.stamp}`;
+  if (id === "proyecto"){
+    const parts = [];
+    if (meta.proj) parts.push(meta.proj);
+    if (meta.desc) parts.push(meta.desc);
+    if (meta.stamp) parts.push(meta.stamp);
+    return `FOTO ${n}. ${parts.join(" · ") || "—"}`;
+  }
+  // classic
+  return `FOTO ${n}. ${(meta.desc || "—")}`;
 }
-
 
 function syncTemplateUI(){
   const sel = $("templateSelect");
@@ -2468,18 +1848,13 @@ function renderCaptura(){
 
     div.innerHTML = `
       <div class="itemTop">
-        <img class="thumb ${String(item.itemCode||"").trim() ? "" : "thumbMissing"}" src="${thumbUrl}" data-open="${item.id}" alt="foto">
+        <img class="thumb" src="${thumbUrl}" data-open="${item.id}" alt="foto">
         <div class="grow">
           <div class="mini">
             <span>#${idx+1} · ${item.fecha}</span>
             ${item.proyecto ? `<span>· ${item.proyecto}</span>` : `<span>· —</span>`}
-            ${item.itemCode ? `<span>· ${item.itemCode}</span>` : ``}
             ${item.done ? `<span class="chip-done">LISTO</span>` : ``}
           </div>
-
-          <label style="margin-top:6px">Ítem (opcional)</label>
-          <input data-id="${item.id}" class="itSel" type="text" list="datalistItems" placeholder="Código o busca en el listado…" ${item.done ? "disabled" : ""} value="${escAttr(item.itemCode || "")}"/>
-          <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (catalogMap[item.itemCode] ? catalogMap[item.itemCode] : "") : ""}</div>
 
           <label style="margin-top:6px">Descripción</label>
           <textarea data-id="${item.id}" class="desc" ${item.done ? "disabled" : ""}>${item.descripcion || ""}</textarea>
@@ -2516,21 +1891,6 @@ function wireEventsCaptura(){
       if (!obj) return;
       obj.descripcion = t.value;
       await dbPut(obj);
-    };
-  });
-
-
-  document.querySelectorAll("input.itSel").forEach(inp => {
-    inp.oninput = async () => {
-      const id = Number(inp.dataset.id);
-      const obj = cache.find(x => x.id === id);
-      if (!obj || obj.done) return;
-      const code = (inp.value || "").trim();
-      obj.itemCode = code;
-      obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-      await dbPut(obj);
-      const h = document.querySelector(`[data-ithint="${id}"]`);
-      if (h) h.textContent = obj.itemDesc || "";
     };
   });
 
@@ -2587,12 +1947,11 @@ function renderGaleria(){
     const day = document.createElement("div");
     const doneCount = items.filter(x => x.done).length;
     const bytes = items.reduce((a,i)=>a+(i.blob?.size||0),0);
-    const missItemCount = items.filter(x => !(String(x.itemCode || "").trim())).length;
 
     day.innerHTML = `
       <div class="dayHeader">
         <div class="dayTitle"><span class="dayChip">${formatDateLongES(date)}</span></div>
-        <div class="dayMeta">· ${items.length} foto(s) · ${doneCount} listas${missItemCount ? ` · ${missItemCount} sin ítem` : ``} · ${fmtBytes(bytes)}</div>
+        <div class="dayMeta">· ${items.length} foto(s) · ${doneCount} listas · ${fmtBytes(bytes)}</div>
       </div>
       <div class="gridThumbs" data-day="${date}"></div>
     `;
@@ -2603,12 +1962,9 @@ function renderGaleria(){
       const box = document.createElement("div");
       box.className = "gThumbBox";
       const url = trackUrl(URL.createObjectURL(it.blob));
-      const hasItem = !!String(it.itemCode || "").trim();
-      const codeShort = hasItem ? String(it.itemCode || "").trim().slice(0, 14) : "";
       box.innerHTML = `
-        <img class="gThumb ${hasItem ? "" : "gThumbMissing"}" src="${url}" data-open="${it.id}" alt="foto">
+        <img class="gThumb" src="${url}" data-open="${it.id}" alt="foto">
         <div class="badge ${it.done ? "badgeDone" : ""}">${it.done ? "LISTO" : "PEND"}</div>
-        <div class="badge badgeItem ${hasItem ? "badgeItemOk" : "badgeItemMiss"}">${hasItem ? escAttr(codeShort) : "ÍTEM?"}</div>
         <div class="badge badgeShare">📤</div>
       `;
       grid.appendChild(box);
@@ -2638,10 +1994,6 @@ function openModal(id){
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
   $("modalMeta").textContent = `${it.fecha} · ${it.done ? "LISTA" : "PENDIENTE"}`;
 
-  $("modalItem").value = it.itemCode || "";
-  $("modalItem").disabled = !!it.done;
-  $("modalItemHint").textContent = (it.itemCode && catalogMap[it.itemCode]) ? catalogMap[it.itemCode] : "—";
-
   $("modalDesc").value = it.descripcion || "";
   $("modalDesc").disabled = !!it.done;
 
@@ -2658,21 +2010,6 @@ function closeModal(){
 
 $("btnModalClose").onclick = closeModal;
 $("modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
-
-
-$("modalItem").oninput = async () => {
-  if (modalId == null) return;
-  const it = cache.find(x => x.id === modalId);
-  if (!it || it.done) return;
-  const code = ($("modalItem").value || "").trim();
-  it.itemCode = code;
-  it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-  $("modalItemHint").textContent = it.itemDesc || "—";
-  await dbPut(it);
-  // refrescar hints en captura
-  const h = document.querySelector(`[data-ithint="${it.id}"]`);
-  if (h) h.textContent = it.itemDesc || "";
-};
 
 $("modalDesc").oninput = async () => {
   if (modalId == null) return;
@@ -2772,9 +2109,7 @@ async function ingestPhotos(fileList){
   if (!files.length) return;
 
   const fecha = fechaInput.value || hoyISO();
-  const activeProject = getActiveProject();
-  const proyecto = activeProject ? activeProject.name : (proyectoInput.value || "").trim();
-  const projectId = activeProject ? activeProject.id : null;
+  const proyecto = (proyectoInput.value || "").trim();
 
   zipInfo.textContent = `Procesando ${files.length} foto(s)...`;
   for (const file of files){
@@ -2789,8 +2124,7 @@ async function ingestPhotos(fileList){
       blob,
       mime: "image/jpeg",
       createdAt: Date.now(),
-      hasLogo: !!hasLogo,
-      projectId: projectId
+      hasLogo: !!hasLogo
     };
 
     await dbPut(item);
@@ -2876,19 +2210,9 @@ async function loadLogiLogoArrayBuffer(){
 
 function buildCaptionRuns(n, meta, templateId){
   const caption = buildDocxCaption(n, meta, templateId);
-  const prefixNew = `Foto No. ${n},`;
-  const prefixOld = `FOTO ${n}.`;
-  let prefix = prefixNew;
-  if (caption.startsWith(prefixNew)) prefix = prefixNew;
-  else if (caption.startsWith(prefixOld)) prefix = prefixOld;
-  else prefix = "";
-
-  const rest = prefix ? caption.slice(prefix.length).trimStart() : caption;
+  const prefix = `FOTO ${n}.`;
+  const rest = caption.startsWith(prefix) ? caption.slice(prefix.length).trimStart() : caption;
   const { TextRun } = window.docx;
-
-  if (!prefix){
-    return [ new TextRun({ text: caption }) ];
-  }
 
   return [
     new TextRun({ text: prefix, bold: true }),
@@ -3150,18 +2474,14 @@ async function buildRegistroFotograficoDocxBuffer(
    CSV + XLS
 =========================== */
 function buildManifestCsv(registros){
-  const header = ["fecha","archivo","item","item_desc","descripcion","proyecto","listo"].join(";");
+  const header = ["fecha","archivo","descripcion","proyecto","listo"].join(";");
   const lines = [header];
   registros.forEach(r => {
     const desc = (r.descripcion || "").replaceAll('"','""');
     const proj = (r.proyecto || "").replaceAll('"','""');
-    const item = (r.itemCode || "").replaceAll('"','""');
-    const itemd = (r.itemDesc || "").replaceAll('"','""');
     lines.push([
       r.fecha,
       r.archivo,
-      `"${item}"`,
-      `"${itemd}"`,
       `"${desc}"`,
       `"${proj}"`,
       r.done ? "SI" : "NO"
@@ -3176,8 +2496,6 @@ function buildManifestXlsHtml(registros){
     <tr>
       <td>${esc(r.fecha)}</td>
       <td>${esc(r.archivo)}</td>
-      <td>${esc(r.itemCode)}</td>
-      <td>${esc(r.itemDesc)}</td>
       <td>${esc(r.descripcion)}</td>
       <td>${esc(r.proyecto)}</td>
       <td>${r.done ? "SI" : "NO"}</td>
@@ -3187,7 +2505,7 @@ function buildManifestXlsHtml(registros){
   return `
   <html><head><meta charset="utf-8"></head><body>
   <table border="1">
-    <tr><th>fecha</th><th>archivo</th><th>item</th><th>item_desc</th><th>descripcion</th><th>proyecto</th><th>listo</th></tr>
+    <tr><th>fecha</th><th>archivo</th><th>descripcion</th><th>proyecto</th><th>listo</th></tr>
     ${rows}
   </table>
   </body></html>`;
@@ -3276,8 +2594,6 @@ async function exportZipByMode(modo, desde, hasta){
     manifestRows.push({
       fecha: it.fecha,
       archivo: `${it.fecha}/${filename}`,
-      itemCode: it.itemCode || "",
-      itemDesc: it.itemDesc || "",
       descripcion: descText,
       proyecto: it.proyecto || "",
       done: !!it.done
@@ -3460,11 +2776,6 @@ function render(){
 
   updateExportUI();
 
-  // Multi-proyecto (Logi2)
-  ensureProjects();
-  refreshProjectUI();
-  attachProjectHandlers();
-
   initTheme();
   initAccent();
 
@@ -3473,8 +2784,7 @@ function render(){
   loadLogoCorner();
 
   try{
-    await loadCacheForActiveProject();
-    await loadCatalogForActiveProject();
+    cache = await dbGetAll();
     const ri = $("rangeInfo");
     if (ri) ri.style.display = "none";
     render();
