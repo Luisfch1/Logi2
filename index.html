@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v7.0.3</title>
+  <title>Logi2 v0.7b4</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=7.0.3">
-  <link rel="icon" href="favicon.png?v=7.0.3">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=7.0.3">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7b4">
+  <link rel="icon" href="favicon.png?v=0.7b4">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -381,7 +381,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v7.0.3 · Logi2</span>
+          <span class="pill">v0.7b4 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -578,26 +578,6 @@
           <input type="checkbox" id="exportTemplate" checked />
           <span class="muted">En exportación: incluir texto (plantilla) sobre la foto</span>
         </label>
-      </div>
-
-
-      <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:2;min-width:260px">
-          <label for="expItemInput">Ítems (opcional, multi)</label>
-          <div class="row" style="gap:8px;align-items:center">
-            <input type="text" id="expItemInput" list="datalistItems" placeholder="Escribe código de ítem y presiona Enter…" style="flex:1;min-width:220px" />
-            <button class="btn btn-secondary smallBtn" id="btnExpAddItem" type="button">Agregar</button>
-            <button class="btn btn-ghost smallBtn" id="btnExpClearItems" type="button">Limpiar</button>
-          </div>
-          <div id="expItemChips" class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap"></div>
-          <div class="muted" style="margin-top:6px">Si no seleccionas ítems, exporta todo lo del rango.</div>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:10px;">
-        <button class="btn btn-secondary" id="btnExpressDocx" type="button">📄 Descargar Word (solo)</button>
-        <button class="btn btn-secondary" id="btnExpressPdf" type="button">🧾 PDF (imprimir/guardar)</button>
-        <div class="muted">Express = 1 archivo (mismo formato). ZIP sigue igual.</div>
       </div>
 
       <div class="row" style="margin-top:10px;">
@@ -1548,7 +1528,6 @@ async function loadCatalogForActiveProject(){
   rebuildCatalogMap();
   refreshCatalogDatalist();
   refreshCatalogStatus();
-  renderExpItemChips();
 }
 
 function refreshCatalogDatalist(){
@@ -1803,9 +1782,6 @@ function closeProjModal(){
 
 function onProjectChanged(){
   refreshProjectUI();
-
-  // Reset filtros de exportación al cambiar de proyecto
-  try{ expClearItems(); }catch(_){ }
 
   // Limpia de inmediato para que NO se quede mostrando el proyecto anterior
   cache = [];
@@ -3220,59 +3196,7 @@ function buildManifestXlsHtml(registros){
 /* ===========================
    Export ZIP (incluye DOCX)
 =========================== */
-
-/* ===========================
-   🔎 Filtro por ítems para exportación (multi, combinable)
-=========================== */
-let expItemCodes = [];
-
-function normalizeItemCode(v){
-  return String(v || "").trim();
-}
-
-function renderExpItemChips(){
-  const box = $("expItemChips");
-  if (!box) return;
-  box.innerHTML = "";
-  for (const code of expItemCodes){
-    const desc = (catalogMap && catalogMap[code]) ? String(catalogMap[code]) : "";
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.title = desc ? `${code} — ${desc}` : code;
-    chip.innerHTML = `<span>${escapeHtml(code)}</span><span class="x" aria-label="Quitar">✕</span>`;
-    chip.querySelector(".x").onclick = () => {
-      expItemCodes = expItemCodes.filter(c => c !== code);
-      renderExpItemChips();
-    };
-    box.appendChild(chip);
-  }
-}
-
-function expAddItemFromInput(){
-  const inp = $("expItemInput");
-  if (!inp) return;
-  const code = normalizeItemCode(inp.value);
-  if (!code) return;
-  if (!expItemCodes.includes(code)) expItemCodes.push(code);
-  inp.value = "";
-  renderExpItemChips();
-}
-
-function expClearItems(){
-  expItemCodes = [];
-  const inp = $("expItemInput");
-  if (inp) inp.value = "";
-  renderExpItemChips();
-}
-
-function filterItemsByCodes(arr, codes){
-  const clean = (codes || []).map(normalizeItemCode).filter(Boolean);
-  if (!clean.length) return arr;
-  const set = new Set(clean);
-  return arr.filter(it => set.has(normalizeItemCode(it.itemCode)));
-}
-
-async function exportZipByMode(modo, desde, hasta, itemCodes){
+async function exportZipByMode(modo, desde, hasta){
   if (!window.JSZip){ alert("JSZip no cargó. Abre con internet o en Chrome."); return; }
   if (!window.docx){ alert("La librería DOCX no cargó. Abre con internet o en Chrome."); return; }
 
@@ -3301,9 +3225,6 @@ async function exportZipByMode(modo, desde, hasta, itemCodes){
   }
 
   if (onlyDone) selected = selected.filter(x => !!x.done);
-
-  // Filtro por ítems (si el usuario seleccionó)
-  selected = filterItemsByCodes(selected, itemCodes);
 
   if (!selected.length){
     alert("No hay fotos en ese periodo" + (onlyDone ? " (o ninguna marcada como LISTA)." : "."));
@@ -3398,181 +3319,12 @@ async function exportZipByMode(modo, desde, hasta, itemCodes){
   setTimeout(()=> zipInfo.textContent = "", 1800);
 }
 
-
-/* ===========================
-   📄 Export Express (1 archivo) — mismos filtros (fecha + ítems)
-=========================== */
-function getExportFilters(){
-  const modo = $("modoExport")?.value || "rango";
-  const desde = $("desde")?.value || hoyISO();
-  const hasta = $("hasta")?.value || desde;
-  const onlyDone = !!$("onlyDone")?.checked;
-  const itemCodes = (expItemCodes || []).slice();
-  return { modo, desde, hasta, onlyDone, itemCodes };
-}
-
-function selectForExport({ modo, desde, hasta, onlyDone, itemCodes }){
-  let selected = [];
-  if (modo === "dia"){
-    selected = cache.filter(x => x.fecha === desde);
-  } else if (modo === "mes"){
-    const ym = (desde || hoyISO()).slice(0,7);
-    selected = cache.filter(x => (x.fecha || "").startsWith(ym));
-  } else {
-    const a = ymdToNum(desde);
-    const b = ymdToNum(hasta);
-    const lo = Math.min(a,b), hi = Math.max(a,b);
-    selected = cache.filter(x => {
-      const n = ymdToNum(x.fecha);
-      return n >= lo && n <= hi;
-    });
-  }
-
-  if (onlyDone) selected = selected.filter(x => !!x.done);
-  selected = filterItemsByCodes(selected, itemCodes);
-
-  selected.sort((a,b)=> (a.fecha.localeCompare(b.fecha) || a.createdAt - b.createdAt));
-  return selected;
-}
-
-function downloadBlob(blob, filename){
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function blobToDataURL(blob){
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(blob);
-  });
-}
-
-async function exportExpressDocx(){
-  if (!window.docx){ alert("La librería DOCX no cargó. Abre con internet o en Chrome."); return; }
-
-  const filters = getExportFilters();
-  const selected = selectForExport(filters);
-
-  if (!selected.length){
-    alert("No hay fotos para exportar con esos filtros.");
-    return;
-  }
-
-  const exportLogo = !!$("exportLogo")?.checked;
-  const exportStampDT = !!$("exportStampDT")?.checked;
-  const exportTemplate = !!$("exportTemplate")?.checked;
-  const templateId = getTemplateId();
-
-  const IMG_W_CM = 7.6;
-  const IMG_H_CM = 4.6;
-  const MODULES_PER_PAGE = 4;
-
-  const { start, end } = computeRangeForTitle(filters.modo, filters.desde, filters.hasta);
-  const tituloProyecto = (proyectoInput.value || "").trim();
-  const fileProject = sanitizeName(tituloProyecto) || "Proyecto";
-
-  zipInfo.textContent = "Generando Word (Express)...";
-
-  const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-    selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
-  );
-
-  const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-  downloadBlob(blob, `Logi_Express_${start}_a_${end}_${fileProject}.docx`);
-
-  zipInfo.textContent = "Word descargado ✅";
-  setTimeout(()=> zipInfo.textContent = "", 1800);
-}
-
-async function exportExpressPdf(){
-  const filters = getExportFilters();
-  const selected = selectForExport(filters);
-
-  if (!selected.length){
-    alert("No hay fotos para exportar con esos filtros.");
-    return;
-  }
-
-  const { start, end } = computeRangeForTitle(filters.modo, filters.desde, filters.hasta);
-  const tituloProyecto = (proyectoInput.value || "").trim();
-
-  const cleanCodes = (filters.itemCodes || []).map(normalizeItemCode).filter(Boolean);
-  const codesText = cleanCodes.length ? cleanCodes.join(", ") : "—";
-
-  zipInfo.textContent = `Preparando PDF (imprimir)... 0/${selected.length}`;
-
-  // Construir HTML imprimible (guardar como PDF desde el diálogo de impresión)
-  let photoNo = 1;
-  const groups = groupByDate(selected);
-
-  const parts = [];
-  parts.push(`<!doctype html><html><head><meta charset="utf-8"><title>Logi2 Reporte</title>
-  <style>
-    @page { margin: 14mm; }
-    body { font-family: Arial, Helvetica, sans-serif; color:#111; }
-    h1 { font-size: 16pt; margin:0 0 6mm 0; }
-    .meta { font-size: 10pt; color:#444; margin:0 0 6mm 0; }
-    h2 { font-size: 12pt; margin:8mm 0 3mm 0; }
-    .grid { display:flex; flex-wrap:wrap; gap:6mm; }
-    figure { width: 7.6cm; margin:0; }
-    img { width: 7.6cm; height: 4.6cm; object-fit: cover; border: 1px solid #ddd; border-radius: 6px; }
-    figcaption { font-size: 9pt; line-height: 1.25; margin-top: 2mm; }
-    .capMuted { color:#555; }
-  </style></head><body>`);
-
-  parts.push(`<h1>Registro Fotográfico — ${escapeHtml(tituloProyecto || "Proyecto")}</h1>`);
-  parts.push(`<div class="meta"><div><b>Periodo:</b> ${escapeHtml(start)} a ${escapeHtml(end)}</div><div><b>Ítems:</b> ${escapeHtml(codesText)}</div></div>`);
-
-  for (const [date, items] of groups){
-    parts.push(`<h2>${escapeHtml(formatDateLongES(date))}</h2>`);
-    parts.push(`<div class="grid">`);
-    for (const it of items){
-      const imgSrc = await blobToDataURL(it.blob);
-      const code = normalizeItemCode(it.itemCode);
-      const desc = normalizeItemCode(it.itemDesc) || (catalogMap && catalogMap[code] ? String(catalogMap[code]) : "");
-      const itemText = code ? `${code}${desc ? " - " + desc : ""}` : "SIN ÍTEM";
-      const fotoDesc = normalizeItemCode(it.descripcion);
-
-      const caption = `Foto No. ${photoNo}, ítem: ${escapeHtml(itemText)}<br><span class="capMuted">${escapeHtml(fotoDesc || "")}</span>`;
-      parts.push(`<figure><img src="${imgSrc}" alt="foto"><figcaption>${caption}</figcaption></figure>`);
-
-      photoNo++;
-      const done = photoNo-1;
-      zipInfo.textContent = `Preparando PDF (imprimir)... ${done}/${selected.length}`;
-    }
-    parts.push(`</div>`);
-  }
-
-  parts.push(`<script>
-    window.onload = () => { setTimeout(() => { window.print(); }, 250); };
-  </script></body></html>`);
-
-  const blob = new Blob([parts.join("")], { type:"text/html" });
-  const url = URL.createObjectURL(blob);
-
-  // Abrir e imprimir
-  window.open(url, "_blank");
-
-  zipInfo.textContent = "Abriendo impresión… (elige 'Guardar como PDF')";
-  setTimeout(()=> zipInfo.textContent = "", 3000);
-}
-
-
 $("btnZip").onclick = async () => {
   const modo = $("modoExport").value;
   const desde = $("desde").value || (fechaInput.value || hoyISO());
   let hasta = $("hasta").value || (fechaInput.value || hoyISO());
   if (modo !== "rango") hasta = desde; // Día/Mes ignoran "hasta"
-  await exportZipByMode(modo, desde, hasta, expItemCodes);
+  await exportZipByMode(modo, desde, hasta);
 };
 
 $("btnZipHoy").onclick = async () => {
@@ -3609,23 +3361,6 @@ $("desde").addEventListener("change", () => {
   if (proyectoInput) proyectoInput.value = getProjectDefault();
   syncTemplateUI();
 });
-
-
-// Export Express + filtro de ítems
-if ($("btnExpAddItem")) $("btnExpAddItem").onclick = expAddItemFromInput;
-if ($("btnExpClearItems")) $("btnExpClearItems").onclick = expClearItems;
-
-if ($("expItemInput")){
-  $("expItemInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter"){
-      e.preventDefault();
-      expAddItemFromInput();
-    }
-  });
-}
-
-if ($("btnExpressDocx")) $("btnExpressDocx").onclick = exportExpressDocx;
-if ($("btnExpressPdf")) $("btnExpressPdf").onclick = exportExpressPdf;
 
 $("btnBorrarTodo").onclick = async () => {
   if (!confirm("¿Borrar TODO (todas las fotos y descripciones del dispositivo)?")) return;
