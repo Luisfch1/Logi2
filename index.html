@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7b4</title>
+  <title>Logi2 v7.0.3</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7b4">
-  <link rel="icon" href="favicon.png?v=0.7b4">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7b4">
+  <link rel="manifest" href="manifest.webmanifest?v=7.0.3">
+  <link rel="icon" href="favicon.png?v=7.0.3">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=7.0.3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -362,7 +362,13 @@
     .projectSelect{min-width:220px;max-width:420px}
     .projModalCard{width:min(560px, 96vw)}
 
-  </style>
+  
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#111B2E;border:1px solid rgba(255,255,255,.12);font-size:12px}
+  .chip .x{cursor:pointer;opacity:.9;font-weight:700}
+  .chip .x:hover{opacity:1}
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 
 <body>
@@ -580,7 +586,27 @@
         </label>
       </div>
 
+      
+      <div class="row" style="margin-top:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:2;min-width:260px">
+          <label for="expItemInput">Ítems (opcional, multi)</label>
+          <div class="row" style="gap:8px;align-items:center">
+            <input type="text" id="expItemInput" list="datalistItems" placeholder="Escribe código de ítem y presiona Enter…" style="flex:1;min-width:220px" />
+            <button class="btn btn-secondary smallBtn" id="btnExpAddItem" type="button">Agregar</button>
+            <button class="btn btn-ghost smallBtn" id="btnExpClearItems" type="button">Limpiar</button>
+          </div>
+          <div id="expItemChips" class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap"></div>
+          <div class="muted" style="margin-top:6px">Si no seleccionas ítems, exporta todo lo del rango.</div>
+        </div>
+      </div>
+
       <div class="row" style="margin-top:10px;">
+        <button class="btn btn-secondary" id="btnExpressDocx">📄 Descargar Word (solo)</button>
+        <button class="btn btn-secondary" id="btnExpressPdf">🧾 Descargar PDF (solo)</button>
+        <div class="muted">Express = 1 archivo (mismo formato). ZIP sigue igual.</div>
+      </div>
+
+<div class="row" style="margin-top:10px;">
         <button class="btn btn-primary" id="btnZip">⬇️ Descargar ZIP</button>
         <button class="btn btn-secondary" id="btnZipHoy">⬇️ Exportar HOY</button>
         <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
@@ -743,6 +769,17 @@
 
 <script>
 function $(id){ return document.getElementById(id); }
+
+
+function escapeHtml(s){
+  return String(s||"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
 
 /* ===========================
    🎨 Tema (por dispositivo)
@@ -1397,6 +1434,23 @@ $("itemsInput").onchange = async () => {
 const DB_NAME = "logi2_db_v1";
 const DB_VERSION = 2;
 
+// ⚠️ Guardia anti-mezcla Logi vs Logi2 (evita "desaparecieron mis fotos")
+(function(){
+  try{
+    const path = (location.pathname || "").toLowerCase();
+    const isLogi2 = path.includes("/logi2");
+    const isLogi1 = path.includes("/logi") && !isLogi2;
+    if (isLogi2 && String(DB_NAME||"").startsWith("logi_db")){
+      alert("⚠️ Esta versión está apuntando a la base de LOGI (no LOGI2). No continúes: restaura los archivos correctos de Logi2.");
+    }
+    if (isLogi1 && String(DB_NAME||"").startsWith("logi2_db")){
+      alert("⚠️ Esta versión está apuntando a la base de LOGI2 (no LOGI). No continúes: restaura los archivos correctos de Logi.");
+    }
+  }catch(_){}
+})();
+
+
+
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
 
@@ -1541,6 +1595,8 @@ function refreshCatalogDatalist(){
     opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}` : String(r.item || "");
     dl.appendChild(opt);
   }
+
+  try{ renderExpItemChips(); }catch(_e){}
 }
 
 function refreshCatalogStatus(){
@@ -3310,7 +3366,297 @@ async function exportZipByMode(modo, desde, hasta){
   const a = document.createElement("a");
   a.href = url;
   a.download = packName + ".zip";
+  document.body.
+/* ===========================
+   🔎 Export Express (Word/PDF) con filtros combinables
+=========================== */
+let expItemCodes = [];
+
+function renderExpItemChips(){
+  const box = $("expItemChips");
+  if (!box) return;
+  box.innerHTML = "";
+  for (const code of expItemCodes){
+    const desc = (catalogMap.get(code) || "");
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.title = desc ? `${code} — ${desc}` : code;
+    chip.innerHTML = `<span>${escapeHtml(code)}</span><span class="x" aria-label="Quitar">✕</span>`;
+    chip.querySelector(".x").onclick = () => {
+      expItemCodes = expItemCodes.filter(x => x !== code);
+      renderExpItemChips();
+    };
+    box.appendChild(chip);
+  }
+}
+
+function normalizeItemCode(v){
+  return String(v || "").trim();
+}
+
+function expAddItemFromInput(){
+  const inp = $("expItemInput");
+  if (!inp) return;
+  const code = normalizeItemCode(inp.value);
+  if (!code) return;
+  if (!expItemCodes.includes(code)) expItemCodes.push(code);
+  inp.value = "";
+  renderExpItemChips();
+}
+
+$("btnExpAddItem")?.addEventListener("click", expAddItemFromInput);
+$("btnExpClearItems")?.addEventListener("click", () => { expItemCodes = []; renderExpItemChips(); });
+
+$("expItemInput")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter"){
+    e.preventDefault();
+    expAddItemFromInput();
+  }
+});
+
+// Cuando cambia proyecto, limpiar selección (para evitar confusiones)
+async function onActiveProjectChangedForExpress(){
+  expItemCodes = [];
+  renderExpItemChips();
+}
+const __oldSetActiveProject = window.setActiveProject;
+if (typeof __oldSetActiveProject === "function"){
+  window.setActiveProject = async function(pid){
+    const r = await __oldSetActiveProject(pid);
+    try{ await onActiveProjectChangedForExpress(); }catch(_){}
+    return r;
+  };
+}
+
+function getExpressSelected(){
+  let selected = (cache || []).slice();
+
+  const desde = ($("desde")?.value || "").trim();
+  const hasta = ($("hasta")?.value || "").trim();
+
+  if (desde) selected = selected.filter(x => x.fecha >= desde);
+  if (hasta) selected = selected.filter(x => x.fecha <= hasta);
+
+  if (expItemCodes.length){
+    const set = new Set(expItemCodes.map(normalizeItemCode));
+    selected = selected.filter(x => set.has(normalizeItemCode(x.itemCode)));
+  }
+  return { selected, desde, hasta };
+}
+
+function computeStartEndFromSelection(selected, desde, hasta){
+  let start = desde || "";
+  let end = hasta || "";
+  if (!start || !end){
+    const fechas = selected.map(x => x.fecha).filter(Boolean).sort();
+    if (!start) start = fechas[0] || (fechaInput.value || hoyISO());
+    if (!end)   end   = fechas[fechas.length-1] || start;
+  }
+  return { start, end };
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
   document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function exportExpressDocx(){
+  if (!window.docx){ alert("La librería DOCX no cargó. Abre con internet o en Chrome."); return; }
+
+  const { selected, desde, hasta } = getExpressSelected();
+  if (!selected.length){ alert("No hay fotos para exportar con esos filtros."); return; }
+
+  const useTime = !!$("useTimeNames")?.checked;
+  const exportLogo = !!$("exportLogo")?.checked;
+  const exportStampDT = !!$("exportStampDT")?.checked;
+  const exportTemplate = !!$("exportTemplate")?.checked;
+  const templateId = getTemplateId();
+
+  const { start, end } = computeStartEndFromSelection(selected, desde, hasta);
+  const tituloProyecto = (proyectoInput.value || "").trim();
+
+  $("zipInfo").textContent = `Generando Word (${selected.length} foto(s))...`;
+  const buf = await buildRegistroFotograficoDocxBuffer(
+    selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
+    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
+  );
+
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+
+  let suffix = "";
+  if (expItemCodes.length) suffix = `_ITEMS_${expItemCodes.slice(0,6).join("-")}${expItemCodes.length>6?"-MAS":""}`;
+  downloadBlob(blob, `Logi_Reporte_${start}_a_${end}${suffix}.docx`);
+
+  $("zipInfo").textContent = "Word descargado ✅";
+  setTimeout(()=> $("zipInfo").textContent = "", 1800);
+}
+
+async function blobToDataURL(blob){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(blob);
+  });
+}
+
+function cmToPt(cm){ return cm * 28.3464567; }
+
+async function exportExpressPdf(){
+  const jspdf = (window.jspdf || {});
+  const jsPDF = jspdf.jsPDF;
+  if (!jsPDF){ alert("La librería PDF no cargó. Abre con internet una vez (para cachearla) y reintenta."); return; }
+
+  const { selected, desde, hasta } = getExpressSelected();
+  if (!selected.length){ alert("No hay fotos para exportar con esos filtros."); return; }
+
+  const exportLogo = !!$("exportLogo")?.checked;
+  const exportStampDT = !!$("exportStampDT")?.checked;
+  const exportTemplate = !!$("exportTemplate")?.checked;
+  const templateId = getTemplateId();
+
+  const { start, end } = computeStartEndFromSelection(selected, desde, hasta);
+  const tituloProyecto = (proyectoInput.value || "").trim();
+
+  $("zipInfo").textContent = `Generando PDF (${selected.length} foto(s))...`;
+
+  const pdf = new jsPDF({ unit:"pt", format:"a4" });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 32;
+  const gapX = 16;
+  const gapY = 18;
+
+  // Header simple (Formato Logi)
+  const headerH = 68;
+  pdf.setFillColor(11,18,32);
+  pdf.rect(0,0,pageW,headerH,"F");
+  pdf.setFillColor(59,130,246);
+  pdf.rect(0,headerH-3,pageW,3,"F");
+
+  // Logo en header (si existe)
+  try{
+    const logoAb = await loadLogiLogoArrayBuffer();
+    if (logoAb){
+      const logoBlob = new Blob([logoAb], { type:"image/png" });
+      const logoUrl = await blobToDataURL(logoBlob);
+      pdf.addImage(logoUrl, "PNG", margin, 14, 40, 40);
+    }
+  }catch(_){}
+
+  pdf.setTextColor(255,255,255);
+  pdf.setFont("helvetica","bold");
+  pdf.setFontSize(14);
+  pdf.text("Registro fotográfico", margin+54, 32);
+
+  pdf.setFont("helvetica","normal");
+  pdf.setFontSize(10);
+  const projLine = tituloProyecto ? `Proyecto: ${tituloProyecto}` : "Proyecto: —";
+  const rangeLine = `Rango: ${start} a ${end}`;
+  pdf.text(projLine, margin+54, 48);
+  pdf.text(rangeLine, margin+54, 62);
+
+  // Reset text for body
+  pdf.setTextColor(0,0,0);
+
+  const bodyTop = headerH + 18;
+  const cellW = (pageW - margin*2 - gapX)/2;
+  const imgW = Math.min(cellW, cmToPt(IMG_W_CM));
+  const imgH = cmToPt(IMG_H_CM);
+  const captionH = 34;
+
+  const perPage = 4;
+
+  for (let i=0;i<selected.length;i++){
+    if (i>0 && i%perPage===0){
+      pdf.addPage();
+      // repetir header en cada página
+      pdf.setFillColor(11,18,32);
+      pdf.rect(0,0,pageW,headerH,"F");
+      pdf.setFillColor(59,130,246);
+      pdf.rect(0,headerH-3,pageW,3,"F");
+      try{
+        const logoAb = await loadLogiLogoArrayBuffer();
+        if (logoAb){
+          const logoBlob = new Blob([logoAb], { type:"image/png" });
+          const logoUrl = await blobToDataURL(logoBlob);
+          pdf.addImage(logoUrl, "PNG", margin, 14, 40, 40);
+        }
+      }catch(_){}
+      pdf.setTextColor(255,255,255);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(14);
+      pdf.text("Registro fotográfico", margin+54, 32);
+      pdf.setFont("helvetica","normal");
+      pdf.setFontSize(10);
+      pdf.text(projLine, margin+54, 48);
+      pdf.text(rangeLine, margin+54, 62);
+      pdf.setTextColor(0,0,0);
+    }
+
+    const it = selected[i];
+    const pos = i % perPage;
+    const col = pos % 2;
+    const row = Math.floor(pos / 2);
+
+    const x0 = margin + col*(cellW + gapX);
+    const y0 = bodyTop + row*(captionH + imgH + gapY);
+
+    const meta = getTemplateMeta(it);
+    const caption = buildDocxCaption((i+1), meta, templateId);
+
+    pdf.setFont("helvetica","bold");
+    pdf.setFontSize(9);
+    const lines = pdf.splitTextToSize(caption, cellW);
+    const maxLines = 3;
+    const clipped = lines.length > maxLines ? (lines.slice(0,maxLines-1).concat([lines[maxLines-1].slice(0,70)+"…"])) : lines;
+    let ty = y0 + 10;
+    for (const ln of clipped){
+      pdf.text(ln, x0, ty);
+      ty += 11;
+    }
+
+    // Imagen con overlays (si aplica)
+    let outBlob = it.blob;
+    if (exportLogo || exportStampDT || (exportTemplate && (templateId !== "classic") && (templateId !== "clean"))){
+      outBlob = await applyExportOverlaysToBlob(it.blob, {
+        addLogo: exportLogo && !!logoBitmap,
+        addStamp: exportStampDT,
+        stampText: exportStampDT ? formatStampDateTime(it) : "",
+        avoidDoubleLogo: exportLogo && !!it.hasLogo,
+        addTemplate: exportTemplate && (templateId !== "classic") && (templateId !== "clean"),
+        templateLines: (exportTemplate && (templateId !== "classic") && (templateId !== "clean")) ? buildTemplateLines(meta, templateId) : [],
+        logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
+      });
+    }
+
+    const dataUrl = await blobToDataURL(outBlob);
+    const xi = x0 + (cellW - imgW)/2;
+    const yi = y0 + captionH;
+    pdf.addImage(dataUrl, "JPEG", xi, yi, imgW, imgH);
+  }
+
+  let suffix = "";
+  if (expItemCodes.length) suffix = `_ITEMS_${expItemCodes.slice(0,6).join("-")}${expItemCodes.length>6?"-MAS":""}`;
+
+  const pdfBlob = pdf.output("blob");
+  downloadBlob(pdfBlob, `Logi_Reporte_${start}_a_${end}${suffix}.pdf`);
+
+  $("zipInfo").textContent = "PDF descargado ✅";
+  setTimeout(()=> $("zipInfo").textContent = "", 1800);
+}
+
+$("btnExpressDocx")?.addEventListener("click", () => exportExpressDocx());
+$("btnExpressPdf")?.addEventListener("click", () => exportExpressPdf());
+
+
+appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
