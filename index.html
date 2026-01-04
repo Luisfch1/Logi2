@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2p</title>
+  <title>Logi2 v0.8.0</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2m">
-  <link rel="icon" href="favicon.png?v=0.7.2s2m">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2m">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.0">
+  <link rel="icon" href="favicon.png?v=0.8.0">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -382,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2p · Logi2</span>
+          <span class="pill">v0.8.0 · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -526,6 +526,15 @@
           <label for="hasta">Hasta</label>
           <input type="date" id="hasta" />
         </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <label for="exportItem">Filtrar por ítem (opcional)</label>
+          <input type="text" id="exportItem" list="datalistItems" placeholder="Código o busca en el listado…" />
+          <div class="muted" id="exportItemHint" style="margin-top:6px">—</div>
+        </div>
+        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro">✖</button>
       </div>
 
       <div class="row" style="margin-top:10px;">
@@ -1539,6 +1548,7 @@ async function loadCatalogForActiveProject(){
   rebuildCatalogMap();
   refreshCatalogDatalist();
   refreshCatalogStatus();
+  updateExportItemHint();
 }
 
 function refreshCatalogDatalist(){
@@ -1561,6 +1571,17 @@ function refreshCatalogStatus(){
   const pname = p ? p.name : "—";
   if (lab) lab.textContent = `Listado por proyecto: ${pname}`;
   if (st) st.textContent = (catalog && catalog.length) ? `Ítems cargados: ${catalog.length}` : "Sin ítems cargados (aún).";
+
+function getExportItemCode(){
+  return ($("exportItem")?.value || "").trim();
+}
+
+function updateExportItemHint(){
+  const hintEl = $("exportItemHint");
+  if (!hintEl) return;
+  const code = getExportItemCode();
+  hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
+}
 }
 
 function normalizeHeader(s){
@@ -3410,6 +3431,9 @@ async function exportZipByMode(modo, desde, hasta){
     });
   }
 
+  const itemFilter = getExportItemCode();
+  if (itemFilter) selected = selected.filter(x => String(x.itemCode || "").trim() === itemFilter);
+
   if (onlyDone) selected = selected.filter(x => !!x.done);
 
   if (!selected.length){
@@ -3420,10 +3444,12 @@ async function exportZipByMode(modo, desde, hasta){
   selected.sort((a,b)=> (a.fecha.localeCompare(b.fecha) || a.createdAt - b.createdAt));
 
   const proyecto = sanitizeName(proyectoInput.value);
-  const packName =
+  let packName =
     (modo==="dia") ? `${desde}_${proyecto}` :
     (modo==="mes") ? `${(desde||hoyISO()).slice(0,7)}_${proyecto}` :
     `${desde}_a_${hasta}_${proyecto}`;
+  const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+  if (itemTag) packName = packName + itemTag;
 
   const zip = new JSZip();
   const root = zip.folder(packName);
@@ -3497,7 +3523,8 @@ async function exportZipByMode(modo, desde, hasta){
     { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
   );
 
-  root.file(`Logi_Reporte_${start}_a_${end}.docx`, docxBuffer);
+  const itemTag2 = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+  root.file(`Logi_Reporte_${start}_a_${end}${itemTag2}.docx`, docxBuffer);
 
   const outZipBlob = await zip.generateAsync({ type:"blob" }, (meta) => {
     zipInfo.textContent = `Comprimiendo... ${Math.floor(meta.percent)}%`;
@@ -3959,7 +3986,10 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       selected = cache.filter(x => x.fecha >= desde && x.fecha <= hasta);
     }
 
-    if (onlyDone) selected = selected.filter(x => !!x.done);
+    const itemFilter = getExportItemCode();
+  if (itemFilter) selected = selected.filter(x => String(x.itemCode || "").trim() === itemFilter);
+
+  if (onlyDone) selected = selected.filter(x => !!x.done);
 
     if (!selected.length) {
       alert("No hay fotos en ese rango / filtro.");
@@ -3998,7 +4028,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       );
 
       const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-      await shareBlobAsFile(blob, `Logi_Reporte_${start}_a_${end}.docx`, blob.type, "Logi - Word");
+      const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+      await shareBlobAsFile(blob, `Logi_Reporte_${start}_a_${end}${itemTag}.docx`, blob.type, "Logi - Word");
       $("zipInfo").textContent = "Word listo ✅";
       setTimeout(()=> $("zipInfo").textContent = "", 1800);
       return;
@@ -4015,7 +4046,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
 
     if (!pdfBlob) return;
 
-    await shareBlobAsFile(pdfBlob, `Logi_Reporte_${start}_a_${end}.pdf`, "application/pdf", "Logi - PDF");
+    const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+    await shareBlobAsFile(pdfBlob, `Logi_Reporte_${start}_a_${end}${itemTag}.pdf`, "application/pdf", "Logi - PDF");
     $("zipInfo").textContent = "PDF listo ✅";
     setTimeout(()=> $("zipInfo").textContent = "", 1800);
 
@@ -4167,6 +4199,18 @@ function render(){
   $("hasta").value = today;
 
   updateExportUI();
+
+  // Export: filtro por ítem (opcional)
+  if ($("exportItem")) {
+    $("exportItem").addEventListener("input", updateExportItemHint);
+  }
+  if ($("btnClearExportItem")) {
+    $("btnClearExportItem").onclick = () => {
+      if ($("exportItem")) $("exportItem").value = "";
+      updateExportItemHint();
+    };
+  }
+  updateExportItemHint();
 
   // Multi-proyecto (Logi2)
   ensureProjects();
