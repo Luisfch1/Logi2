@@ -1,0 +1,6 @@
+App funcional. 
+Multi proyectos. 
+Selector de ítems. 
+Export express pdf y Word. 
+Export zip con Word y carpeta por días. 
+Selector para export por ítem y rango de tiempo.

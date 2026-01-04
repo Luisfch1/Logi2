@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.0</title>
+  <title>Logi2 v0.8.0b</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.0">
@@ -382,8 +382,8 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.8.0 · Logi2</span>
-          <div class="muted">Registro fotográfico offline · Exporta PDF / Word / ZIP</div>
+          <span class="pill">v0.8.0b · Logi2</span>
+          <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
           <div id="status" class="status"></div>
@@ -504,7 +504,7 @@
     <div class="card">
       <div class="row" style="justify-content:space-between;">
         <span class="pill">exportar</span>
-        <div class="muted"></div>
+        <div class="muted">ZIP incluye fotos+txt+csv+xls+DOCX (reporte).</div>
       </div>
 
       <div class="row" style="margin-top:10px;">
@@ -526,6 +526,15 @@
           <label for="hasta">Hasta</label>
           <input type="date" id="hasta" />
         </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <label for="exportItem">Filtrar por ítem (opcional)</label>
+          <input type="text" id="exportItem" list="datalistItems" placeholder="Código o busca en el listado…" />
+          <div class="muted" id="exportItemHint" style="margin-top:6px">—</div>
+        </div>
+        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro">✖</button>
       </div>
 
       <div class="row" style="margin-top:10px;">
@@ -581,18 +590,20 @@
         </label>
       </div>
 
-      <div class="row" style="margin-top:8px;align-items:flex-end;gap:10px;flex-wrap:wrap">
-        <div style="min-width:170px">
-          <label for="expressFormat">Formato</label>
-          <select id="expressFormat" style="min-width:170px">
-            <option value="pdf">PDF</option>
-            <option value="docx">Word (.docx)</option>
-            <option value="zip">ZIP (completo)</option>
-          </select>
-        </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn btn-primary" id="btnZip">⬇️ Descargar ZIP</button>
+        <button class="btn btn-secondary" id="btnZipHoy">⬇️ Exportar HOY</button>
+        <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
+        <div id="zipInfo" class="muted"></div>
+      </div>
 
+      <div class="row" style="margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="muted">Express (sin ZIP):</span>
+        <select id="expressFormat" style="min-width:160px">
+          <option value="docx">Word (.docx)</option>
+          <option value="pdf">PDF</option>
+        </select>
         <button class="btn btn-primary" id="btnExpress">⚡ Exportar</button>
-        <div id="zipInfo" class="muted" style="margin-left:auto"></div>
       </div>
 
     </div>
@@ -675,16 +686,6 @@
         </div>
         <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
         <div class="muted" id="storageHint" style="margin-top:-2px">—</div>
-        <div class="sheetRow" style="border:1px solid var(--border);border-radius:14px;padding:12px;margin-top:12px">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle" style="color:#b00020">Zona de riesgo</div>
-            <div class="muted">Borra toda la información local del dispositivo (fotos y descripciones).</div>
-          </div>
-          <div class="row" style="justify-content:flex-end">
-            <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar TODO">🗑️ Borrar todo</button>
-          </div>
-        </div>
-
 </div>
     </div>
   </div>
@@ -1547,6 +1548,7 @@ async function loadCatalogForActiveProject(){
   rebuildCatalogMap();
   refreshCatalogDatalist();
   refreshCatalogStatus();
+  updateExportItemHint();
 }
 
 function refreshCatalogDatalist(){
@@ -1569,6 +1571,18 @@ function refreshCatalogStatus(){
   const pname = p ? p.name : "—";
   if (lab) lab.textContent = `Listado por proyecto: ${pname}`;
   if (st) st.textContent = (catalog && catalog.length) ? `Ítems cargados: ${catalog.length}` : "Sin ítems cargados (aún).";
+
+}
+
+function getExportItemCode(){
+  return ($("exportItem")?.value || "").trim();
+}
+
+function updateExportItemHint(){
+  const hintEl = $("exportItemHint");
+  if (!hintEl) return;
+  const code = getExportItemCode();
+  hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
 }
 
 function normalizeHeader(s){
@@ -2935,40 +2949,91 @@ function _wrapCountLines(text, fontPx, maxWidthPx){
   if (!clean) return 0;
 
   const ctx = _getMeasureCtx(fontPx);
-  const words = clean.split(" ");
-  const lines = [];
-  let line = "";
+  // para medir el prefijo en negrita
+  if (!_measureCanvas) _measureCanvas = document.createElement("canvas");
+  const ctxB = _measureCanvas.getContext("2d");
+  ctxB.font = `bold ${fontPx}px Calibri, Arial, sans-serif`;
 
-  const fits = (s) => ctx.measureText(s).width <= maxWidthPx;
+  const fits = (s, w) => ctx.measureText(s).width <= w;
 
-  for (let w of words){
-    // rompe tokens gigantes sin espacios
-    if (!fits(w)){
-      // si ya hay algo en la línea, la cerramos
-      if (line) { lines.push(line); line = ""; }
-      let chunk = "";
-      for (const ch of w){
-        const t = chunk + ch;
-        if (fits(t)) chunk = t;
-        else {
-          if (chunk) lines.push(chunk);
-          chunk = ch;
-        }
+  // Rompe un token sin espacios en trozos que quepan en 'wPx'
+  const splitToken = (tok, wPx) => {
+    const out = [];
+    let chunk = "";
+    for (const ch of tok){
+      const t = chunk + ch;
+      if (fits(t, wPx) || !chunk){
+        chunk = t;
+      } else {
+        out.push(chunk);
+        chunk = ch;
       }
-      if (chunk) lines.push(chunk);
-      continue;
     }
+    if (chunk) out.push(chunk);
+    return out;
+  };
 
-    const test = line ? (line + " " + w) : w;
-    if (fits(test)){
-      line = test;
-    }else{
-      if (line) lines.push(line);
-      line = w;
+  // Consume tokens para armar UNA línea con límite 'wPx'. Devuelve { line, restTokens }
+  const takeLine = (tokens, wPx) => {
+    let line = "";
+    let i = 0;
+    while (i < tokens.length){
+      let tok = tokens[i];
+
+      // token gigante al inicio -> partirlo
+      if (!line && !fits(tok, wPx)){
+        const parts = splitToken(tok, wPx);
+        line = parts[0] || "";
+        const rest = parts.slice(1).concat(tokens.slice(i+1));
+        return { line, restTokens: rest };
+      }
+
+      const test = line ? (line + " " + tok) : tok;
+      if (fits(test, wPx)){
+        line = test;
+        i++;
+      } else {
+        break;
+      }
     }
+    return { line, restTokens: tokens.slice(i) };
+  };
+
+  // Wrap de tokens en múltiples líneas con límite 'wPx'
+  const wrapTokens = (tokens, wPx) => {
+    const lines = [];
+    let rest = tokens.slice();
+    while (rest.length){
+      const r = takeLine(rest, wPx);
+      if (r.line) lines.push(r.line);
+      rest = r.restTokens;
+      // safety: evita loops raros
+      if (!r.line && rest.length) { lines.push(rest.shift()); }
+    }
+    return lines;
+  };
+
+  // Detecta prefijo real (como en el DOCX / PDF)
+  const m = clean.match(/^(Foto No\. \d+,|FOTO \d+\.)\s*/);
+  if (m){
+    const prefix = m[1];
+    const rest = clean.slice(m[0].length).trimStart();
+
+    const spaceW = ctx.measureText(" ").width;
+    const prefixW = ctxB.measureText(prefix).width;
+    const firstMax = Math.max(20, maxWidthPx - prefixW - spaceW);
+
+    const restTokens = rest ? rest.split(" ") : [];
+    const first = takeLine(restTokens, firstMax);
+    const other = wrapTokens(first.restTokens, maxWidthPx);
+
+    // 1 línea inicial siempre existe por el prefijo
+    return 1 + other.length;
   }
-  if (line) lines.push(line);
-  return lines.length;
+
+  // Sin prefijo: wrap normal
+  const tokens = clean.split(" ");
+  return wrapTokens(tokens, maxWidthPx).length;
 }
 
 function _fitCaptionFontPt(text){
@@ -3268,10 +3333,7 @@ async function buildRegistroFotograficoDocxBuffer(
       borders: gridBorders,
       rows
     }));
-    if (idx !== pages.length - 1){
-      children.push(new Paragraph({ children: [new PageBreak()] }));
-    }
-  });
+});
 
   const doc = new Document({
     ...docDefaultStyles,
@@ -3370,6 +3432,9 @@ async function exportZipByMode(modo, desde, hasta){
     });
   }
 
+  const itemFilter = getExportItemCode();
+  if (itemFilter) selected = selected.filter(x => String(x.itemCode || "").trim() === itemFilter);
+
   if (onlyDone) selected = selected.filter(x => !!x.done);
 
   if (!selected.length){
@@ -3380,10 +3445,12 @@ async function exportZipByMode(modo, desde, hasta){
   selected.sort((a,b)=> (a.fecha.localeCompare(b.fecha) || a.createdAt - b.createdAt));
 
   const proyecto = sanitizeName(proyectoInput.value);
-  const packName =
+  let packName =
     (modo==="dia") ? `${desde}_${proyecto}` :
     (modo==="mes") ? `${(desde||hoyISO()).slice(0,7)}_${proyecto}` :
     `${desde}_a_${hasta}_${proyecto}`;
+  const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+  if (itemTag) packName = packName + itemTag;
 
   const zip = new JSZip();
   const root = zip.folder(packName);
@@ -3457,7 +3524,8 @@ async function exportZipByMode(modo, desde, hasta){
     { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
   );
 
-  root.file(`Logi_Reporte_${start}_a_${end}.docx`, docxBuffer);
+  const itemTag2 = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+  root.file(`Logi_Reporte_${start}_a_${end}${itemTag2}.docx`, docxBuffer);
 
   const outZipBlob = await zip.generateAsync({ type:"blob" }, (meta) => {
     zipInfo.textContent = `Comprimiendo... ${Math.floor(meta.percent)}%`;
@@ -3476,8 +3544,7 @@ async function exportZipByMode(modo, desde, hasta){
   setTimeout(()=> zipInfo.textContent = "", 1800);
 }
 
-const btnZipEl = $("btnZip");
-if (btnZipEl) btnZipEl.onclick = async () => {
+$("btnZip").onclick = async () => {
   const modo = $("modoExport").value;
   const desde = $("desde").value || (fechaInput.value || hoyISO());
   let hasta = $("hasta").value || (fechaInput.value || hoyISO());
@@ -3485,8 +3552,7 @@ if (btnZipEl) btnZipEl.onclick = async () => {
   await exportZipByMode(modo, desde, hasta);
 };
 
-const btnZipHoyEl = $("btnZipHoy");
-if (btnZipHoyEl) btnZipHoyEl.onclick = async () => {
+$("btnZipHoy").onclick = async () => {
   const hoy = hoyISO();
   await exportZipByMode("dia", hoy, hoy);
 };
@@ -3656,130 +3722,95 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
   }
 
   function drawCaption(page, captionText, x, yTop, w){
-    // Ajuste automático de tamaño de fuente para que el texto NO se salga del recuadro
-    // y se mantenga el formato (máx 4 líneas como en el DOCX).
+    // Ajuste automático + partición de tokens largos (para que NUNCA se salga del recuadro)
     const maxW = w - pad*2;
     const boxH = captionH - pad*2;
 
+    // Detecta prefijo real
     const prefixNew = `Foto No. ${photoN-1},`;
     const prefixOld = `FOTO ${photoN-1}.`;
-
-    // Detecta prefijo real
     let prefix = "";
     if (captionText.startsWith(prefixNew)) prefix = prefixNew;
     else if (captionText.startsWith(prefixOld)) prefix = prefixOld;
 
     const restRaw = prefix ? captionText.slice(prefix.length).trimStart() : captionText;
 
-    function explodeLongWord(word, fnt, size, maxWidth){
-      // Rompe tokens largos (sin espacios) para que no revienten el ancho
-      if (!word) return [];
-      if (fnt.widthOfTextAtSize(word, size) <= maxWidth) return [word];
+    const splitWords = (s) => (String(s||"").replace(/\s+/g," ").trim().split(" ").filter(Boolean));
+
+    const splitTokenByWidth = (tok, fnt, size, wLim) => {
       const parts = [];
-      let cur = "";
-      for (const ch of word){
-        const test = cur + ch;
-        if (fnt.widthOfTextAtSize(test, size) <= maxWidth || !cur){
-          cur = test;
+      let chunk = "";
+      for (const ch of tok){
+        const t = chunk + ch;
+        if (fnt.widthOfTextAtSize(t, size) <= wLim || !chunk){
+          chunk = t;
         } else {
-          parts.push(cur);
-          cur = ch;
+          parts.push(chunk);
+          chunk = ch;
         }
       }
-      if (cur) parts.push(cur);
+      if (chunk) parts.push(chunk);
       return parts;
-    }
+    };
 
-    function splitWordsSafe(text, fnt, size, maxWidth){
-      const base = (text || "").trim().split(/\s+/).filter(Boolean);
-      const out = [];
-      for (const w0 of base){
-        const parts = explodeLongWord(w0, fnt, size, maxWidth);
-        for (const p of parts) out.push(p);
-      }
-      return out;
-    }
+    const takeLine = (tokens, fnt, size, wLim) => {
+      let line = "";
+      let i = 0;
+      while (i < tokens.length){
+        let tok = tokens[i];
 
-    function layoutAtSize(size){
-      const lineH = Math.ceil(size * 1.15);
+        // token gigante al inicio -> partirlo
+        if (!line && fnt.widthOfTextAtSize(tok, size) > wLim){
+          const parts = splitTokenByWidth(tok, fnt, size, wLim);
+          line = parts[0] || "";
+          const rest = parts.slice(1).concat(tokens.slice(i+1));
+          return { line, restTokens: rest };
+        }
 
-      const prefixW = prefix ? fontB.widthOfTextAtSize(prefix, size) : 0;
-      const spaceW  = prefix ? font.widthOfTextAtSize(" ", size) : 0;
-
-      const firstMax = prefix ? Math.max(20, maxW - prefixW - spaceW) : maxW;
-
-      const restWords = splitWordsSafe(restRaw, font, size, maxW);
-
-      // Primera línea del resto (después del prefijo)
-      let firstRest = "";
-      let consumed = 0;
-      for (let i=0;i<restWords.length;i++){
-        const w0 = restWords[i];
-        const test = firstRest ? (firstRest + " " + w0) : w0;
-        if (font.widthOfTextAtSize(test, size) <= firstMax){
-          firstRest = test;
-          consumed = i+1;
+        const test = line ? (line + " " + tok) : tok;
+        if (fnt.widthOfTextAtSize(test, size) <= wLim){
+          line = test;
+          i++;
         } else {
           break;
         }
       }
+      return { line, restTokens: tokens.slice(i) };
+    };
 
-      const remainingWords = restWords.slice(consumed);
-      // Resto en máximo 3 líneas adicionales (total 4)
-      const otherLines = [];
-      let line = "";
-      for (const w0 of remainingWords){
-        const test = line ? (line + " " + w0) : w0;
-        if (font.widthOfTextAtSize(test, size) <= maxW){
-          line = test;
-        } else {
-          if (line) otherLines.push(line);
-          line = w0;
-          if (otherLines.length >= 3) break;
-        }
+    const wrapTokens = (tokens, fnt, size, wLim, maxLines) => {
+      const lines = [];
+      let rest = tokens.slice();
+      while (rest.length && (!maxLines || lines.length < maxLines)){
+        const r = takeLine(rest, fnt, size, wLim);
+        if (r.line) lines.push(r.line);
+        rest = r.restTokens;
+        if (!r.line && rest.length) { lines.push(rest.shift()); }
       }
-      if (otherLines.length < 3 && line) otherLines.push(line);
+      return lines;
+    };
 
-      // Si hay más texto, pone ellipsis en la última línea si cabe
-      const didTruncate = (remainingWords.length > 0) && (
-        otherLines.length === 3 && (
-          // aún quedaron palabras por ubicar
-          (() => {
-            // reconstruye cuántas palabras entraron en otherLines
-            const used = otherLines.join(" ").split(/\s+/).filter(Boolean).length;
-            return used < remainingWords.length;
-          })()
-        )
-      );
+    const layoutAtSize = (size) => {
+      const lineH = size + 1.5; // ~11 cuando size=9.5
+      const spaceW = prefix ? font.widthOfTextAtSize(" ", size) : 0;
+      const prefixW = prefix ? fontB.widthOfTextAtSize(prefix, size) : 0;
+      const firstMax = prefix ? Math.max(20, maxW - prefixW - spaceW) : maxW;
 
-      if (didTruncate && otherLines.length){
-        const last = otherLines[otherLines.length-1];
-        const ell = last.endsWith("…") ? last : (last + "…");
-        if (font.widthOfTextAtSize(ell, size) <= maxW){
-          otherLines[otherLines.length-1] = ell;
-        } else {
-          // recorta hasta que quepa con …
-          let s = last;
-          while (s.length > 1 && font.widthOfTextAtSize(s + "…", size) > maxW){
-            s = s.slice(0, -1);
-          }
-          otherLines[otherLines.length-1] = (s + "…");
-        }
-      }
+      const restTokens = splitWords(restRaw);
+      // 1ra línea (resto) con ancho reducido si hay prefijo
+      const first = takeLine(restTokens, font, size, firstMax);
+      const otherLines = wrapTokens(first.restTokens, font, size, maxW, 3); // total 4 líneas
 
-      const linesCount = 1 + otherLines.length;
-      const reqH = linesCount * lineH;
+      const reqH = lineH * (1 + otherLines.length);
+      return { size, lineH, spaceW, prefixW, firstRest: first.line || "", otherLines, reqH };
+    };
 
-      return { size, lineH, prefixW, firstRest, otherLines, reqH };
-    }
-
-    // Busca el tamaño máximo que quepa (binario)
-    let hi = 9.5, lo = 6.5;
+    // Búsqueda binaria del tamaño máximo que quepa en altura (y respete 4 líneas)
+    let lo = _CAPTION_FONT_PT_MIN;
+    let hi = _CAPTION_FONT_PT_BASE;
     let best = layoutAtSize(lo);
 
-    // Si incluso el mínimo no cabe, igual lo usamos y luego recortamos visualmente (no se desborda).
-    // (Por cómo limitamos a 4 líneas, normalmente sí cabe.)
-    for (let i=0;i<10;i++){
+    for (let i=0; i<10; i++){
       const mid = (lo + hi) / 2;
       const L = layoutAtSize(mid);
       if (L.reqH <= boxH){
@@ -3790,29 +3821,24 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
       }
     }
 
-    const size = best.size;
-    const lineH = best.lineH;
-    const prefixW = best.prefixW;
-    const firstRest = best.firstRest;
-    const otherLines = best.otherLines;
+    const size = Math.max(_CAPTION_FONT_PT_MIN, Math.min(_CAPTION_FONT_PT_BASE, Math.round(best.size*10)/10));
+    const L = layoutAtSize(size);
 
-    // Coordenadas
-    let y = yTop - pad - Math.ceil(size * 1.05);
+    // Dibujo
+    let y = yTop - pad - (size + 0.5);
 
-    // Primera línea: prefijo bold + primera parte normal
     if (prefix){
       page.drawText(prefix, { x: x + pad, y, size, font: fontB, color: rgb(0,0,0) });
-      if (firstRest) page.drawText(" " + firstRest, { x: x + pad + prefixW, y, size, font, color: rgb(0,0,0) });
+      const xRest = x + pad + L.prefixW + L.spaceW;
+      if (L.firstRest) page.drawText(L.firstRest, { x: xRest, y, size, font, color: rgb(0,0,0) });
     } else {
-      const line0 = firstRest || restRaw;
-      if (line0) page.drawText(line0, { x: x + pad, y, size, font, color: rgb(0,0,0) });
+      if (L.firstRest) page.drawText(L.firstRest, { x: x + pad, y, size, font, color: rgb(0,0,0) });
     }
 
-    // Líneas siguientes
-    y -= lineH;
-    for (const l of otherLines){
-      page.drawText(l, { x: x + pad, y, size, font, color: rgb(0,0,0) });
-      y -= lineH;
+    y -= L.lineH;
+    for (const line of L.otherLines){
+      page.drawText(line, { x: x + pad, y, size, font, color: rgb(0,0,0) });
+      y -= L.lineH;
     }
   }
 
@@ -3961,7 +3987,10 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       selected = cache.filter(x => x.fecha >= desde && x.fecha <= hasta);
     }
 
-    if (onlyDone) selected = selected.filter(x => !!x.done);
+    const itemFilter = getExportItemCode();
+  if (itemFilter) selected = selected.filter(x => String(x.itemCode || "").trim() === itemFilter);
+
+  if (onlyDone) selected = selected.filter(x => !!x.done);
 
     if (!selected.length) {
       alert("No hay fotos en ese rango / filtro.");
@@ -4000,7 +4029,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       );
 
       const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-      await shareBlobAsFile(blob, `Logi_Reporte_${start}_a_${end}.docx`, blob.type, "Logi - Word");
+      const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+      await shareBlobAsFile(blob, `Logi_Reporte_${start}_a_${end}${itemTag}.docx`, blob.type, "Logi - Word");
       $("zipInfo").textContent = "Word listo ✅";
       setTimeout(()=> $("zipInfo").textContent = "", 1800);
       return;
@@ -4017,7 +4047,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
 
     if (!pdfBlob) return;
 
-    await shareBlobAsFile(pdfBlob, `Logi_Reporte_${start}_a_${end}.pdf`, "application/pdf", "Logi - PDF");
+    const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+    await shareBlobAsFile(pdfBlob, `Logi_Reporte_${start}_a_${end}${itemTag}.pdf`, "application/pdf", "Logi - PDF");
     $("zipInfo").textContent = "PDF listo ✅";
     setTimeout(()=> $("zipInfo").textContent = "", 1800);
 
@@ -4036,11 +4067,6 @@ if ($("btnExpress")) {
     const desde = $("desde").value || (fechaInput.value || hoyISO());
     let hasta = $("hasta").value || (fechaInput.value || hoyISO());
     if (modo !== "rango") hasta = desde;
-
-    if (fmt === "zip") {
-      await exportZipByMode(modo, desde, hasta);
-      return;
-    }
     await exportExpressByMode(modo, desde, hasta, fmt);
   };
 }
@@ -4174,6 +4200,18 @@ function render(){
   $("hasta").value = today;
 
   updateExportUI();
+
+  // Export: filtro por ítem (opcional)
+  if ($("exportItem")) {
+    $("exportItem").addEventListener("input", updateExportItemHint);
+  }
+  if ($("btnClearExportItem")) {
+    $("btnClearExportItem").onclick = () => {
+      if ($("exportItem")) $("exportItem").value = "";
+      updateExportItemHint();
+    };
+  }
+  updateExportItemHint();
 
   // Multi-proyecto (Logi2)
   ensureProjects();
