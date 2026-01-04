@@ -371,7 +371,7 @@
     <div class="appbar">
       <div class="appbarLeft">
         <div class="appTitle">Logi</div>
-        <div class="appSubtitle">Registro visual · Guardado local · ZIP (DOCX)</div>
+        <div class="appSubtitle">Registro visual · Guardado local · ZIP (DOCX/PDF)</div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
         <span class="icon">⚙️</span>
@@ -382,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2d · Logi2</span>
+          <span class="pill">v0.7.2s2e · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -3403,7 +3403,7 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
     return null;
   }
 
-  const { PDFDocument, StandardFonts } = PDFLib;
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -3415,98 +3415,156 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
 
   const maxW = pageW - margin * 2;
 
-  let i = 0;
-  for (const it of selected) {
-    i++;
+  // Grilla 2x2 (4 fotos por página), similar al DOCX
+  const MODULES_PER_PAGE = 4;
+  const colGap = 12;
+  const rowGap = 14;
+  const headerH = 78;
+  const footerH = 26;
+  const captionH = 56;
+  const cellW = (maxW - colGap) / 2;
 
-    // aplica overlays si están activados (logo/sello/plantilla)
-    let imgBlob = it.blob;
+  const usableH = pageH - margin * 2 - headerH - footerH;
+  const rowH = (usableH - rowGap) / 2;
+  const imgBoxH = Math.max(140, rowH - captionH); // evita cajas demasiado pequeñas
+  const pad = 6;
 
-    const wantsTemplate = !!(opts.applyTemplate && (opts.templateId !== "classic") && (opts.templateId !== "clean"));
+  // color de borde (parecido al DOCX)
+  const GRID_COL = rgb(47/255, 111/255, 237/255);
 
-    if (opts.applyLogo || opts.applyStamp || wantsTemplate) {
-      imgBlob = await applyExportOverlaysToBlob(it.blob, {
-        addLogo: opts.applyLogo && !!logoBitmap,
-        addStamp: opts.applyStamp,
-        stampText: opts.applyStamp ? formatStampDateTime(it) : "",
-        avoidDoubleLogo: opts.applyLogo && !!it.hasLogo,
-        addTemplate: wantsTemplate,
-        templateLines: wantsTemplate ? buildTemplateLines(getTemplateMeta(it), opts.templateId) : [],
-        logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
-      });
-    }
+  // Normalización (misma relación que DOCX por defecto)
+  const IMG_W_CM = 7.6;
+  const IMG_H_CM = 4.6;
+  const ratio = IMG_W_CM / IMG_H_CM;
+  const frameW = 1600;
+  const frameH = Math.round(frameW / ratio);
+  const fitMode = localStorage.getItem("logi_docx_fit") || "stretch";
 
-    const ab = await imgBlob.arrayBuffer();
-    const u8 = new Uint8Array(ab);
+  const rangeLabel = (start === end)
+    ? (typeof formatDateLongES === "function" ? formatDateLongES(start) : start)
+    : `${start} a ${end}`;
 
-    // detectar PNG vs JPG
-    const isPng = (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47);
-    const img = isPng ? await pdfDoc.embedPng(u8) : await pdfDoc.embedJpg(u8);
+  const totalPages = Math.max(1, Math.ceil(selected.length / MODULES_PER_PAGE));
+  let done = 0;
+  let photoN = 1;
 
+  for (let p = 0; p < totalPages; p++) {
     const page = pdfDoc.addPage([pageW, pageH]);
 
-    let y = pageH - margin;
+    // ===== Header =====
+    const topY = pageH - margin;
 
-    page.drawText("Logi — Registro fotográfico", {
+    page.drawText("Logi", {
       x: margin,
-      y: y - 18,
-      size: 14,
+      y: topY - 22,
+      size: 18,
       font: fontB
     });
 
-    const sub = `${tituloProyecto ? (tituloProyecto + " · ") : ""}${start} a ${end}`;
-    page.drawText(sub, {
+    page.drawText(`Reporte fotográfico · ${rangeLabel}`, {
       x: margin,
-      y: y - 36,
-      size: 10,
+      y: topY - 42,
+      size: 11,
       font
     });
 
-    const meta = `${it.fecha || ""}${it.hora ? (" " + it.hora) : ""}`;
-    page.drawText(meta, {
-      x: margin,
-      y: y - 52,
-      size: 10,
-      font
-    });
-
-    // descripción
-    const desc = (it.descripcion || "").trim();
-    const lines = wrapTextPdf(desc, font, 10, maxW, 6);
-    let ty = y - 70;
-    for (const line of lines) {
-      page.drawText(line, { x: margin, y: ty, size: 10, font });
-      ty -= 12;
+    if (tituloProyecto) {
+      page.drawText(tituloProyecto, {
+        x: margin,
+        y: topY - 58,
+        size: 11,
+        font: fontB
+      });
     }
 
-    // caja de imagen (del margen inferior hasta debajo del texto)
-    const boxTop = ty - 10;
-    const boxH = Math.max(200, boxTop - margin);
+    // ===== Grid =====
+    for (let s = 0; s < MODULES_PER_PAGE; s++) {
+      const idx = p * MODULES_PER_PAGE + s;
+      if (idx >= selected.length) break;
 
-    const scale = Math.min(maxW / img.width, boxH / img.height);
-    const drawW = img.width * scale;
-    const drawH = img.height * scale;
+      const it = selected[idx];
+      done++;
 
-    const xImg = margin + (maxW - drawW) / 2;
-    const yImg = margin + (boxH - drawH) / 2;
+      // aplica overlays si están activados (logo/sello/plantilla)
+      let imgBlob = it.blob;
 
-    page.drawImage(img, {
-      x: xImg,
-      y: yImg,
-      width: drawW,
-      height: drawH
-    });
+      const wantsTemplate = !!(opts.applyTemplate && (opts.templateId !== "classic") && (opts.templateId !== "clean"));
 
-    // pie de página
-    page.drawText(`${i}/${selected.length}`, {
+      if (opts.applyLogo || opts.applyStamp || wantsTemplate) {
+        imgBlob = await applyExportOverlaysToBlob(it.blob, {
+          addLogo: opts.applyLogo && !!logoBitmap,
+          addStamp: opts.applyStamp,
+          stampText: opts.applyStamp ? formatStampDateTime(it) : "",
+          avoidDoubleLogo: opts.applyLogo && !!it.hasLogo,
+          addTemplate: wantsTemplate,
+          templateLines: wantsTemplate ? buildTemplateLines(getTemplateMeta(it), opts.templateId) : [],
+          logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
+        });
+      }
+
+      // normaliza a marco fijo (como en DOCX) para que todo quede consistente
+      try{
+        imgBlob = await normalizeToFixedFrameJpg(imgBlob, frameW, frameH, 0.9, fitMode);
+      }catch{}
+
+      const ab = await imgBlob.arrayBuffer();
+      const u8 = new Uint8Array(ab);
+
+      // detectar PNG vs JPG
+      const isPng = (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47);
+      const img = isPng ? await pdfDoc.embedPng(u8) : await pdfDoc.embedJpg(u8);
+
+      const row = Math.floor(s / 2);
+      const col = s % 2;
+
+      const cellX = margin + col * (cellW + colGap);
+
+      const rowTop = pageH - margin - headerH - row * (rowH + rowGap);
+      const imgY = rowTop - imgBoxH;              // bottom de la caja de imagen
+      const capTop = imgY;                        // top de la caja de caption
+      const capY = capTop - captionH;             // bottom caption
+
+      // bordes (imagen + caption)
+      page.drawRectangle({ x: cellX, y: imgY, width: cellW, height: imgBoxH, borderColor: GRID_COL, borderWidth: 1 });
+      page.drawRectangle({ x: cellX, y: capY, width: cellW, height: captionH, borderColor: GRID_COL, borderWidth: 1 });
+
+      // dibuja imagen centrada dentro de su caja
+      const maxImgW = cellW - pad * 2;
+      const maxImgH = imgBoxH - pad * 2;
+
+      const scale = Math.min(maxImgW / img.width, maxImgH / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+
+      const xImg = cellX + pad + (maxImgW - drawW) / 2;
+      const yImg = imgY + pad + (maxImgH - drawH) / 2;
+
+      page.drawImage(img, { x: xImg, y: yImg, width: drawW, height: drawH });
+
+      // caption (igual que DOCX)
+      const meta = getTemplateMeta(it);
+      const cap = buildDocxCaption(photoN, meta, opts.templateId);
+      photoN++;
+
+      const capLines = wrapTextPdf(cap, font, 9.5, cellW - pad * 2, 4);
+      let yText = capTop - pad - 10;
+      for (const line of capLines) {
+        page.drawText(line, { x: cellX + pad, y: yText, size: 9.5, font });
+        yText -= 11;
+      }
+
+      // progreso en UI
+      if ($("zipInfo")) $("zipInfo").textContent = `Generando PDF... ${done}/${selected.length}`;
+      await new Promise(r => setTimeout(r, 0)); // deja respirar UI
+    }
+
+    // ===== Footer =====
+    page.drawText(`${p + 1}/${totalPages}`, {
       x: pageW - margin - 45,
       y: 18,
       size: 9,
       font
     });
-
-    if ($("zipInfo")) $("zipInfo").textContent = `Generando PDF... ${i}/${selected.length}`;
-    await new Promise(r => setTimeout(r, 0)); // deja respirar UI
   }
 
   const bytes = await pdfDoc.save();
