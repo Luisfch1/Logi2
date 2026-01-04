@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2h</title>
+  <title>Logi2 v0.7.2s2f</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2h">
-  <link rel="icon" href="favicon.png?v=0.7.2s2h">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2h">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2f">
+  <link rel="icon" href="favicon.png?v=0.7.2s2f">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -382,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2h · Logi2</span>
+          <span class="pill">v0.7.2s2f · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -3369,23 +3369,6 @@ async function shareBlobAsFile(blob, filename, mime, title) {
   return false;
 }
 
-function splitLongWordPdf(word, font, size, maxWidth) {
-  // Parte una "palabra" muy larga (sin espacios) para que nunca se salga del ancho.
-  const parts = [];
-  let chunk = "";
-  for (const ch of (word || "")) {
-    const test = chunk + ch;
-    if (chunk && font.widthOfTextAtSize(test, size) > maxWidth) {
-      parts.push(chunk);
-      chunk = ch;
-    } else {
-      chunk = test;
-    }
-  }
-  if (chunk) parts.push(chunk);
-  return parts.length ? parts : [word];
-}
-
 function wrapTextPdf(text, font, size, maxWidth, maxLines=0) {
   const clean = (text || "").replace(/\s+/g, " ").trim();
   if (!clean) return [];
@@ -3393,67 +3376,25 @@ function wrapTextPdf(text, font, size, maxWidth, maxLines=0) {
   const lines = [];
   let line = "";
 
-  const pushLine = (l) => {
-    if (l != null && String(l).trim() !== "") lines.push(String(l));
-  };
-
-  for (const w0 of words) {
-    const w = String(w0 || "");
-    // Si una palabra excede el ancho, la partimos en trozos que sí quepan.
-    const parts = (font.widthOfTextAtSize(w, size) > maxWidth)
-      ? splitLongWordPdf(w, font, size, maxWidth)
-      : [w];
-
-    for (const part of parts) {
-      const test = line ? (line + " " + part) : part;
-
-      if (font.widthOfTextAtSize(test, size) <= maxWidth) {
-        line = test;
-      } else {
-        pushLine(line);
-        line = part;
-
-        if (maxLines && lines.length >= maxLines) break;
-      }
+  for (const w of words) {
+    const test = line ? (line + " " + w) : w;
+    if (font.widthOfTextAtSize(test, size) <= maxWidth) {
+      line = test;
+    } else {
+      if (line) lines.push(line);
+      line = w;
+      if (maxLines && lines.length >= maxLines) break;
     }
-
-    if (maxLines && lines.length >= maxLines) break;
   }
+  if ((!maxLines || lines.length < maxLines) && line) lines.push(line);
 
-  if ((!maxLines || lines.length < maxLines) && line) pushLine(line);
-
-  // Si recorta por maxLines, añade "…" al final si cabe
   if (maxLines && lines.length === maxLines && words.length > 0) {
-    const last = lines[lines.length - 1] || "";
-    let ell = last.endsWith("…") ? last : (last + "…");
-    while (ell && font.widthOfTextAtSize(ell, size) > maxWidth) {
-      ell = ell.slice(0, -2).trimEnd() + "…";
-    }
-    if (ell && font.widthOfTextAtSize(ell, size) <= maxWidth) lines[lines.length - 1] = ell;
+    // si recorta, añade "…" al final si cabe
+    const last = lines[lines.length - 1];
+    const ell = last.endsWith("…") ? last : (last + "…");
+    if (font.widthOfTextAtSize(ell, size) <= maxWidth) lines[lines.length - 1] = ell;
   }
-
   return lines;
-}
-
-function fitTextToBoxPdf(text, font, maxWidth, boxHeight, maxSize=9.5, minSize=6.5, step=0.25, leading=1.5) {
-  const trySize = (size) => {
-    const lineH = size + leading;
-    const maxLines = Math.max(1, Math.floor(boxHeight / lineH));
-    const lines = wrapTextPdf(text, font, size, maxWidth, 0); // sin recortar para medir
-    return { size, lineH, maxLines, lines };
-  };
-
-  for (let s = maxSize; s >= minSize - 1e-9; s = Math.round((s - step) * 100) / 100) {
-    const fit = trySize(s);
-    if (fit.lines.length <= fit.maxLines) {
-      return { ...fit, lines: fit.lines };
-    }
-  }
-
-  // Último recurso: usa minSize y recorta a maxLines (pero nunca se desborda)
-  const fit = trySize(minSize);
-  const safeLines = wrapTextPdf(text, font, minSize, maxWidth, fit.maxLines);
-  return { ...fit, lines: safeLines, truncated: true };
 }
 
 async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, end, opts) {
@@ -3568,44 +3509,38 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
 
   function drawCaption(page, captionText, x, yTop, w){
     // yTop: top de la caja de caption
-    const MAX_SIZE = 9.5;
-    const MIN_SIZE = 6.5;
-    const STEP = 0.25;
-    const LEADING = 1.5;
+    const size = 9.5;
+    const lineH = 11;
 
     const prefixNew = `Foto No. ${photoN-1},`;
     const prefixOld = `FOTO ${photoN-1}.`;
 
-    // detecta prefijo real (si existe)
+    // detecta prefijo real
     let prefix = "";
     if (captionText.startsWith(prefixNew)) prefix = prefixNew;
     else if (captionText.startsWith(prefixOld)) prefix = prefixOld;
 
+    const rest = prefix ? captionText.slice(prefix.length).trimStart() : captionText;
+
     const maxW = w - pad*2;
-    const boxH = captionH - pad*2;
 
-    // pequeño margen de seguridad cuando hay prefijo en negrilla
-    const fitW = prefix ? Math.max(10, maxW - 8) : maxW;
+    const prefixW = prefix ? fontB.widthOfTextAtSize(prefix, size) : 0;
+    const spaceW = prefix ? font.widthOfTextAtSize(" ", size) : 0;
 
-    const fit = fitTextToBoxPdf(captionText, font, fitW, boxH, MAX_SIZE, MIN_SIZE, STEP, LEADING);
+    // Primera línea: prefijo (bold) + parte del resto
+    const firstMax = prefix ? Math.max(30, maxW - prefixW - spaceW) : maxW;
 
-    let y = yTop - pad - (fit.size + 0.5);
-
-    for (let i=0; i<fit.lines.length; i++){
-      const line = fit.lines[i] || "";
-      if (i === 0 && prefix && line.startsWith(prefix)){
-        // pinta prefijo en negrilla y el resto normal
-        const rest = line.slice(prefix.length);
-        const prefixW = fontB.widthOfTextAtSize(prefix, fit.size);
-
-        page.drawText(prefix, { x: x + pad, y, size: fit.size, font: fontB, color: rgb(0,0,0) });
-        if (rest) page.drawText(rest, { x: x + pad + prefixW, y, size: fit.size, font, color: rgb(0,0,0) });
+    // arma primera línea del resto
+    const restWords = splitWords(rest);
+    let firstRest = "";
+    let consumed = 0;
+    for (let i=0;i<restWords.length;i++){
+      const w0 = restWords[i];
+      const test = firstRest ? (firstRest + " " + w0) : w0;
+      if (font.widthOfTextAtSize(test, size) <= firstMax){
+        firstRest = test;
+        consumed = i+1;
       } else {
-        page.drawText(line, { x: x + pad, y, size: fit.size, font, color: rgb(0,0,0) });
-      }
-      y -= fit.lineH;
-    }
-  } else {
         break;
       }
     }
