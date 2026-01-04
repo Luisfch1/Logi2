@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2l</title>
+  <title>Logi2 v0.7.2s2m</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2l">
-  <link rel="icon" href="favicon.png?v=0.7.2s2l">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2l">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2m">
+  <link rel="icon" href="favicon.png?v=0.7.2s2m">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2m">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -382,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2k · Logi2</span>
+          <span class="pill">v0.7.2s2m · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -2878,7 +2878,8 @@ async function normalizeToFixedFrameJpg(blob, frameW=1600, frameH=1000, quality=
 }
 
 async function loadLogiLogoArrayBuffer(){
-  // Primero intenta traerlo desde la Cache del Service Worker (offline-friendly)
+  // Cache-first + timeout para que NUNCA cuelgue el export (PWA/Android)
+  // 1) intenta cache del SW (offline)
   try{
     if (window.caches && caches.match){
       const cached = await caches.match("./icon-192.png");
@@ -2886,10 +2887,10 @@ async function loadLogiLogoArrayBuffer(){
     }
   }catch{}
 
-  // Fallback: fetch con timeout (para que NO se quede pegado si no hay red)
+  // 2) fallback: fetch con timeout (no-store a veces cuelga)
   try{
     const ctrl = new AbortController();
-    const t = setTimeout(() => { try{ ctrl.abort(); }catch{} }, 1500);
+    const t = setTimeout(() => ctrl.abort(), 1500);
     const r = await fetch("./icon-192.png", { cache: "force-cache", signal: ctrl.signal });
     clearTimeout(t);
     if (r && r.ok) return await r.arrayBuffer();
@@ -2898,8 +2899,95 @@ async function loadLogiLogoArrayBuffer(){
   return null;
 }
 
-function buildCaptionRuns(n, meta, templateId){
-  const caption = buildDocxCaption(n, meta, templateId);
+
+// ===========================
+// Ajuste automático de fuente (DOCX captions)
+// Mantiene 8 fotos/página sin que el texto "reviente" la caja
+// ===========================
+const _CAPTION_MAX_LINES = 4;
+const _CAPTION_FONT_PT_BASE = 9.5;
+const _CAPTION_FONT_PT_MIN  = 6.5;
+
+// Ancho útil aproximado del texto dentro de cada caption (cm)
+// A4 (21cm) - márgenes (1.27cm*2) = 18.46cm; /2 columnas = 9.23cm
+// menos márgenes internos del cell (~0.5cm) => ~8.7cm
+const _CAPTION_TEXT_W_CM = 8.7;
+
+let _measureCanvas = null;
+function _getMeasureCtx(fontPx){
+  if (!_measureCanvas) _measureCanvas = document.createElement("canvas");
+  const ctx = _measureCanvas.getContext("2d");
+  ctx.font = `${fontPx}px Calibri, Arial, sans-serif`;
+  return ctx;
+}
+function _cmToPx96(cm){ return (cm / 2.54) * 96; }
+
+function _wrapCountLines(text, fontPx, maxWidthPx){
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return 0;
+
+  const ctx = _getMeasureCtx(fontPx);
+  const words = clean.split(" ");
+  const lines = [];
+  let line = "";
+
+  const fits = (s) => ctx.measureText(s).width <= maxWidthPx;
+
+  for (let w of words){
+    // rompe tokens gigantes sin espacios
+    if (!fits(w)){
+      // si ya hay algo en la línea, la cerramos
+      if (line) { lines.push(line); line = ""; }
+      let chunk = "";
+      for (const ch of w){
+        const t = chunk + ch;
+        if (fits(t)) chunk = t;
+        else {
+          if (chunk) lines.push(chunk);
+          chunk = ch;
+        }
+      }
+      if (chunk) lines.push(chunk);
+      continue;
+    }
+
+    const test = line ? (line + " " + w) : w;
+    if (fits(test)){
+      line = test;
+    }else{
+      if (line) lines.push(line);
+      line = w;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length;
+}
+
+function _fitCaptionFontPt(text){
+  const maxWidthPx = _cmToPx96(_CAPTION_TEXT_W_CM);
+
+  // búsqueda binaria de fontPx (pt -> px)
+  const ptToPx = (pt) => (pt * 96) / 72;
+
+  let lo = _CAPTION_FONT_PT_MIN;
+  let hi = _CAPTION_FONT_PT_BASE;
+  let best = lo;
+
+  for (let i = 0; i < 10; i++){
+    const mid = (lo + hi) / 2;
+    const lines = _wrapCountLines(text, ptToPx(mid), maxWidthPx);
+    if (lines <= _CAPTION_MAX_LINES){
+      best = mid;
+      lo = mid;
+    }else{
+      hi = mid;
+    }
+  }
+  // redondeo a .1pt para estabilidad visual
+  return Math.max(_CAPTION_FONT_PT_MIN, Math.min(_CAPTION_FONT_PT_BASE, Math.round(best*10)/10));
+}
+
+function buildCaptionRunsSized(n, caption, sizeHp){
   const prefixNew = `Foto No. ${n},`;
   const prefixOld = `FOTO ${n}.`;
   let prefix = prefixNew;
@@ -2911,13 +2999,19 @@ function buildCaptionRuns(n, meta, templateId){
   const { TextRun } = window.docx;
 
   if (!prefix){
-    return [ new TextRun({ text: caption }) ];
+    return [ new TextRun({ text: caption, size: sizeHp }) ];
   }
 
   return [
-    new TextRun({ text: prefix, bold: true }),
-    new TextRun({ text: rest ? (" " + rest) : "" })
+    new TextRun({ text: prefix, bold: true, size: sizeHp }),
+    new TextRun({ text: rest ? (" " + rest) : "", size: sizeHp })
   ];
+}
+
+// Compat: si algún otro lugar llama buildCaptionRuns, queda igual (9.5pt aprox)
+function buildCaptionRuns(n, meta, templateId){
+  const caption = buildDocxCaption(n, meta, templateId);
+  return buildCaptionRunsSized(n, caption, Math.round(_CAPTION_FONT_PT_BASE*2));
 }
 
 async function buildRegistroFotograficoDocxBuffer(
@@ -2928,7 +3022,7 @@ async function buildRegistroFotograficoDocxBuffer(
   const {
     Document, Packer, Paragraph, TextRun,
     AlignmentType, Table, TableRow, TableCell, WidthType,
-    ImageRun, PageBreak, BorderStyle, Header, VerticalAlign
+    ImageRun, PageBreak, BorderStyle, Header, VerticalAlign, HeightRule
   } = window.docx;
 
   const docDefaultStyles = {
@@ -2946,6 +3040,7 @@ async function buildRegistroFotograficoDocxBuffer(
   const BRAND_MID  = "111B2E";
   const BRAND_ACC  = "3B82F6";
   const GRID_COL   = "2F6FED"; // bordes un poquito más sobrios
+  const CAPTION_ROW_H = 1120; // twips (~2.1cm) -> 4 líneas sin desbordar
 
   const noneBorders = {
     top:    { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
@@ -2967,15 +3062,11 @@ async function buildRegistroFotograficoDocxBuffer(
   const IMG_H = cmToPx(imgHcm);
 
   const ratio = IMG_W / IMG_H;
-  const totalN = (selected && selected.length) ? selected.length : 0;
-  // Ajuste de calidad/performance: reportes grandes => menor resolución para evitar bloqueos
-  let frameW = 1100;
-  if (totalN >= 200) frameW = 750;
-  else if (totalN >= 120) frameW = 850;
-  else if (totalN >= 60) frameW = 950;
+  let frameW = 1600;
+  if ((selected?.length || 0) > 240) frameW = 1000;
+  else if ((selected?.length || 0) > 120) frameW = 1200;
   const frameH = Math.round(frameW / ratio);
   const fitMode = localStorage.getItem("logi_docx_fit") || "stretch";
-  const progress = (exportOpts && typeof exportOpts.progress === "function") ? exportOpts.progress : null;
 
   const startLong = formatDateLongES(startISO);
   const endLong = formatDateLongES(endISO);
@@ -3062,20 +3153,14 @@ async function buildRegistroFotograficoDocxBuffer(
   let photoN = 1;
   const pages = [];
 
-  async function makeImageCell(it, n){
+  const onProgress = exportOpts && exportOpts.onProgress ? exportOpts.onProgress : null;
+  const _docxTotal = selected.length;
+  let _docxDone = 0;
+
+  async function makeImageCell(it){
     if (!it){
       return new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, borders: gridBorders, children: [new Paragraph("")] });
     }
-
-    if (progress && n) {
-      progress(`Generando Word... ${n}/${totalN}`);
-      // Fuerza repintado para que el usuario vea el contador (Android/PWA)
-      if (n === 1 || (n % 2 === 0)) {
-        await new Promise(r => (window.requestAnimationFrame ? requestAnimationFrame(() => r()) : setTimeout(r, 0)));
-      }
-    }
-    // Yields periódicos para evitar "congelamiento"
-    if (n && (n % 4 === 0)) await new Promise(r => setTimeout(r, 0));
 
     const fixedBlob = await normalizeToFixedFrameJpg(it.blob, frameW, frameH, 0.9, fitMode);
 
@@ -3099,6 +3184,11 @@ async function buildRegistroFotograficoDocxBuffer(
       transformation: { width: IMG_W, height: IMG_H }
     });
 
+    if (it) {
+      _docxDone++;
+      if (onProgress) await onProgress(_docxDone, _docxTotal);
+    }
+
     return new TableCell({
       width: { size: 50, type: WidthType.PERCENTAGE },
       borders: gridBorders,
@@ -3119,7 +3209,10 @@ async function buildRegistroFotograficoDocxBuffer(
     }
     const meta = getTemplateMeta(it);
     const templateId = (exportOpts && exportOpts.templateId) ? exportOpts.templateId : "classic";
-    const runs = buildCaptionRuns(n, meta, templateId);
+    const caption = buildDocxCaption(n, meta, templateId);
+    const fontPt = _fitCaptionFontPt(caption);
+    const sizeHp = Math.round(fontPt * 2);
+    const runs = buildCaptionRunsSized(n, caption, sizeHp);
 
     return new TableCell({
       width: { size: 50, type: WidthType.PERCENTAGE },
@@ -3142,9 +3235,10 @@ async function buildRegistroFotograficoDocxBuffer(
     const nRight = right ? photoN++ : null;
 
     const imageRow = new TableRow({
-      children: [ await makeImageCell(left, nLeft), await makeImageCell(right, nRight) ]
+      children: [ await makeImageCell(left), await makeImageCell(right) ]
     });
     const captionRow = new TableRow({
+      height: { value: CAPTION_ROW_H, rule: HeightRule.EXACT },
       children: [ makeCaptionCell(left, nLeft), makeCaptionCell(right, nRight) ]
     });
 
@@ -3182,7 +3276,6 @@ async function buildRegistroFotograficoDocxBuffer(
     }]
   });
 
-  if (progress) progress("Empaquetando Word...");
   const blob = await Packer.toBlob(doc);
   return await blob.arrayBuffer();
 }
@@ -3233,6 +3326,10 @@ function buildManifestXlsHtml(registros){
   </table>
   </body></html>`;
 }
+
+const DOCX_IMG_W_CM = 7.6;
+const DOCX_IMG_H_CM = 4.6;
+const DOCX_PAIRS_PER_PAGE = 4; // 4 pares = 8 fotos por página
 
 /* ===========================
    Export ZIP (incluye DOCX)
@@ -3328,17 +3425,28 @@ async function exportZipByMode(modo, desde, hasta){
   root.file("manifest.csv", buildManifestCsv(manifestRows));
   root.file("manifest.xls", buildManifestXlsHtml(manifestRows));
 
-  const IMG_W_CM = 7.6;
-  const IMG_H_CM = 4.6;
-  const MODULES_PER_PAGE = 4;
+  const IMG_W_CM = DOCX_IMG_W_CM;
+  const IMG_H_CM = DOCX_IMG_H_CM;
+  const MODULES_PER_PAGE = DOCX_PAIRS_PER_PAGE;
 
   const { start, end } = computeRangeForTitle(modo, desde, hasta);
   const tituloProyecto = (proyectoInput.value || "").trim();
 
-  zipInfo.textContent = `Generando Word... 0/${selected.length}`;
+  const zi = zipInfo;
+  const totalDocx = selected.length;
+  const nextPaint = () => new Promise(res => requestAnimationFrame(() => setTimeout(res, 0)));
+
+  if (zi){ zi.textContent = `Generando DOCX... 0/${totalDocx}`; await nextPaint(); }
+
+  const onProgress = async (done, tot) => {
+    if (!zi) return;
+    zi.textContent = `Generando DOCX... ${done}/${tot}`;
+    await nextPaint();
+  };
+
   const docxBuffer = await buildRegistroFotograficoDocxBuffer(
     selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, progress: (m)=>{ try{ zipInfo.textContent = m; }catch{} } }
+    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
   );
 
   root.file(`Logi_Reporte_${start}_a_${end}.docx`, docxBuffer);
@@ -3511,137 +3619,89 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
     page.drawText(txt, { x: pageW - padRight - w, y, size, font: f, color });
   }
 
-    function splitWords(s){ return (s || "").trim().split(/\s+/).filter(Boolean); }
+  function splitWords(s){ return (s || "").trim().split(/\s+/).filter(Boolean); }
 
-    function splitLongToken(token, fnt, size, maxWidth){
-      // Parte tokens sin espacios que exceden el ancho (evita desbordes laterales)
-      const out = [];
-      let t = token || "";
-      while (t.length){
-        let lo = 1, hi = t.length, best = 1;
-        while (lo <= hi){
-          const mid = (lo + hi) >> 1;
-          const chunk = t.slice(0, mid);
-          if (fnt.widthOfTextAtSize(chunk, size) <= maxWidth){
-            best = mid; lo = mid + 1;
-          } else {
-            hi = mid - 1;
-          }
-        }
-        out.push(t.slice(0, best));
-        t = t.slice(best);
-      }
-      return out;
-    }
-
-    function wrapTextSmartPdf(text, fnt, size, maxWidth, stopAfter=0){
-      const clean = (text || "").replace(/\s+/g, " ").trim();
-      if (!clean) return [];
-      let tokens = clean.split(" ");
-
-      // Expande tokens "largos" sin espacios
-      const expanded = [];
-      for (const tok of tokens){
-        if (!tok) continue;
-        if (fnt.widthOfTextAtSize(tok, size) <= maxWidth){
-          expanded.push(tok);
-        } else {
-          expanded.push(...splitLongToken(tok, fnt, size, maxWidth));
-        }
-      }
-      tokens = expanded;
-
-      const lines = [];
-      let line = "";
-
-      for (const tok of tokens){
-        const test = line ? (line + " " + tok) : tok;
-        if (fnt.widthOfTextAtSize(test, size) <= maxWidth){
-          line = test;
-        } else {
-          if (line) lines.push(line);
-          line = tok;
-          if (stopAfter && lines.length >= stopAfter) return lines;
-        }
-      }
-      if (line) lines.push(line);
-      return lines;
-    }
-
-    function withEllipsis(line, fnt, size, maxWidth){
-      let s = (line || "").trimEnd();
-      if (!s) return "…";
-      if (fnt.widthOfTextAtSize(s + "…", size) <= maxWidth) return s + "…";
-      while (s.length > 1){
-        s = s.slice(0, -1).trimEnd();
-        if (fnt.widthOfTextAtSize(s + "…", size) <= maxWidth) return s + "…";
-      }
-      return "…";
-    }
-
-    function fitTextToBoxPdf(text, fnt, boxW, boxH, maxSize=9.5, minSize=5.75, leading=1.16){
-      // Busca el tamaño MÁS grande que permita quepan todas las líneas en la caja.
-      // Si ni con minSize cabe, recorta con "…" en la última línea.
-      let best = { size: minSize, lineH: minSize*leading, lines: [] };
-
-      let lo = minSize, hi = maxSize;
-      for (let i=0;i<6;i++){
-        const mid = (lo + hi) / 2;
-        const size = Math.round(mid * 4) / 4; // pasos de 0.25
-        const lineH = size * leading;
-        const maxLines = Math.max(1, Math.floor(boxH / lineH));
-
-        const probe = wrapTextSmartPdf(text, fnt, size, boxW, maxLines + 1);
-        const fits = (probe.length <= maxLines);
-
-        if (fits){
-          best = { size, lineH, lines: wrapTextSmartPdf(text, fnt, size, boxW) };
-          lo = size;
-        } else {
-          hi = size;
-        }
-      }
-
-      const finalLineH = best.size * leading;
-      const finalMaxLines = Math.max(1, Math.floor(boxH / finalLineH));
-      let lines = wrapTextSmartPdf(text, fnt, best.size, boxW, finalMaxLines + 1);
-
-      if (lines.length > finalMaxLines){
-        lines = wrapTextSmartPdf(text, fnt, best.size, boxW, finalMaxLines);
-        lines[lines.length-1] = withEllipsis(lines[lines.length-1], fnt, best.size, boxW);
-      }
-
-      return { size: best.size, lineH: finalLineH, lines, maxLines: finalMaxLines };
-    }
-
-    function drawCaption(page, captionText, x, yTop, w){
-      const maxW = w - pad*2;
-      const boxH = captionH - pad*2;
-
-      const prefixNew = `Foto No. ${photoN-1},`;
-      const prefixOld = `FOTO ${photoN-1}.`;
-      let prefix = "";
-      if (captionText.startsWith(prefixNew)) prefix = prefixNew;
-      else if (captionText.startsWith(prefixOld)) prefix = prefixOld;
-
-      const fit = fitTextToBoxPdf(captionText, font, maxW, boxH, 9.5, 5.75, 1.16);
-
-      let y = yTop - pad - fit.size;
-
-      for (let i=0; i<fit.lines.length; i++){
-        const line = fit.lines[i] || "";
-        if (i === 0 && prefix && line.startsWith(prefix)){
-          const rest = line.slice(prefix.length);
-          const prefixW = fontB.widthOfTextAtSize(prefix, fit.size);
-          page.drawText(prefix, { x: x + pad, y, size: fit.size, font: fontB, color: rgb(0,0,0) });
-          if (rest) page.drawText(rest, { x: x + pad + prefixW, y, size: fit.size, font, color: rgb(0,0,0) });
-        } else {
-          page.drawText(line, { x: x + pad, y, size: fit.size, font, color: rgb(0,0,0) });
-        }
-        y -= fit.lineH;
-        if (y < (yTop - captionH + pad)) break;
+  function wrapRestLines(restText, fnt, size, maxWidth, maxLines){
+    const words = splitWords(restText);
+    const lines = [];
+    let line = "";
+    for (const w of words){
+      const test = line ? (line + " " + w) : w;
+      if (fnt.widthOfTextAtSize(test, size) <= maxWidth){
+        line = test;
+      } else {
+        if (line) lines.push(line);
+        line = w;
+        if (maxLines && lines.length >= maxLines) break;
       }
     }
+    if ((!maxLines || lines.length < maxLines) && line) lines.push(line);
+
+    if (maxLines && lines.length === maxLines && words.length){
+      const last = lines[lines.length-1];
+      const ell = last.endsWith("…") ? last : (last + "…");
+      if (fnt.widthOfTextAtSize(ell, size) <= maxWidth) lines[lines.length-1] = ell;
+    }
+    return lines;
+  }
+
+  function drawCaption(page, captionText, x, yTop, w){
+    // yTop: top de la caja de caption
+    const size = 9.5;
+    const lineH = 11;
+
+    const prefixNew = `Foto No. ${photoN-1},`;
+    const prefixOld = `FOTO ${photoN-1}.`;
+
+    // detecta prefijo real
+    let prefix = "";
+    if (captionText.startsWith(prefixNew)) prefix = prefixNew;
+    else if (captionText.startsWith(prefixOld)) prefix = prefixOld;
+
+    const rest = prefix ? captionText.slice(prefix.length).trimStart() : captionText;
+
+    const maxW = w - pad*2;
+
+    const prefixW = prefix ? fontB.widthOfTextAtSize(prefix, size) : 0;
+    const spaceW = prefix ? font.widthOfTextAtSize(" ", size) : 0;
+
+    // Primera línea: prefijo (bold) + parte del resto
+    const firstMax = prefix ? Math.max(30, maxW - prefixW - spaceW) : maxW;
+
+    // arma primera línea del resto
+    const restWords = splitWords(rest);
+    let firstRest = "";
+    let consumed = 0;
+    for (let i=0;i<restWords.length;i++){
+      const w0 = restWords[i];
+      const test = firstRest ? (firstRest + " " + w0) : w0;
+      if (font.widthOfTextAtSize(test, size) <= firstMax){
+        firstRest = test;
+        consumed = i+1;
+      } else {
+        break;
+      }
+    }
+
+    const remaining = restWords.slice(consumed).join(" ");
+    const otherLines = wrapRestLines(remaining, font, size, maxW, 3); // total aprox 4 líneas (1 + 3)
+
+    let y = yTop - pad - 10;
+
+    if (prefix){
+      page.drawText(prefix, { x: x + pad, y, size, font: fontB, color: rgb(0,0,0) });
+      if (firstRest) page.drawText(" " + firstRest, { x: x + pad + prefixW, y, size, font, color: rgb(0,0,0) });
+    } else {
+      const line0 = firstRest || rest;
+      if (line0) page.drawText(line0, { x: x + pad, y, size, font, color: rgb(0,0,0) });
+    }
+
+    y -= lineH;
+    for (const l of otherLines){
+      page.drawText(l, { x: x + pad, y, size, font, color: rgb(0,0,0) });
+      y -= lineH;
+    }
+  }
 
   for (let p = 0; p < totalPages; p++) {
     const page = pdfDoc.addPage([pageW, pageH]);
@@ -3805,10 +3865,25 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
         alert("La librería DOCX no cargó. Abre con internet o en Chrome.");
         return;
       }
-      $("zipInfo").textContent = `Generando Word... 0/${selected.length}`;
+      const IMG_W_CM = DOCX_IMG_W_CM;
+      const IMG_H_CM = DOCX_IMG_H_CM;
+      const MODULES_PER_PAGE = DOCX_PAIRS_PER_PAGE;
+
+      const zi = $("zipInfo");
+      const total = selected.length;
+      const nextPaint = () => new Promise(res => requestAnimationFrame(() => setTimeout(res, 0)));
+
+      if (zi){ zi.textContent = `Generando Word... 0/${total}`; await nextPaint(); }
+
+      const onProgress = async (done, tot) => {
+        if (!zi) return;
+        zi.textContent = `Generando Word... ${done}/${tot}`;
+        await nextPaint();
+      };
+
       const docxBuffer = await buildRegistroFotograficoDocxBuffer(
         selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, progress: (m)=>{ try{ const el=$("zipInfo"); if(el) el.textContent = m; }catch{} } }
+        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
       );
 
       const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
