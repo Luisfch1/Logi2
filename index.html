@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.0b</title>
+  <title>Logi2 v0.8.1</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.0">
-  <link rel="icon" href="favicon.png?v=0.8.0">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.0">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.1">
+  <link rel="icon" href="favicon.png?v=0.8.1">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -214,6 +214,8 @@
       padding:12px 12px 6px;
     }
     .appbarLeft{display:grid;gap:2px;min-width:0}
+.appTitleRow{display:flex;align-items:baseline;gap:10px;min-width:0}
+    .appVersion{font-size:.78rem;color:var(--muted);font-weight:800;white-space:nowrap;flex:0 0 auto}
     .appTitle{
       font-size:1.25rem;
       font-weight:950;
@@ -307,6 +309,7 @@
       border-radius:14px;
       background:var(--card);
     }
+    .sheetRow.dangerRow{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.08)}
     .sheetRowMain{min-width:0}
     .sheetRowTitle{font-weight:900}
     .accentPalette{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
@@ -370,8 +373,10 @@
   <div class="wrap">
     <div class="appbar">
       <div class="appbarLeft">
-        <div class="appTitle">Logi</div>
-        <div class="appSubtitle">Registro visual · Guardado local · ZIP (DOCX/PDF)</div>
+        <div class="appTitleRow">
+          <div class="appTitle">Logi</div>
+          <div class="appVersion" id="appVersion">v0.8.1</div>
+        </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
         <span class="icon">⚙️</span>
@@ -380,11 +385,7 @@
 
     <div class="card">
       
-      <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <div class="row">
-          <span class="pill">v0.8.0b · Logi2</span>
-          <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
-        </div>
+      <div class="row" style="justify-content:flex-end;align-items:flex-start">
         <div class="right">
           <div id="status" class="status"></div>
         </div>
@@ -416,6 +417,7 @@
       <div class="tabs" style="margin-top:10px;">
         <button class="tab active" id="tabCaptura">Captura</button>
         <button class="tab" id="tabGaleria">Galería</button>
+        <button class="tab" id="tabExport">Exportar</button>
       </div>
 
 
@@ -501,11 +503,11 @@
       </div>
     </div>
 
-    <div class="card">
+    <div id="exportView" style="display:none">
+<div class="card">
       <div class="row" style="justify-content:space-between;">
-        <span class="pill">exportar</span>
-        <div class="muted">ZIP incluye fotos+txt+csv+xls+DOCX (reporte).</div>
-      </div>
+        <span class="pill">Exportar</span>
+</div>
 
       <div class="row" style="margin-top:10px;">
         <div style="flex:1;min-width:180px">
@@ -590,27 +592,27 @@
         </label>
       </div>
 
-      <div class="row" style="margin-top:10px;">
-        <button class="btn btn-primary" id="btnZip">⬇️ Descargar ZIP</button>
-        <button class="btn btn-secondary" id="btnZipHoy">⬇️ Exportar HOY</button>
-        <button class="btn btn-danger" id="btnBorrarTodo">🗑️ Borrar TODO</button>
-        <div id="zipInfo" class="muted"></div>
-      </div>
-
-      <div class="row" style="margin-top:8px;align-items:center;gap:10px;flex-wrap:wrap">
-        <span class="muted">Express (sin ZIP):</span>
-        <select id="expressFormat" style="min-width:160px">
-          <option value="docx">Word (.docx)</option>
-          <option value="pdf">PDF</option>
-        </select>
+      <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <label for="expressFormat">Formato de salida</label>
+          <select id="expressFormat" style="width:100%">
+            <option value="pdf">PDF</option>
+            <option value="docx">Word (.docx)</option>
+            <option value="zip">ZIP (reporte)</option>
+          </select>
+        </div>
         <button class="btn btn-primary" id="btnExpress">⚡ Exportar</button>
+        <div id="zipInfo" class="muted" style="flex-basis:100%"></div>
       </div>
 
     </div>
   </div>
 
 
-  <!-- Bottom sheet: Configuración -->
+  
+</div>
+
+<!-- Bottom sheet: Configuración -->
   <div class="sheetBackdrop" id="sheetBackdrop" aria-hidden="true">
     <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Configuración">
       <div class="sheetHandle" id="sheetHandle"></div>
@@ -659,7 +661,15 @@
             <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup">⬆️</button>
           </div>
         </div>
-        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
+        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.
+        <div class="sheetRow dangerRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Borrar todo</div>
+            <div class="muted">Elimina todas las fotos, descripciones y proyectos guardados en este dispositivo</div>
+          </div>
+          <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
+        </div>
+</div>
 
 
         <div class="sheetRow">
@@ -3544,19 +3554,6 @@ async function exportZipByMode(modo, desde, hasta){
   setTimeout(()=> zipInfo.textContent = "", 1800);
 }
 
-$("btnZip").onclick = async () => {
-  const modo = $("modoExport").value;
-  const desde = $("desde").value || (fechaInput.value || hoyISO());
-  let hasta = $("hasta").value || (fechaInput.value || hoyISO());
-  if (modo !== "rango") hasta = desde; // Día/Mes ignoran "hasta"
-  await exportZipByMode(modo, desde, hasta);
-};
-
-$("btnZipHoy").onclick = async () => {
-  const hoy = hoyISO();
-  await exportZipByMode("dia", hoy, hoy);
-};
-
 /* =========================
    Export Express (Paso 2D)
    PDF robusto con pdf-lib
@@ -3970,6 +3967,13 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
   if (btnZipHoy) btnZipHoy.disabled = true;
 
   try {
+    if (fmt === "zip"){
+      await exportZipByMode(modo, desde, hasta);
+      const zi = $("zipInfo");
+      if (zi) { zi.textContent = "ZIP descargado ✅"; setTimeout(()=> zi.textContent = "", 1800); }
+      return;
+    }
+
     const useTime = !!$("useTimeNames")?.checked;
     const onlyDone = !!$("onlyDone")?.checked;
 
@@ -4115,23 +4119,83 @@ $("btnBorrarTodo").onclick = async () => {
 =========================== */
 function setTab(mode){
   viewMode = mode;
+
   $("tabCaptura").classList.toggle("active", mode === "captura");
   $("tabGaleria").classList.toggle("active", mode === "galeria");
+  $("tabExport")?.classList.toggle("active", mode === "export");
+
   $("capturaView").style.display = mode === "captura" ? "block" : "none";
   $("galeriaView").style.display = mode === "galeria" ? "block" : "none";
+  const ev = $("exportView");
+  if (ev) ev.style.display = mode === "export" ? "block" : "none";
+
   const ri = $("rangeInfo");
   if (ri) ri.style.display = (mode === "galeria") ? "block" : "none";
+
   render();
 }
 $("tabCaptura").onclick = () => setTab("captura");
 $("tabGaleria").onclick = () => setTab("galeria");
+$("tabExport").onclick = () => setTab("export");
+
+function initSwipeTabs(){
+  const order = ["captura","galeria","export"];
+  let startX = null;
+  let startY = null;
+  let started = false;
+
+  const isFormEl = (el) => {
+    if (!el) return false;
+    const t = (el.tagName||"").toLowerCase();
+    return ["input","textarea","select","button","label"].includes(t) || el.closest?.("input,textarea,select,button,label");
+  };
+
+  document.addEventListener("touchstart", (e) => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    if (isFormEl(e.target)) { started = false; startX = startY = null; return; }
+    started = true;
+    startX = t.clientX;
+    startY = t.clientY;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (!started || startX == null) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    startX = startY = null;
+    started = false;
+
+    // Ignora gestos verticales
+    if (Math.abs(dy) > Math.abs(dx)) return;
+
+    if (Math.abs(dx) < 70) return;
+
+    const i = Math.max(0, order.indexOf(viewMode));
+    if (dx < 0){ // izquierda
+      const next = order[Math.min(order.length-1, i+1)];
+      setTab(next);
+    } else { // derecha
+      const prev = order[Math.max(0, i-1)];
+      setTab(prev);
+    }
+  }, { passive: true });
+}
 
 function render(){
   revokeActiveUrls();
   setStatus();
   if (viewMode === "captura") renderCaptura();
-  else renderGaleria();
+  else if (viewMode === "galeria") renderGaleria();
+  else renderExport();
 }
+
+function renderExport(){
+  // En exportación solo necesitamos estado; el resto ya está en el DOM
+}
+
 
 /* ===========================
    Init
@@ -4217,6 +4281,8 @@ function render(){
   ensureProjects();
   refreshProjectUI();
   attachProjectHandlers();
+
+  initSwipeTabs();
 
   initTheme();
   initAccent();
