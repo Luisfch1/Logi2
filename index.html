@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2d</title>
+  <title>Logi2 v0.7.2s2f</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2d">
-  <link rel="icon" href="favicon.png?v=0.7.2s2d">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2d">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2f">
+  <link rel="icon" href="favicon.png?v=0.7.2s2f">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -382,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2e · Logi2</span>
+          <span class="pill">v0.7.2s2f · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -3411,28 +3411,36 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
   // A4 en puntos
   const pageW = 595.28;
   const pageH = 841.89;
-  const margin = 40;
 
-  const maxW = pageW - margin * 2;
+  // === Estilo Logi (igual al DOCX) ===
+  const BRAND_DARK = rgb(0x0B / 255, 0x12 / 255, 0x20 / 255);
+  const BRAND_MID  = rgb(0x11 / 255, 0x1B / 255, 0x2E / 255);
+  const BRAND_ACC  = rgb(0x3B / 255, 0x82 / 255, 0xF6 / 255);
+  const GRID_COL   = rgb(0x2F / 255, 0x6F / 255, 0xED / 255);
 
-  // Grilla 2x2 (4 fotos por página), similar al DOCX
-  const MODULES_PER_PAGE = 4;
-  const colGap = 12;
-  const rowGap = 14;
-  const headerH = 78;
-  const footerH = 26;
-  const captionH = 56;
-  const cellW = (maxW - colGap) / 2;
+  // === Header (dos tonos + línea acento) ===
+  const headerMainH = 74;
+  const headerAccH  = 6;
+  const headerH     = headerMainH + headerAccH;
+  const leftW       = pageW * 0.18;
+  const rightW      = pageW - leftW;
 
-  const usableH = pageH - margin * 2 - headerH - footerH;
-  const rowH = (usableH - rowGap) / 2;
-  const imgBoxH = Math.max(140, rowH - captionH); // evita cajas demasiado pequeñas
+  // === Márgenes / grilla 2 columnas x 4 filas (8 fotos por página) ===
+  const marginX = 36;
+  const colGap  = 12;
+
+  const gridLeft = marginX;
+  const gridRight = pageW - marginX;
+  const cellW = (gridRight - gridLeft - colGap) / 2;
+
+  const gridTop = pageH - headerH - 18;  // espacio bajo el membrete
+  const gridBottom = 36;                 // espacio inferior (paginación)
+
+  const captionH = 34; // similar a la fila de caption del DOCX
+  const imgBoxH = Math.max(120, (gridTop - gridBottom - 4 * captionH) / 4);
   const pad = 6;
 
-  // color de borde (parecido al DOCX)
-  const GRID_COL = rgb(47/255, 111/255, 237/255);
-
-  // Normalización (misma relación que DOCX por defecto)
+  // Normalización (misma relación que DOCX)
   const IMG_W_CM = 7.6;
   const IMG_H_CM = 4.6;
   const ratio = IMG_W_CM / IMG_H_CM;
@@ -3440,136 +3448,238 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
   const frameH = Math.round(frameW / ratio);
   const fitMode = localStorage.getItem("logi_docx_fit") || "stretch";
 
-  const rangeLabel = (start === end)
-    ? (typeof formatDateLongES === "function" ? formatDateLongES(start) : start)
-    : `${start} a ${end}`;
+  const startLong = (typeof formatDateLongES === "function") ? formatDateLongES(start) : start;
+  const endLong   = (typeof formatDateLongES === "function") ? formatDateLongES(end) : end;
+  const sameDay = (start === end);
+  const titleLine = sameDay
+    ? `Reporte fotográfico · ${startLong}`
+    : `Reporte fotográfico · ${startLong} — ${endLong}`;
 
+  const projText = (tituloProyecto || "").trim();
+
+  // Logo (opcional)
+  let logoImg = null;
+  try{
+    const logoAb = await loadLogiLogoArrayBuffer();
+    if (logoAb){
+      const u8 = new Uint8Array(logoAb);
+      const isPng = (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47);
+      logoImg = isPng ? await pdfDoc.embedPng(u8) : await pdfDoc.embedJpg(u8);
+    }
+  }catch{ logoImg = null; }
+
+  // Paginación: 8 fotos por página (como DOCX)
+  const MODULES_PER_PAGE = 8;
   const totalPages = Math.max(1, Math.ceil(selected.length / MODULES_PER_PAGE));
+
   let done = 0;
   let photoN = 1;
+
+  function drawRightText(page, txt, y, size, bold=false, color=rgb(1,1,1), padRight=28){
+    const f = bold ? fontB : font;
+    const w = f.widthOfTextAtSize(txt, size);
+    page.drawText(txt, { x: pageW - padRight - w, y, size, font: f, color });
+  }
+
+  function splitWords(s){ return (s || "").trim().split(/\s+/).filter(Boolean); }
+
+  function wrapRestLines(restText, fnt, size, maxWidth, maxLines){
+    const words = splitWords(restText);
+    const lines = [];
+    let line = "";
+    for (const w of words){
+      const test = line ? (line + " " + w) : w;
+      if (fnt.widthOfTextAtSize(test, size) <= maxWidth){
+        line = test;
+      } else {
+        if (line) lines.push(line);
+        line = w;
+        if (maxLines && lines.length >= maxLines) break;
+      }
+    }
+    if ((!maxLines || lines.length < maxLines) && line) lines.push(line);
+
+    if (maxLines && lines.length === maxLines && words.length){
+      const last = lines[lines.length-1];
+      const ell = last.endsWith("…") ? last : (last + "…");
+      if (fnt.widthOfTextAtSize(ell, size) <= maxWidth) lines[lines.length-1] = ell;
+    }
+    return lines;
+  }
+
+  function drawCaption(page, captionText, x, yTop, w){
+    // yTop: top de la caja de caption
+    const size = 9.5;
+    const lineH = 11;
+
+    const prefixNew = `Foto No. ${photoN-1},`;
+    const prefixOld = `FOTO ${photoN-1}.`;
+
+    // detecta prefijo real
+    let prefix = "";
+    if (captionText.startsWith(prefixNew)) prefix = prefixNew;
+    else if (captionText.startsWith(prefixOld)) prefix = prefixOld;
+
+    const rest = prefix ? captionText.slice(prefix.length).trimStart() : captionText;
+
+    const maxW = w - pad*2;
+
+    const prefixW = prefix ? fontB.widthOfTextAtSize(prefix, size) : 0;
+    const spaceW = prefix ? font.widthOfTextAtSize(" ", size) : 0;
+
+    // Primera línea: prefijo (bold) + parte del resto
+    const firstMax = prefix ? Math.max(30, maxW - prefixW - spaceW) : maxW;
+
+    // arma primera línea del resto
+    const restWords = splitWords(rest);
+    let firstRest = "";
+    let consumed = 0;
+    for (let i=0;i<restWords.length;i++){
+      const w0 = restWords[i];
+      const test = firstRest ? (firstRest + " " + w0) : w0;
+      if (font.widthOfTextAtSize(test, size) <= firstMax){
+        firstRest = test;
+        consumed = i+1;
+      } else {
+        break;
+      }
+    }
+
+    const remaining = restWords.slice(consumed).join(" ");
+    const otherLines = wrapRestLines(remaining, font, size, maxW, 3); // total aprox 4 líneas (1 + 3)
+
+    let y = yTop - pad - 10;
+
+    if (prefix){
+      page.drawText(prefix, { x: x + pad, y, size, font: fontB, color: rgb(0,0,0) });
+      if (firstRest) page.drawText(" " + firstRest, { x: x + pad + prefixW, y, size, font, color: rgb(0,0,0) });
+    } else {
+      const line0 = firstRest || rest;
+      if (line0) page.drawText(line0, { x: x + pad, y, size, font, color: rgb(0,0,0) });
+    }
+
+    y -= lineH;
+    for (const l of otherLines){
+      page.drawText(l, { x: x + pad, y, size, font, color: rgb(0,0,0) });
+      y -= lineH;
+    }
+  }
 
   for (let p = 0; p < totalPages; p++) {
     const page = pdfDoc.addPage([pageW, pageH]);
 
     // ===== Header =====
-    const topY = pageH - margin;
+    const headerY = pageH - headerMainH;
 
-    page.drawText("Logi", {
-      x: margin,
-      y: topY - 22,
-      size: 18,
-      font: fontB
-    });
+    page.drawRectangle({ x: 0, y: headerY, width: leftW, height: headerMainH, color: BRAND_DARK });
+    page.drawRectangle({ x: leftW, y: headerY, width: rightW, height: headerMainH, color: BRAND_MID });
+    page.drawRectangle({ x: 0, y: pageH - headerH, width: pageW, height: headerAccH, color: BRAND_ACC });
 
-    page.drawText(`Reporte fotográfico · ${rangeLabel}`, {
-      x: margin,
-      y: topY - 42,
-      size: 11,
-      font
-    });
+    // Logo centrado en bloque izquierdo
+    if (logoImg){
+      const s = 38;
+      const xLogo = (leftW - s) / 2;
+      const yLogo = headerY + (headerMainH - s) / 2;
+      page.drawImage(logoImg, { x: xLogo, y: yLogo, width: s, height: s });
+    }
 
-    if (tituloProyecto) {
-      page.drawText(tituloProyecto, {
-        x: margin,
-        y: topY - 58,
-        size: 11,
-        font: fontB
-      });
+    // Textos a la derecha (alineados a la derecha)
+    drawRightText(page, "Logi", pageH - 30, 22, true, rgb(1,1,1));
+    drawRightText(page, titleLine, pageH - 50, 10.5, true, rgb(0xE5/255,0xE7/255,0xEB/255));
+    if (projText){
+      const projLine = `Proyecto: ${projText}`;
+      drawRightText(page, projLine, pageH - 65, 10, false, rgb(0xCB/255,0xD5/255,0xE1/255));
     }
 
     // ===== Grid =====
-    for (let s = 0; s < MODULES_PER_PAGE; s++) {
-      const idx = p * MODULES_PER_PAGE + s;
-      if (idx >= selected.length) break;
+    for (let row = 0; row < 4; row++){
+      for (let col = 0; col < 2; col++){
+        const idx = p * MODULES_PER_PAGE + row*2 + col;
+        if (idx >= selected.length) break;
 
-      const it = selected[idx];
-      done++;
+        const it = selected[idx];
+        done++;
 
-      // aplica overlays si están activados (logo/sello/plantilla)
-      let imgBlob = it.blob;
+        // aplica overlays si están activados (logo/sello/plantilla)
+        let imgBlob = it.blob;
 
-      const wantsTemplate = !!(opts.applyTemplate && (opts.templateId !== "classic") && (opts.templateId !== "clean"));
+        const wantsTemplate = !!(opts.applyTemplate && (opts.templateId !== "classic") && (opts.templateId !== "clean"));
 
-      if (opts.applyLogo || opts.applyStamp || wantsTemplate) {
-        imgBlob = await applyExportOverlaysToBlob(it.blob, {
-          addLogo: opts.applyLogo && !!logoBitmap,
-          addStamp: opts.applyStamp,
-          stampText: opts.applyStamp ? formatStampDateTime(it) : "",
-          avoidDoubleLogo: opts.applyLogo && !!it.hasLogo,
-          addTemplate: wantsTemplate,
-          templateLines: wantsTemplate ? buildTemplateLines(getTemplateMeta(it), opts.templateId) : [],
-          logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
-        });
+        if (opts.applyLogo || opts.applyStamp || wantsTemplate) {
+          imgBlob = await applyExportOverlaysToBlob(it.blob, {
+            addLogo: opts.applyLogo && !!logoBitmap,
+            addStamp: opts.applyStamp,
+            stampText: opts.applyStamp ? formatStampDateTime(it) : "",
+            avoidDoubleLogo: opts.applyLogo && !!it.hasLogo,
+            addTemplate: wantsTemplate,
+            templateLines: wantsTemplate ? buildTemplateLines(getTemplateMeta(it), opts.templateId) : [],
+            logoCornerHint: localStorage.getItem("logi_logo_corner") || "br"
+          });
+        }
+
+        // normaliza a marco fijo (como en DOCX) para que todo quede consistente
+        try{ imgBlob = await normalizeToFixedFrameJpg(imgBlob, frameW, frameH, 0.9, fitMode); }catch{}
+
+        const ab = await imgBlob.arrayBuffer();
+        const u8 = new Uint8Array(ab);
+
+        const isPng = (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47);
+        const img = isPng ? await pdfDoc.embedPng(u8) : await pdfDoc.embedJpg(u8);
+
+        const cellX = gridLeft + col * (cellW + colGap);
+
+        const rowTop = gridTop - row * (imgBoxH + captionH);
+        const imgY = rowTop - imgBoxH;
+        const capTop = imgY;
+        const capY = capTop - captionH;
+
+        // Bordes (imagen + caption) — mismo color del DOCX
+        page.drawRectangle({ x: cellX, y: imgY, width: cellW, height: imgBoxH, borderColor: GRID_COL, borderWidth: 1 });
+        page.drawRectangle({ x: cellX, y: capY, width: cellW, height: captionH, borderColor: GRID_COL, borderWidth: 1 });
+
+        // Dibuja imagen centrada dentro de su caja
+        const maxImgW = cellW - pad * 2;
+        const maxImgH = imgBoxH - pad * 2;
+
+        const scale = Math.min(maxImgW / img.width, maxImgH / img.height);
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+
+        const xImg = cellX + pad + (maxImgW - drawW) / 2;
+        const yImg = imgY + pad + (maxImgH - drawH) / 2;
+
+        page.drawImage(img, { x: xImg, y: yImg, width: drawW, height: drawH });
+
+        // Caption (mismo constructor que DOCX)
+        const meta = getTemplateMeta(it);
+        const capText = buildDocxCaption(photoN, meta, opts.templateId);
+        photoN++;
+
+        // Fondo blanco para caption (por si el PDF queda con transparencia)
+        page.drawRectangle({ x: cellX+1, y: capY+1, width: cellW-2, height: captionH-2, color: rgb(1,1,1) });
+
+        drawCaption(page, capText, cellX, capTop, cellW);
+
+        // progreso UI
+        if ($("zipInfo")) $("zipInfo").textContent = `Generando PDF... ${done}/${selected.length}`;
+        await new Promise(r => setTimeout(r, 0));
       }
-
-      // normaliza a marco fijo (como en DOCX) para que todo quede consistente
-      try{
-        imgBlob = await normalizeToFixedFrameJpg(imgBlob, frameW, frameH, 0.9, fitMode);
-      }catch{}
-
-      const ab = await imgBlob.arrayBuffer();
-      const u8 = new Uint8Array(ab);
-
-      // detectar PNG vs JPG
-      const isPng = (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47);
-      const img = isPng ? await pdfDoc.embedPng(u8) : await pdfDoc.embedJpg(u8);
-
-      const row = Math.floor(s / 2);
-      const col = s % 2;
-
-      const cellX = margin + col * (cellW + colGap);
-
-      const rowTop = pageH - margin - headerH - row * (rowH + rowGap);
-      const imgY = rowTop - imgBoxH;              // bottom de la caja de imagen
-      const capTop = imgY;                        // top de la caja de caption
-      const capY = capTop - captionH;             // bottom caption
-
-      // bordes (imagen + caption)
-      page.drawRectangle({ x: cellX, y: imgY, width: cellW, height: imgBoxH, borderColor: GRID_COL, borderWidth: 1 });
-      page.drawRectangle({ x: cellX, y: capY, width: cellW, height: captionH, borderColor: GRID_COL, borderWidth: 1 });
-
-      // dibuja imagen centrada dentro de su caja
-      const maxImgW = cellW - pad * 2;
-      const maxImgH = imgBoxH - pad * 2;
-
-      const scale = Math.min(maxImgW / img.width, maxImgH / img.height);
-      const drawW = img.width * scale;
-      const drawH = img.height * scale;
-
-      const xImg = cellX + pad + (maxImgW - drawW) / 2;
-      const yImg = imgY + pad + (maxImgH - drawH) / 2;
-
-      page.drawImage(img, { x: xImg, y: yImg, width: drawW, height: drawH });
-
-      // caption (igual que DOCX)
-      const meta = getTemplateMeta(it);
-      const cap = buildDocxCaption(photoN, meta, opts.templateId);
-      photoN++;
-
-      const capLines = wrapTextPdf(cap, font, 9.5, cellW - pad * 2, 4);
-      let yText = capTop - pad - 10;
-      for (const line of capLines) {
-        page.drawText(line, { x: cellX + pad, y: yText, size: 9.5, font });
-        yText -= 11;
-      }
-
-      // progreso en UI
-      if ($("zipInfo")) $("zipInfo").textContent = `Generando PDF... ${done}/${selected.length}`;
-      await new Promise(r => setTimeout(r, 0)); // deja respirar UI
     }
 
     // ===== Footer =====
     page.drawText(`${p + 1}/${totalPages}`, {
-      x: pageW - margin - 45,
-      y: 18,
+      x: pageW - marginX - 45,
+      y: 16,
       size: 9,
-      font
+      font,
+      color: rgb(0.35,0.4,0.5)
     });
   }
 
   const bytes = await pdfDoc.save();
   return new Blob([bytes], { type: "application/pdf" });
 }
+
 
 async function exportExpressByMode(modo, desde, hasta, fmt) {
   if (_isExpressing) return;
@@ -3600,7 +3710,7 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       selected = cache.filter(x => x.fecha >= desde && x.fecha <= hasta);
     }
 
-    if (onlyDone) selected = selected.filter(x => !!x.listo);
+    if (onlyDone) selected = selected.filter(x => !!x.done);
 
     if (!selected.length) {
       alert("No hay fotos en ese rango / filtro.");
