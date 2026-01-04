@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2i</title>
+  <title>Logi2 v0.7.2s2j</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2i">
-  <link rel="icon" href="favicon.png?v=0.7.2s2i">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2i">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2j">
+  <link rel="icon" href="favicon.png?v=0.7.2s2j">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2j">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -382,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2i · Logi2</span>
+          <span class="pill">v0.7.2s2j · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -2954,9 +2954,15 @@ async function buildRegistroFotograficoDocxBuffer(
   const IMG_H = cmToPx(imgHcm);
 
   const ratio = IMG_W / IMG_H;
-  const frameW = 1600;
+  const totalN = (selected && selected.length) ? selected.length : 0;
+  // Ajuste de calidad/performance: reportes grandes => menor resolución para evitar bloqueos
+  let frameW = 1100;
+  if (totalN >= 200) frameW = 750;
+  else if (totalN >= 120) frameW = 850;
+  else if (totalN >= 60) frameW = 950;
   const frameH = Math.round(frameW / ratio);
   const fitMode = localStorage.getItem("logi_docx_fit") || "stretch";
+  const progress = (exportOpts && typeof exportOpts.progress === "function") ? exportOpts.progress : null;
 
   const startLong = formatDateLongES(startISO);
   const endLong = formatDateLongES(endISO);
@@ -3043,10 +3049,13 @@ async function buildRegistroFotograficoDocxBuffer(
   let photoN = 1;
   const pages = [];
 
-  async function makeImageCell(it){
+  async function makeImageCell(it, n){
     if (!it){
       return new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, borders: gridBorders, children: [new Paragraph("")] });
     }
+
+    if (progress && n) progress(`Generando Word... ${n}/${totalN}`);
+    if (n && (n % 4 === 0)) await new Promise(r => setTimeout(r, 0));
 
     const fixedBlob = await normalizeToFixedFrameJpg(it.blob, frameW, frameH, 0.9, fitMode);
 
@@ -3113,7 +3122,7 @@ async function buildRegistroFotograficoDocxBuffer(
     const nRight = right ? photoN++ : null;
 
     const imageRow = new TableRow({
-      children: [ await makeImageCell(left), await makeImageCell(right) ]
+      children: [ await makeImageCell(left, nLeft), await makeImageCell(right, nRight) ]
     });
     const captionRow = new TableRow({
       children: [ makeCaptionCell(left, nLeft), makeCaptionCell(right, nRight) ]
@@ -3153,6 +3162,7 @@ async function buildRegistroFotograficoDocxBuffer(
     }]
   });
 
+  if (progress) progress("Empaquetando Word...");
   const blob = await Packer.toBlob(doc);
   return await blob.arrayBuffer();
 }
@@ -3308,7 +3318,7 @@ async function exportZipByMode(modo, desde, hasta){
   zipInfo.textContent = "Generando DOCX...";
   const docxBuffer = await buildRegistroFotograficoDocxBuffer(
     selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
+    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, progress: (m)=>{ try{ zipInfo.textContent = m; }catch{} } }
   );
 
   root.file(`Logi_Reporte_${start}_a_${end}.docx`, docxBuffer);
@@ -3778,7 +3788,7 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       $("zipInfo").textContent = "Generando Word...";
       const docxBuffer = await buildRegistroFotograficoDocxBuffer(
         selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
-        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId }
+        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, progress: (m)=>{ try{ const el=$("zipInfo"); if(el) el.textContent = m; }catch{} } }
       );
 
       const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
