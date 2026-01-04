@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.7.2s2j</title>
+  <title>Logi2 v0.7.2s2k</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2j">
-  <link rel="icon" href="favicon.png?v=0.7.2s2j">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2j">
+  <link rel="manifest" href="manifest.webmanifest?v=0.7.2s2k">
+  <link rel="icon" href="favicon.png?v=0.7.2s2k">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.7.2s2k">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -382,7 +382,7 @@
       
       <div class="row" style="justify-content:space-between;align-items:flex-start">
         <div class="row">
-          <span class="pill">v0.7.2s2j · Logi2</span>
+          <span class="pill">v0.7.2s2k · Logi2</span>
           <div class="muted">Guardado local (IndexedDB) + export ZIP (incluye DOCX).</div>
         </div>
         <div class="right">
@@ -3054,7 +3054,14 @@ async function buildRegistroFotograficoDocxBuffer(
       return new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, borders: gridBorders, children: [new Paragraph("")] });
     }
 
-    if (progress && n) progress(`Generando Word... ${n}/${totalN}`);
+    if (progress && n) {
+      progress(`Generando Word... ${n}/${totalN}`);
+      // Fuerza repintado para que el usuario vea el contador (Android/PWA)
+      if (n === 1 || (n % 2 === 0)) {
+        await new Promise(r => (window.requestAnimationFrame ? requestAnimationFrame(() => r()) : setTimeout(r, 0)));
+      }
+    }
+    // Yields periódicos para evitar "congelamiento"
     if (n && (n % 4 === 0)) await new Promise(r => setTimeout(r, 0));
 
     const fixedBlob = await normalizeToFixedFrameJpg(it.blob, frameW, frameH, 0.9, fitMode);
@@ -3315,7 +3322,7 @@ async function exportZipByMode(modo, desde, hasta){
   const { start, end } = computeRangeForTitle(modo, desde, hasta);
   const tituloProyecto = (proyectoInput.value || "").trim();
 
-  zipInfo.textContent = "Generando DOCX...";
+  zipInfo.textContent = `Generando Word... 0/${selected.length}`;
   const docxBuffer = await buildRegistroFotograficoDocxBuffer(
     selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
     { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, progress: (m)=>{ try{ zipInfo.textContent = m; }catch{} } }
@@ -3785,7 +3792,7 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
         alert("La librería DOCX no cargó. Abre con internet o en Chrome.");
         return;
       }
-      $("zipInfo").textContent = "Generando Word...";
+      $("zipInfo").textContent = `Generando Word... 0/${selected.length}`;
       const docxBuffer = await buildRegistroFotograficoDocxBuffer(
         selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
         { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, progress: (m)=>{ try{ const el=$("zipInfo"); if(el) el.textContent = m; }catch{} } }
