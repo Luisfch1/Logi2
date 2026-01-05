@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.3</title>
+  <title>Logi2 v0.8.3b</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.3">
-  <link rel="icon" href="favicon.png?v=0.8.3">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.3b">
+  <link rel="icon" href="favicon.png?v=0.8.3b">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -392,7 +392,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.3</div>
+          <div class="appVersion" id="appVersion">v0.8.3b</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -462,10 +462,6 @@
         <div class="muted" style="margin-top:8px">
           Captura del día: escribe la descripción, marca ✅ Listo y si quieres 📤 WhatsApp (solo imagen).
         </div>
-<div class="muted" style="margin-top:6px">
-          Nota: si una foto ya quedó con logo en la captura, no se puede “quitar” al enviar.
-        </div>
-
         <div id="lista" class="list"></div>
       </div>
 
@@ -2198,178 +2194,7 @@ function syncLogoButtons(){
 
 async function loadLogoFromStorage(){
   logoDataUrl = localStorage.getItem("logi_logo_dataurl");
-  const enabled = false; // Logo ya no se aplica en captura
-  const le = $("logoEnabled"); if (le) le.checked = enabled;
-
-  if (logoDataUrl){
-    $("logoPreview").src = logoDataUrl;
-    $("logoPreview").style.display = "inline-block";
-    try { logoBitmap = await dataUrlToBitmap(logoDataUrl); } catch { logoBitmap = null; }
-  } else {
-    $("logoPreview").style.display = "none";
-    logoBitmap = null;
-  }
-  syncLogoButtons();
-}
-
-function loadLogoCorner(){
-  const v = localStorage.getItem("logi_logo_corner") || "br";
-  $("logoCorner").value = v;
-}
-$("logoCorner").onchange = () => localStorage.setItem("logi_logo_corner", $("logoCorner").value);
-
-$("btnCargarLogo").onclick = () => $("logoInput").click();
-
-$("logoInput").onchange = async () => {
-  const file = $("logoInput").files?.[0];
-  if (!file) return;
-
-  const dataUrl = await new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
-  });
-
-  localStorage.setItem("logi_logo_dataurl", dataUrl);
-  logoDataUrl = dataUrl;
-
-  $("logoPreview").src = dataUrl;
-  $("logoPreview").style.display = "inline-block";
-
-  try {
-    logoBitmap = await dataUrlToBitmap(dataUrl);
-    syncLogoButtons();
-    alert("Logo cargado ✅");
-  } catch {
-    alert("No pude cargar el logo. Prueba con un PNG.");
-  } finally {
-    $("logoInput").value = "";
-  }
-};
-
-$("btnQuitarLogo").onclick = async () => {
-  if (!confirm("¿Quitar el logo cargado?")) return;
-  localStorage.removeItem("logi_logo_dataurl");
-  logoDataUrl = null;
-  logoBitmap = null;
-  $("logoPreview").src = "";
-  $("logoPreview").style.display = "none";
-  syncLogoButtons();
-  alert("Logo quitado ✅");
-};
-
-/* ===========================
-   Helpers esquina
-=========================== */
-function oppositeCorner(c){
-  if (c === "br") return "tl";
-  if (c === "tl") return "br";
-  if (c === "bl") return "tr";
-  if (c === "tr") return "bl";
-  return "bl";
-}
-
-/* ===========================
-   Compresión (captura)
-=========================== */
-function drawLogoAtCorner(ctx, W, H, corner, alpha=0.85){
-  if (!logoBitmap) return false;
-
-  const margin = Math.round(Math.min(W, H) * 0.02);
-  const targetW = Math.round(W * 0.18);
-
-  const lw = logoBitmap.width || logoBitmap.naturalWidth;
-  const lh = logoBitmap.height || logoBitmap.naturalHeight;
-  if (!lw || !lh) return false;
-
-  const s = targetW / lw;
-  const targetH = Math.round(lh * s);
-
-  let x = W - targetW - margin;
-  let y = H - targetH - margin;
-  if (corner === "bl") { x = margin; y = H - targetH - margin; }
-  if (corner === "tr") { x = W - targetW - margin; y = margin; }
-  if (corner === "tl") { x = margin; y = margin; }
-
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.drawImage(logoBitmap, x, y, targetW, targetH);
-  ctx.restore();
-
-  return true;
-}
-
-function drawStampAtCorner(ctx, W, H, text, corner){
-  const pad = Math.round(Math.min(W, H) * 0.02);
-  const fontSize = Math.max(18, Math.round(Math.min(W, H) * 0.035));
-
-  ctx.save();
-  ctx.font = `700 ${fontSize}px Calibri, Arial, sans-serif`;
-  ctx.textBaseline = "bottom";
-
-  const metrics = ctx.measureText(text);
-  const boxW = Math.round(metrics.width + pad * 1.4);
-  const boxH = Math.round(fontSize + pad * 1.2);
-
-  let x = pad;
-  let y = H - pad;
-  if (corner === "br") { x = W - pad; y = H - pad; }
-  if (corner === "tr") { x = W - pad; y = pad + boxH; }
-  if (corner === "tl") { x = pad; y = pad + boxH; }
-
-  let boxX, boxY;
-  if (corner === "bl"){
-    boxX = x - Math.round(pad*0.6);
-    boxY = y - boxH;
-  } else if (corner === "br"){
-    boxX = x - boxW + Math.round(pad*0.6);
-    boxY = y - boxH;
-  } else if (corner === "tr"){
-    boxX = x - boxW + Math.round(pad*0.6);
-    boxY = y - boxH;
-  } else {
-    boxX = x - Math.round(pad*0.6);
-    boxY = y - boxH;
-  }
-
-  ctx.fillStyle = "rgba(2, 6, 23, 0.55)";
-  ctx.fillRect(boxX, boxY, boxW, boxH);
-
-  ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.textAlign = (corner === "br" || corner === "tr") ? "right" : "left";
-  ctx.fillText(text, x, y - Math.round(pad*0.3));
-
-  ctx.restore();
-}
-
-async function compressImage(file, maxSide=1600, quality=0.82){
-  if (!file.type.startsWith("image/")) return { blob: file, hasLogo: false };
-
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-
-  await new Promise((res, rej) => {
-    img.onload = () => res();
-    img.onerror = rej;
-    img.src = url;
-  });
-
-  const w = img.naturalWidth, h = img.naturalHeight;
-  const scale = Math.min(1, maxSide / Math.max(w,h));
-  const nw = Math.round(w * scale);
-  const nh = Math.round(h * scale);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = nw; canvas.height = nh;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, nw, nh);
-
-  URL.revokeObjectURL(url);
-
-  const hadLogo = false; // Logo ya no se fija en captura; solo en exportar/WhatsApp
-
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  const hadLogo = false;
   return { blob: blob || file, hasLogo: !!hadLogo };
 }
 
