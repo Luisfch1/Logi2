@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.1</title>
+  <title>Logi2 v0.8.2</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.1">
-  <link rel="icon" href="favicon.png?v=0.8.1">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.1">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2">
+  <link rel="icon" href="favicon.png?v=0.8.2">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -99,6 +99,23 @@
     .tabs{display:flex;gap:8px;align-items:center}
     .tab{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:8px 12px;font-weight:800;cursor:pointer;font-size:.88rem}
     .tab.active{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.30);color:var(--text)}
+
+    /* Plantilla de página (4/6/8) */
+    .layoutPick{display:flex;gap:10px;flex-wrap:wrap}
+    .layoutBtn{flex:1;min-width:92px;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:14px;padding:10px;cursor:pointer;text-align:center;box-shadow:0 6px 16px rgba(0,0,0,.12)}
+    :root[data-theme="light"] .layoutBtn{box-shadow:0 6px 14px rgba(15,23,42,.08)}
+    .layoutBtn.active{border-color:rgba(var(--accent-rgb),.45);background:rgba(var(--accent-rgb),.14)}
+    .layoutGrid{display:grid;gap:3px;justify-content:center;align-content:center;margin:0 auto;width:64px;height:44px;padding:6px;border-radius:12px;border:1px solid var(--border);background:rgba(var(--accent-rgb),.06)}
+    .layoutGrid span{display:block;border-radius:3px;background:rgba(203,213,225,.75)}
+    :root[data-theme="light"] .layoutGrid span{background:rgba(15,23,42,.15)}
+    .layoutLabel{margin-top:6px;font-weight:900;font-size:.95rem}
+
+    details.adv{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:var(--card);padding:10px}
+    details.adv summary{cursor:pointer;font-weight:900;color:var(--text);list-style:none}
+    details.adv summary::-webkit-details-marker{display:none}
+    details.adv summary:before{content:"▸";display:inline-block;margin-right:8px;color:var(--muted);transform:translateY(-1px)}
+    details.adv[open] summary:before{content:"▾"}
+
 
     .galleryWrap{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:var(--card);overflow:visible}
     .dayHeader{
@@ -375,7 +392,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.1</div>
+          <div class="appVersion" id="appVersion">v0.8.2</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -541,17 +558,52 @@
 
       <div class="row" style="margin-top:10px;">
         <div style="flex:1;min-width:220px">
-          <label for="templateSelect">Plantilla de salida</label>
-          <select id="templateSelect">
-            <option value="classic">Clásica (actual)</option>
-            <option value="minimal">Minimal (solo descripción)</option>
-            <option value="proyecto">Proyecto + descripción</option>
-            <option value="fecha">Solo fecha/hora</option>
-            <option value="clean">Sin texto</option>
-          </select>
-          <div class="muted" id="templateHelp" style="margin-top:6px">Define cómo se arma el texto (DOCX/TXT y opcionalmente sobre la foto).</div>
+          <label>Plantilla de página (fotos por página)</label>
+          <div class="layoutPick" id="layoutPick">
+            <button type="button" class="layoutBtn" data-layout="p4" aria-label="4 fotos por página">
+              <div class="layoutGrid" style="grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr);">
+                <span></span><span></span><span></span><span></span>
+              </div>
+              <div class="layoutLabel">4</div>
+              <div class="muted">2×2</div>
+            </button>
+            <button type="button" class="layoutBtn" data-layout="p6" aria-label="6 fotos por página">
+              <div class="layoutGrid" style="grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr);">
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="layoutLabel">6</div>
+              <div class="muted">2×3</div>
+            </button>
+            <button type="button" class="layoutBtn" data-layout="p8" aria-label="8 fotos por página">
+              <div class="layoutGrid" style="grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="layoutLabel">8</div>
+              <div class="muted">2×4</div>
+            </button>
+          </div>
+          <div class="muted" style="margin-top:6px">Ajusta tamaños automáticamente en PDF/DOCX (Express y ZIP).</div>
         </div>
       </div>
+
+      <details class="adv">
+        <summary>Texto (avanzado)</summary>
+        <div class="row" style="margin-top:10px;">
+          <div style="flex:1;min-width:220px">
+            <label for="templateSelect">Plantilla de salida</label>
+            <select id="templateSelect">
+              <option value="classic">Clásica (actual)</option>
+              <option value="minimal">Minimal (solo descripción)</option>
+              <option value="proyecto">Proyecto + descripción</option>
+              <option value="fecha">Solo fecha/hora</option>
+              <option value="clean">Sin texto</option>
+            </select>
+            <div class="muted" id="templateHelp" style="margin-top:6px">Define cómo se arma el texto (DOCX/TXT y opcionalmente sobre la foto).</div>
+          </div>
+        </div>
+      </details>
+
+
 
       <div class="row" style="margin-top:10px;">
         <label style="display:flex;align-items:center;gap:10px;margin:0">
@@ -606,6 +658,7 @@
       </div>
 
     </div>
+      </details>
   </div>
 
 
@@ -2083,6 +2136,56 @@ function syncTemplateUI(){
 }
 
 
+
+
+/* ===========================
+   📄 Plantilla de página (4/6/8)
+=========================== */
+const LAYOUT_KEY = "logi_page_layout";
+const PAGE_LAYOUTS = {
+  p4: { rows: 2, cols: 2, label: "4" },
+  p6: { rows: 3, cols: 2, label: "6" },
+  p8: { rows: 4, cols: 2, label: "8" },
+};
+
+function getLayoutKey(){
+  return localStorage.getItem(LAYOUT_KEY) || "p6";
+}
+function setLayoutKey(k){
+  if (!PAGE_LAYOUTS[k]) k = "p6";
+  localStorage.setItem(LAYOUT_KEY, k);
+  syncLayoutUI();
+}
+function layoutFromKey(k){
+  return PAGE_LAYOUTS[k] || PAGE_LAYOUTS.p6;
+}
+function docxDimsForLayout(k){
+  const rows = layoutFromKey(k).rows;
+  const imgWcm = 7.6;      // 2 columnas (estable)
+  const imgHcmBase = 4.6;  // base para 8 fotos (4 filas)
+  const imgHcm = +(imgHcmBase * (4 / rows)).toFixed(2);
+  const pairsPerPage = rows; // 1 fila = 1 par (2 fotos)
+  return { imgWcm, imgHcm, pairsPerPage };
+}
+function syncLayoutUI(){
+  const pick = $("layoutPick");
+  if (!pick) return;
+  const k = getLayoutKey();
+  pick.querySelectorAll(".layoutBtn").forEach(btn => {
+    const on = (btn.getAttribute("data-layout") === k);
+    btn.classList.toggle("active", on);
+  });
+}
+function initLayoutUI(){
+  const pick = $("layoutPick");
+  if (!pick) return;
+  pick.addEventListener("click", (e) => {
+    const btn = e.target.closest(".layoutBtn");
+    if (!btn) return;
+    setLayoutKey(btn.getAttribute("data-layout"));
+  });
+  syncLayoutUI();
+}
 /* ===========================
    URLs temporales
 =========================== */
@@ -3509,10 +3612,8 @@ async function exportZipByMode(modo, desde, hasta){
 
   root.file("manifest.csv", buildManifestCsv(manifestRows));
   root.file("manifest.xls", buildManifestXlsHtml(manifestRows));
-
-  const IMG_W_CM = DOCX_IMG_W_CM;
-  const IMG_H_CM = DOCX_IMG_H_CM;
-  const MODULES_PER_PAGE = DOCX_PAIRS_PER_PAGE;
+  const layoutKey = getLayoutKey();
+  const { imgWcm: IMG_W_CM, imgHcm: IMG_H_CM, pairsPerPage: PAIRS_PER_PAGE } = docxDimsForLayout(layoutKey);
 
   const { start, end } = computeRangeForTitle(modo, desde, hasta);
   const tituloProyecto = (proyectoInput.value || "").trim();
@@ -3530,7 +3631,7 @@ async function exportZipByMode(modo, desde, hasta){
   };
 
   const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-    selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
+    selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
     { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
   );
 
@@ -3636,19 +3737,23 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
   const leftW       = pageW * 0.18;
   const rightW      = pageW - leftW;
 
-  // === Márgenes / grilla 2 columnas x 4 filas (8 fotos por página) ===
+  // === Márgenes / grilla (2 columnas) ===
+  const layoutKey = (opts && opts.layoutKey) ? opts.layoutKey : getLayoutKey();
+  const { rows } = layoutFromKey(layoutKey);
+  const cols = 2;
+
   const marginX = 36;
   const colGap  = 12;
 
   const gridLeft = marginX;
   const gridRight = pageW - marginX;
-  const cellW = (gridRight - gridLeft - colGap) / 2;
+  const cellW = (gridRight - gridLeft - colGap) / cols;
 
   const gridTop = pageH - headerH - 18;  // espacio bajo el membrete
   const gridBottom = 36;                 // espacio inferior (paginación)
 
   const captionH = 34; // similar a la fila de caption del DOCX
-  const imgBoxH = Math.max(120, (gridTop - gridBottom - 4 * captionH) / 4);
+  const imgBoxH = Math.max(120, (gridTop - gridBottom - rows * captionH) / rows);
   const pad = 6;
 
   // Normalización (misma relación que DOCX)
@@ -3680,7 +3785,7 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
   }catch{ logoImg = null; }
 
   // Paginación: 8 fotos por página (como DOCX)
-  const MODULES_PER_PAGE = 8;
+  const MODULES_PER_PAGE = rows * cols;
   const totalPages = Math.max(1, Math.ceil(selected.length / MODULES_PER_PAGE));
 
   let done = 0;
@@ -3866,9 +3971,9 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
     }
 
     // ===== Grid =====
-    for (let row = 0; row < 4; row++){
-      for (let col = 0; col < 2; col++){
-        const idx = p * MODULES_PER_PAGE + row*2 + col;
+    for (let row = 0; row < rows; row++){
+      for (let col = 0; col < cols; col++){
+        const idx = p * MODULES_PER_PAGE + row*cols + col;
         if (idx >= selected.length) break;
 
         const it = selected[idx];
@@ -4011,9 +4116,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
         alert("La librería DOCX no cargó. Abre con internet o en Chrome.");
         return;
       }
-      const IMG_W_CM = DOCX_IMG_W_CM;
-      const IMG_H_CM = DOCX_IMG_H_CM;
-      const MODULES_PER_PAGE = DOCX_PAIRS_PER_PAGE;
+      const layoutKey = getLayoutKey();
+      const { imgWcm: IMG_W_CM, imgHcm: IMG_H_CM, pairsPerPage: PAIRS_PER_PAGE } = docxDimsForLayout(layoutKey);
 
       const zi = $("zipInfo");
       const total = selected.length;
@@ -4028,7 +4132,7 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       };
 
       const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, MODULES_PER_PAGE,
+        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
         { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
       );
 
@@ -4046,7 +4150,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       applyLogo: exportLogo && !!logoBitmap,
       applyStamp: exportStampDT,
       applyTemplate: exportTemplate,
-      templateId
+      templateId,
+      layoutKey: getLayoutKey()
     });
 
     if (!pdfBlob) return;
@@ -4101,6 +4206,8 @@ $("modoExport").addEventListener("change", updateExportUI);
 $("desde").addEventListener("change", () => {
   if ($("modoExport").value !== "rango") $("hasta").value = $("desde").value;
   updateExportUI();
+
+  initLayoutUI();
 
 // Preferencias persistentes
   if (proyectoInput) proyectoInput.value = getProjectDefault();
@@ -4264,6 +4371,8 @@ function renderExport(){
   $("hasta").value = today;
 
   updateExportUI();
+
+  initLayoutUI();
 
   // Export: filtro por ítem (opcional)
   if ($("exportItem")) {
