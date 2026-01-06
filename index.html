@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s3</title>
+  <title>Logi2 v0.8.2s4</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s3">
-  <link rel="icon" href="favicon.png?v=0.8.2s3">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s3">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s4">
+  <link rel="icon" href="favicon.png?v=0.8.2s4">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -397,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.2s3</div>
+          <div class="appVersion" id="appVersion">v0.8.2s4</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -756,9 +756,13 @@
           </div>
 
           <div>
-            <label>Descripción</label>
-            <textarea id="modalDesc" placeholder="Descripción..."></textarea>
-          </div>
+  <label style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <span>Descripción</span>
+    <button class="btn btn-secondary smallBtn" id="btnModalDictate" title="Dictar (voz)">🎙️</button>
+  </label>
+  <textarea id="modalDesc" placeholder="Descripción..."></textarea>
+  <div class="muted" id="dictateStatus" style="margin-top:6px">—</div>
+</div>
 
           <div class="row">
             <button class="btn btn-secondary smallBtn" id="btnModalDone">✅ Listo</button>
@@ -807,6 +811,126 @@
 
 <script>
 function $(id){ return document.getElementById(id); }
+
+
+/* ===========================
+   🎙️ Dictado por voz (Web Speech API)
+   - Funciona en Chrome/Android (webkitSpeechRecognition).
+   - Requiere HTTPS para pedir micrófono.
+   - Si no está disponible, usa el mic del teclado.
+=========================== */
+const _SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+const dictation = {
+  rec: null,
+  active: false,
+  btn: null,
+  target: null,
+  baseText: "",
+  finalText: ""
+};
+
+function setDictateStatus(msg){
+  const el = $("dictateStatus");
+  if (el) el.textContent = msg || "—";
+}
+
+function stopDictation(){
+  try { dictation.rec && dictation.rec.stop(); } catch {}
+  dictation.active = false;
+  dictation.rec = null;
+
+  if (dictation.btn){
+    dictation.btn.textContent = "🎙️";
+    dictation.btn.classList.remove("btn-danger");
+    dictation.btn.classList.add("btn-secondary");
+  }
+  setDictateStatus("—");
+  dictation.btn = null;
+  dictation.target = null;
+  dictation.baseText = "";
+  dictation.finalText = "";
+}
+
+function startDictation(targetEl, btnEl){
+  if (!_SpeechRec){
+    alert("Dictado por voz no disponible en este navegador.\n\nTip: usa el micrófono del teclado para dictar.");
+    return;
+  }
+  if (!targetEl) return;
+
+  // Si ya estaba dictando, detener
+  if (dictation.active) {
+    stopDictation();
+    return;
+  }
+
+  const rec = new _SpeechRec();
+  rec.lang = "es-CO";
+  rec.continuous = true;
+  rec.interimResults = true;
+
+  dictation.rec = rec;
+  dictation.active = true;
+  dictation.btn = btnEl || null;
+  dictation.target = targetEl;
+
+  dictation.baseText = (targetEl.value || "").trimEnd();
+  dictation.finalText = "";
+
+  if (dictation.btn){
+    dictation.btn.textContent = "⏹️";
+    dictation.btn.classList.remove("btn-secondary");
+    dictation.btn.classList.add("btn-danger");
+  }
+  setDictateStatus("🎙️ Dictando…");
+
+  rec.onresult = (event) => {
+    let interim = "";
+    let finalChunk = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++){
+      const res = event.results[i];
+      const t = (res[0]?.transcript || "");
+      if (res.isFinal) finalChunk += t;
+      else interim += t;
+    }
+
+    if (finalChunk) dictation.finalText += finalChunk;
+
+    const base = dictation.baseText ? (dictation.baseText + " ") : "";
+    const composed = (base + dictation.finalText + interim).replace(/\s+/g, " ").trim();
+
+    targetEl.value = composed;
+    try { targetEl.setSelectionRange(targetEl.value.length, targetEl.value.length); } catch {}
+
+    // disparar persistencia (tu app guarda en oninput)
+    try { targetEl.dispatchEvent(new Event("input", { bubbles: true })); } catch {}
+  };
+
+  rec.onerror = (e) => {
+    setDictateStatus("⚠️ Dictado detenido (" + (e?.error || "error") + ")");
+    stopDictation();
+  };
+
+  rec.onend = () => {
+    if (dictation.active) stopDictation();
+  };
+
+  try { rec.start(); }
+  catch (err){
+    stopDictation();
+    alert("No pude iniciar el dictado.\n\nDetalle: " + (err?.message || err));
+  }
+}
+
+// Detener dictado si la app se oculta
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && dictation.active) stopDictation();
+});
+window.addEventListener("beforeunload", () => {
+  if (dictation.active) stopDictation();
+});
 
 /* ===========================
    🎨 Tema (por dispositivo)
@@ -2619,8 +2743,11 @@ function renderCaptura(){
           <input data-id="${item.id}" class="itSel" type="text" list="datalistItems" placeholder="Código o busca en el listado…" ${item.done ? "disabled" : ""} value="${escAttr(item.itemCode || "")}"/>
           <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (catalogMap[item.itemCode] ? catalogMap[item.itemCode] : "") : ""}</div>
 
-          <label style="margin-top:6px">Descripción</label>
-          <textarea data-id="${item.id}" class="desc" ${item.done ? "disabled" : ""}>${item.descripcion || ""}</textarea>
+          <label style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+  <span>Descripción</span>
+  <button class="btn btn-secondary smallBtn dictate" data-id="${item.id}" title="Dictar (voz)" ${item.done ? "disabled" : ""}>🎙️</button>
+</label>
+<textarea data-id="${item.id}" class="desc" ${item.done ? "disabled" : ""}>${item.descripcion || ""}</textarea>
 
           <div class="row" style="margin-top:8px;justify-content:space-between;">
             <div class="row">
@@ -2646,6 +2773,7 @@ function renderCaptura(){
   wireEventsCaptura();
 }
 
+
 function wireEventsCaptura(){
   document.querySelectorAll("textarea.desc").forEach(t => {
     t.oninput = async () => {
@@ -2657,7 +2785,14 @@ function wireEventsCaptura(){
     };
   });
 
-
+  // 🎙️ Dictado por voz: botón por foto (captura)
+  document.querySelectorAll("button.dictate").forEach(b => {
+    b.onclick = () => {
+      const id = Number(b.dataset.id);
+      const t = document.querySelector(`textarea.desc[data-id="${id}"]`);
+      startDictation(t, b);
+    };
+  });
   document.querySelectorAll("input.itSel").forEach(inp => {
     inp.oninput = async () => {
       const id = Number(inp.dataset.id);
@@ -2798,13 +2933,17 @@ function openModal(id){
 }
 
 function closeModal(){
+  if (typeof dictation !== "undefined" && dictation.active) stopDictation();
   $("modal").classList.remove("open");
   $("modalImg").src = "";
   modalId = null;
 }
 
 $("btnModalClose").onclick = closeModal;
-$("modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
+$("modal").addEventListener("click", (e) => {
+  if (dictation.active) stopDictation();
+  if (e.target.id === "modal") closeModal();
+});
 
 
 $("modalItem").oninput = async () => {
@@ -2850,6 +2989,11 @@ $("btnModalDelete").onclick = async () => {
   render();
 };
 
+
+// 🎙️ Dictado por voz en modal
+$("btnModalDictate").onclick = () => {
+  startDictation($("modalDesc"), $("btnModalDictate"));
+};
 $("btnModalShare").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
