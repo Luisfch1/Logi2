@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s1s1</title>
+  <title>Logi2 v0.8.2s2</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s1">
-  <link rel="icon" href="favicon.png?v=0.8.2s1">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s1">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s2">
+  <link rel="icon" href="favicon.png?v=0.8.2s2">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -388,11 +388,16 @@
 
 <body>
   <div class="wrap">
+        <!-- Inputs ocultos (global) -->
+        <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
+        <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
+        <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+
     <div class="appbar">
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.2s1s1</div>
+          <div class="appVersion" id="appVersion">v0.8.2s2</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -457,55 +462,9 @@
         <button class="btn btn-secondary" id="btnGaleria">🖼️ Galería</button>
       </div>
 
-      <!-- LOGO (captura) -->
-      <div class="row" style="margin-top:10px;">
-        <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
-        <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
-        <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-        <button class="btn btn-secondary" id="btnCargarLogo">🖼️ Cargar logo</button>
-        <button class="btn btn-secondary" id="btnQuitarLogo" style="display:none">🗑️ Quitar logo</button>
-
-        <label style="display:flex;align-items:center;gap:10px;margin:0">
-          <input type="checkbox" id="logoEnabled" />
-          <span class="muted">Aplicar logo a nuevas fotos (captura)</span>
-        </label>
-
-        <select id="logoCorner" style="width:auto">
-          <option value="br">Logo: inferior derecha</option>
-          <option value="bl">Logo: inferior izquierda</option>
-          <option value="tr">Logo: superior derecha</option>
-          <option value="tl">Logo: superior izquierda</option>
-        </select>
-
-        <img id="logoPreview" alt="Logo"
-             style="height:34px;width:auto;border-radius:10px;border:1px solid var(--border);display:none"/>
-      </div>
-
       <div id="capturaView">
         <div class="muted" style="margin-top:8px">
           Captura del día: escribe la descripción, marca ✅ Listo y si quieres 📤 WhatsApp (solo imagen).
-        </div>
-
-        <!-- ✅ Opciones WhatsApp -->
-        <div class="row" style="margin-top:10px;">
-          <label style="display:flex;align-items:center;gap:10px;margin:0">
-            <input type="checkbox" id="waAddLogo" checked />
-            <span class="muted">WhatsApp: incluir logo (si hay logo cargado)</span>
-          </label>
-
-
-          <label style="display:flex;align-items:center;gap:10px;margin:0">
-            <input type="checkbox" id="waAddTemplate" checked />
-            <span class="muted">WhatsApp: incluir texto (plantilla) sobre la foto</span>
-          </label>
-
-          <label style="display:flex;align-items:center;gap:10px;margin:0">
-            <input type="checkbox" id="waAddStamp" />
-            <span class="muted">WhatsApp: incluir fecha/hora</span>
-          </label>
-        </div>
-        <div class="muted" style="margin-top:6px">
-          Nota: si una foto ya quedó con logo en la captura, no se puede “quitar” al enviar.
         </div>
 
         <div id="lista" class="list"></div>
@@ -605,6 +564,43 @@
           </select>
         </label>
       </div>
+      <!-- Logo / Compartir (definido solo aquí) -->
+      <div class="row" style="margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <label>Logo (opcional)</label>
+          <div class="row" style="gap:10px;margin-top:6px;align-items:center">
+            <button class="btn btn-secondary" id="btnCargarLogo" type="button">🖼️ Cargar logo</button>
+            <button class="btn btn-secondary" id="btnQuitarLogo" type="button" style="display:none">🗑️ Quitar logo</button>
+
+            <select id="logoCorner" style="width:auto">
+              <option value="br">Logo: inferior derecha</option>
+              <option value="bl">Logo: inferior izquierda</option>
+              <option value="tr">Logo: superior derecha</option>
+              <option value="tl">Logo: superior izquierda</option>
+            </select>
+
+            <img id="logoPreview" alt="Logo"
+                 style="height:34px;width:auto;border-radius:10px;border:1px solid var(--border);display:none"/>
+          </div>
+          <div class="muted" style="margin-top:6px">
+            El logo se aplica solo al exportar o compartir. La foto original no se modifica.
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:10px;margin:0">
+          <input type="checkbox" id="waAddLogo" checked />
+          <span class="muted">Compartir (WhatsApp): incluir logo</span>
+        </label>
+
+        <label style="display:flex;align-items:center;gap:10px;margin:0">
+          <input type="checkbox" id="waAddStamp" />
+          <span class="muted">Compartir (WhatsApp): incluir fecha/hora</span>
+        </label>
+      </div>
+
+
 
       <div class="row" style="margin-top:10px;">
         <label style="display:flex;align-items:center;gap:10px;margin:0">
@@ -2205,15 +2201,15 @@ async function dataUrlToBitmap(dataUrl){
 
 function syncLogoButtons(){
   const has = !!logoDataUrl;
-  $("btnQuitarLogo").style.display = has ? "inline-flex" : "none";
+  const q = document.getElementById("btnQuitarLogo");
+  if (q) q.style.display = has ? "inline-flex" : "none";
 }
 
 async function loadLogoFromStorage(){
+  // Nota: el logo NO se incrusta en la foto al capturar. Solo se aplica al exportar/compartir.
+  localStorage.setItem("logi_logo_enabled","0");
   logoDataUrl = localStorage.getItem("logi_logo_dataurl");
-  const enabled = localStorage.getItem("logi_logo_enabled") === "1";
-  $("logoEnabled").checked = enabled;
-
-  if (logoDataUrl){
+if (logoDataUrl){
     $("logoPreview").src = logoDataUrl;
     $("logoPreview").style.display = "inline-block";
     try { logoBitmap = await dataUrlToBitmap(logoDataUrl); } catch { logoBitmap = null; }
@@ -2226,13 +2222,15 @@ async function loadLogoFromStorage(){
 
 function loadLogoCorner(){
   const v = localStorage.getItem("logi_logo_corner") || "br";
-  $("logoCorner").value = v;
+  const el = document.getElementById("logoCorner");
+  if (el) el.value = v;
 }
-$("logoCorner").onchange = () => localStorage.setItem("logi_logo_corner", $("logoCorner").value);
-
-$("btnCargarLogo").onclick = () => $("logoInput").click();
-
-$("logoInput").onchange = async () => {
+{
+  const el = document.getElementById("logoCorner");
+  if (el) el.onchange = () => localStorage.setItem("logi_logo_corner", el.value);
+}
+{ const b = document.getElementById("btnCargarLogo"); if (b) b.onclick = () => document.getElementById("logoInput")?.click(); }
+{ const inp = document.getElementById("logoInput"); if (inp) inp.onchange = async () => {
   const file = $("logoInput").files?.[0];
   if (!file) return;
 
@@ -2258,9 +2256,9 @@ $("logoInput").onchange = async () => {
   } finally {
     $("logoInput").value = "";
   }
-};
+}; } 
 
-$("btnQuitarLogo").onclick = async () => {
+{ const bq = document.getElementById("btnQuitarLogo"); if (bq) bq.onclick = async () => {
   if (!confirm("¿Quitar el logo cargado?")) return;
   localStorage.removeItem("logi_logo_dataurl");
   logoDataUrl = null;
@@ -2269,9 +2267,7 @@ $("btnQuitarLogo").onclick = async () => {
   $("logoPreview").style.display = "none";
   syncLogoButtons();
   alert("Logo quitado ✅");
-};
-
-$("logoEnabled").onchange = () => localStorage.setItem("logi_logo_enabled", $("logoEnabled").checked ? "1" : "0");
+}; } 
 
 /* ===========================
    Helpers esquina
@@ -2381,9 +2377,9 @@ async function compressImage(file, maxSide=1600, quality=0.82){
 
   URL.revokeObjectURL(url);
 
-  const enabled = localStorage.getItem("logi_logo_enabled") === "1";
+  const enabled = false; // nunca incrustamos logo en captura
   const corner = localStorage.getItem("logi_logo_corner") || "br";
-  const hadLogo = (enabled && logoBitmap) ? drawLogoAtCorner(ctx, nw, nh, corner, 0.85) : false;
+  const hadLogo = false;
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
   return { blob: blob || file, hasLogo: !!hadLogo };
