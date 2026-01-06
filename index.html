@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s2</title>
+  <title>Logi2 v0.8.2s3</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s2">
-  <link rel="icon" href="favicon.png?v=0.8.2s2">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s2">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s3">
+  <link rel="icon" href="favicon.png?v=0.8.2s3">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -397,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.2s2</div>
+          <div class="appVersion" id="appVersion">v0.8.2s3</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -443,6 +443,7 @@
       </div>
 
 
+      <div id="capturaControls">
       <div class="row" style="margin-top:10px;">
         <div style="flex:1;min-width:220px">
           <label for="fecha">Fecha</label>
@@ -461,6 +462,7 @@
         <button class="btn btn-primary" id="btnTomarFoto">📷 Cámara</button>
         <button class="btn btn-secondary" id="btnGaleria">🖼️ Galería</button>
       </div>
+      </div>
 
       <div id="capturaView">
         <div class="muted" style="margin-top:8px">
@@ -471,7 +473,16 @@
       </div>
 
       <div id="galeriaView" style="display:none">
-        <div class="muted" style="margin-top:8px">
+        
+        <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:260px">
+            <label for="galleryItem">Filtrar por ítem (opcional)</label>
+            <input type="text" id="galleryItem" list="datalistItems" placeholder="Código o busca en el listado…" />
+            <div class="muted" id="galleryItemHint" style="margin-top:6px">—</div>
+          </div>
+          <button class="btn btn-secondary smallBtn" id="btnGalleryItemClear" title="Quitar filtro">✖</button>
+        </div>
+<div class="muted" style="margin-top:8px">
           Miniaturas por día. El encabezado del día se queda pegado arriba al hacer scroll.
         </div>
         <div class="muted" id="rangeInfo" style="margin-top:6px">Rango: —</div>
@@ -1618,6 +1629,17 @@ function updateExportItemHint(){
   hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
 }
 
+function getGalleryItemCode(){
+  return ($("galleryItem")?.value || "").trim();
+}
+
+function updateGalleryItemHint(){
+  const hintEl = $("galleryItemHint");
+  if (!hintEl) return;
+  const code = getGalleryItemCode();
+  hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
+}
+
 function normalizeHeader(s){
   return String(s || "")
     .trim()
@@ -2692,9 +2714,18 @@ function renderGaleria(){
   setStatus();
   const wrap = $("galleryWrap");
   wrap.innerHTML = "";
+  const gcode = getGalleryItemCode();
+  let source = cache;
+  if (gcode) source = cache.filter(x => String(x.itemCode || "").trim() === gcode);
 
-  const groups = groupByDate(cache);
-  if (!groups.length){
+  const groups = groupByDate(source);
+
+  const ri = $("rangeInfo");
+  if (ri && gcode){
+    const base = ri.textContent || "Rango: —";
+    ri.textContent = base.includes("Ítem:") ? base : (base + ` · Ítem: ${gcode}`);
+  }
+if (!groups.length){
     wrap.innerHTML = `<div style="padding:12px" class="muted">Aún no hay fotos guardadas.</div>`;
     return;
   }
@@ -4203,6 +4234,8 @@ function setTab(mode){
 
   $("capturaView").style.display = mode === "captura" ? "block" : "none";
   $("galeriaView").style.display = mode === "galeria" ? "block" : "none";
+  const cc = $("capturaControls");
+  if (cc) cc.style.display = mode === "captura" ? "block" : "none";
   const ev = $("exportView");
   if (ev) ev.style.display = mode === "export" ? "block" : "none";
 
@@ -4355,6 +4388,26 @@ function renderExport(){
     };
   }
   updateExportItemHint();
+
+  // Filtro por ítem en Galería
+  if ($("galleryItem")){
+    $("galleryItem").addEventListener("input", () => {
+      updateGalleryItemHint();
+      if (viewMode === "galeria") render();
+    });
+    $("galleryItem").addEventListener("change", () => {
+      updateGalleryItemHint();
+      if (viewMode === "galeria") render();
+    });
+  }
+  if ($("btnGalleryItemClear")){
+    $("btnGalleryItemClear").onclick = () => {
+      if ($("galleryItem")) $("galleryItem").value = "";
+      updateGalleryItemHint();
+      if (viewMode === "galeria") render();
+    };
+  }
+  updateGalleryItemHint();
 
   // Multi-proyecto (Logi2)
   ensureProjects();
