@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s5</title>
+  <title>Logi2 v0.8.2s6</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s5">
-  <link rel="icon" href="favicon.png?v=0.8.2s5">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s5">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s6">
+  <link rel="icon" href="favicon.png?v=0.8.2s6">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -397,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.2s5</div>
+          <div class="appVersion" id="appVersion">v0.8.2s6</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -4335,24 +4335,58 @@ function updateExportUI(){
   const modo = $("modoExport").value;
   const hastaWrap = $("hastaWrap");
   const desdeLabel = $("desdeLabel");
+  const desdeEl = $("desde");
+
+  // Cambia el picker según el modo:
+  // - Día/Rango: type=date (YYYY-MM-DD)
+  // - Mes: type=month (YYYY-MM)
+  const toMonth = () => {
+    const current = String(desdeEl.value || "");
+    const ym = (current.length >= 7 ? current.slice(0,7) : hoyISO().slice(0,7));
+    if (desdeEl.type !== "month") {
+      try { desdeEl.type = "month"; } catch(e) {}
+    }
+    desdeEl.value = ym;
+  };
+  const toDate = () => {
+    const current = String(desdeEl.value || "");
+    const ymd = (current.length === 7 ? `${current}-01` : (current || hoyISO()));
+    if (desdeEl.type !== "date") {
+      try { desdeEl.type = "date"; } catch(e) {}
+    }
+    desdeEl.value = ymd;
+  };
 
   if (modo === "rango"){
+    toDate();
     hastaWrap.style.display = "block";
     desdeLabel.textContent = "Desde";
   } else if (modo === "dia"){
+    toDate();
     hastaWrap.style.display = "none";
     desdeLabel.textContent = "Día";
     $("hasta").value = $("desde").value; // día usa solo "desde"
   } else { // mes
     hastaWrap.style.display = "none";
-    desdeLabel.textContent = "Mes (elige un día)";
-    $("hasta").value = $("desde").value;
+    desdeLabel.textContent = "Mes";
+    toMonth();
+    // Mantener "hasta" como fecha válida por si luego cambian a rango.
+    const ym = String($("desde").value || hoyISO()).slice(0,7);
+    $("hasta").value = `${ym}-01`;
   }
 }
 
 $("modoExport").addEventListener("change", updateExportUI);
 $("desde").addEventListener("change", () => {
-  if ($("modoExport").value !== "rango") $("hasta").value = $("desde").value;
+  const modo = $("modoExport").value;
+  if (modo !== "rango") {
+    if (modo === "mes") {
+      const ym = String($("desde").value || hoyISO()).slice(0,7);
+      $("hasta").value = `${ym}-01`;
+    } else {
+      $("hasta").value = $("desde").value;
+    }
+  }
   updateExportUI();
 
   initLayoutUI();
