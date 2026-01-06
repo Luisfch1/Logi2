@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s4</title>
+  <title>Logi2 v0.8.2s5</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s4">
-  <link rel="icon" href="favicon.png?v=0.8.2s4">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s4">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s5">
+  <link rel="icon" href="favicon.png?v=0.8.2s5">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -397,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.2s4</div>
+          <div class="appVersion" id="appVersion">v0.8.2s5</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -867,8 +867,9 @@ function startDictation(targetEl, btnEl){
 
   const rec = new _SpeechRec();
   rec.lang = "es-CO";
-  rec.continuous = true;
+  rec.continuous = false;
   rec.interimResults = true;
+  rec.maxAlternatives = 1;
 
   dictation.rec = rec;
   dictation.active = true;
@@ -886,20 +887,22 @@ function startDictation(targetEl, btnEl){
   setDictateStatus("🎙️ Dictando…");
 
   rec.onresult = (event) => {
-    let interim = "";
-    let finalChunk = "";
+    // Reconstruir transcript completo para evitar duplicados (en algunos navegadores resultIndex se reinicia).
+    const finals = [];
+    const interims = [];
 
-    for (let i = event.resultIndex; i < event.results.length; i++){
+    for (let i = 0; i < event.results.length; i++){
       const res = event.results[i];
-      const t = (res[0]?.transcript || "");
-      if (res.isFinal) finalChunk += t;
-      else interim += t;
+      const t = (res[0]?.transcript || "").trim();
+      if (!t) continue;
+      if (res.isFinal) finals.push(t);
+      else interims.push(t);
     }
 
-    if (finalChunk) dictation.finalText += finalChunk;
-
-    const base = dictation.baseText ? (dictation.baseText + " ") : "";
-    const composed = (base + dictation.finalText + interim).replace(/\s+/g, " ").trim();
+    const base = dictation.baseText ? (dictation.baseText.trimEnd() + " " ) : "";
+    const composed = (base + [...finals, ...interims].join(" "))
+      .replace(/\s+/g, " " )
+      .trim();
 
     targetEl.value = composed;
     try { targetEl.setSelectionRange(targetEl.value.length, targetEl.value.length); } catch {}
