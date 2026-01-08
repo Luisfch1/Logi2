@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.3s1</title>
+  <title>Logi2 v0.8.3s2</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.3s1">
-  <link rel="icon" href="favicon.png?v=0.8.3s1">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3s1">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.3s2">
+  <link rel="icon" href="favicon.png?v=0.8.3s2">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3s2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -397,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.3s1</div>
+          <div class="appVersion" id="appVersion">v0.8.3s2</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -716,8 +716,6 @@
           </div>
           <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
         </div>
-</div>
-
 
         <div class="sheetRow">
           <div class="sheetRowMain">
@@ -4710,8 +4708,8 @@ function updateExportUI(){
   }
 }
 
-$("modoExport").addEventListener("change", updateExportUI);
-$("desde").addEventListener("change", () => {
+$("modoExport")?.addEventListener("change", updateExportUI);
+$("desde")?.addEventListener("change", () => {
   const modo = $("modoExport").value;
   if (modo !== "rango") {
     if (modo === "mes") {
@@ -4731,7 +4729,8 @@ $("desde").addEventListener("change", () => {
 });
 
 
-$("btnDeleteProject").onclick = async () => {
+const __btnDelProj = $("btnDeleteProject");
+if (__btnDelProj) __btnDelProj.onclick = async () => {
   const sel = $("deleteProjectSelect");
   const pid = sel ? sel.value : "";
   const { projects, activeId } = ensureProjects();
