@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.3s3</title>
+  <title>Logi2 v0.8.3s4</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.3s3">
-  <link rel="icon" href="favicon.png?v=0.8.3s3">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3s3">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.3s4">
+  <link rel="icon" href="favicon.png?v=0.8.3s4">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3s4">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -397,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.3s3</div>
+          <div class="appVersion" id="appVersion">v0.8.3s4</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1556,38 +1556,66 @@ Aceptar: RESTAURAR respetando proyectos.
 Cancelar: importar TODO al proyecto actual.`);
   }
 
-  // Preparar mapeo de proyectos (evitar choques de IDs)
-  let projIdMap = {};
+  // Preparar mapeo de proyectos (clave: por NOMBRE, no por ID)
+  // Requisito: si ya existe un proyecto "Cementerio" en el dispositivo destino,
+  // NO creamos otro; importamos dentro del existente.
+  const normName = (s) => String(s || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+
+  let projIdMap = {};                 // backupProjectId -> localProjectId
+  let localNameToId = new Map();      // normalizedName -> localProjectId
+
   if (hasProjects && keepProjects){
     const local = ensureProjects();
-    const existingIds = new Set(local.projects.map(p => p.id));
     const merged = [...local.projects];
+    const existingIds = new Set(merged.map(p => p.id));
 
-    for (const p of backup.projects){
-      let newId = p.id;
-      if (existingIds.has(newId)){
-        newId = genPid();
-      }
-      projIdMap[p.id] = newId;
-      if (!existingIds.has(newId)){
-        merged.push({
-          id: newId,
-          name: (p && p.name) ? p.name : "Proyecto importado",
-          createdAt: Date.now()
-        });
-        existingIds.add(newId);
-      }
+    // mapa local por nombre
+    for (const p of merged){
+      const k = normName(p.name);
+      if (k && !localNameToId.has(k)) localNameToId.set(k, p.id);
     }
-    saveProjects(merged);
-    refreshProjectUI();
+
+    let created = 0;
+    for (const bp of backup.projects){
+      const bName = (bp && bp.name) ? bp.name : "Proyecto importado";
+      const k = normName(bName);
+
+      // 1) Si ya existe por nombre, se usa ese mismo ID
+      const existingByName = k ? localNameToId.get(k) : null;
+      if (existingByName){
+        projIdMap[bp.id] = existingByName;
+        continue;
+      }
+
+      // 2) Si no existe, creamos uno nuevo (evitando colisiones de ID)
+      let newId = bp.id;
+      if (!newId || existingIds.has(newId)) newId = genPid();
+      while (existingIds.has(newId)) newId = genPid();
+
+      merged.push({ id: newId, name: bName, createdAt: Date.now() });
+      existingIds.add(newId);
+      if (k) localNameToId.set(k, newId);
+      projIdMap[bp.id] = newId;
+      created++;
+    }
+
+    if (created){
+      saveProjects(merged);
+      refreshProjectUI();
+    }
   }
 
   const { projects, activeId } = ensureProjects();
   const destProjectId = activeId;
   const firstId = projects[0]?.id || destProjectId;
 
-  // mapa de existentes (mezclar)
-  const existing = new Set(cache.map(x => x.id));
+  // mapa de existentes (mezclar) — usar DB completa para evitar duplicados y mezclas
+  const existing = new Set((await dbGetAll()).map(x => x.id));
   let added = 0;
   let skipped = 0;
 
@@ -1657,11 +1685,24 @@ Cancelar: importar TODO al proyecto actual.`);
       continue;
     }
 
+    // Determinar proyecto destino para esta foto
     const srcPid = meta.projectId || backup.activeProjectId || (backup.projects && backup.projects[0] && backup.projects[0].id) || "";
     let finalPid = destProjectId;
 
     if (hasProjects && keepProjects){
-      finalPid = projIdMap[srcPid] || projIdMap[(backup.projects && backup.projects[0] && backup.projects[0].id) || ""] || destProjectId;
+      // 1) Por ID del backup
+      finalPid = projIdMap[srcPid];
+
+      // 2) Si falta, intentar por nombre del proyecto guardado en la foto
+      if (!finalPid){
+        const byName = meta.proyecto ? localNameToId.get(normName(meta.proyecto)) : null;
+        if (byName) finalPid = byName;
+      }
+
+      // 3) Último recurso: proyecto activo del backup (mapeado) o el actual
+      if (!finalPid){
+        finalPid = projIdMap[backup.activeProjectId] || destProjectId;
+      }
     } else {
       finalPid = destProjectId;
     }
@@ -1682,7 +1723,6 @@ Cancelar: importar TODO al proyecto actual.`);
     };
 
     await dbPut(it);
-    cache.push(it);
     existing.add(id);
     added++;
 
