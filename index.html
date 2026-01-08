@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s6</title>
+  <title>Logi2 v0.8.2s7</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s6">
-  <link rel="icon" href="favicon.png?v=0.8.2s6">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s6">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s7">
+  <link rel="icon" href="favicon.png?v=0.8.2s7">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -383,7 +383,19 @@
     .projectSelect{min-width:220px;max-width:420px}
     .projModalCard{width:min(560px, 96vw)}
 
-  </style>
+  
+    .chkRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      margin:8px 0;
+      user-select:none;
+    }
+    .chkRow input{ transform:scale(1.15); }
+</style>
 </head>
 
 <body>
@@ -397,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.2s6</div>
+          <div class="appVersion" id="appVersion">v0.8.2s7</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1261,35 +1273,72 @@ function extFromMime(m){
   return "bin";
 }
 
-async function createBackupZip(){
+async function createBackupZip(selection){
   if (!window.JSZip){
     alert("JSZip no está disponible. Abre la app con internet (una vez) y prueba de nuevo.");
     return;
   }
 
   $("backupStatus").textContent = "Preparando backup…";
-  const allItems = await dbGetAll();
-  const activeId = getActiveProjectId() || ensureProjects().activeId;
-  const { projects } = ensureProjects();
+
+  const allPhotos = await dbGetAll();
+  const { projects, activeId } = ensureProjects();
   const firstId = projects[0]?.id || activeId;
-  const items = allItems.filter(it => (it.projectId ? it.projectId === activeId : activeId === firstId));
+
+  const mode = selection?.mode || "";
+  let projectIds = [];
+  if (mode === "all"){
+    projectIds = projects.map(p => p.id);
+  } else if (mode === "current"){
+    projectIds = [activeId];
+  } else if (mode === "pick"){
+    projectIds = (selection.projectIds || []).filter(Boolean);
+  } else {
+    // cancelado
+    $("backupStatus").textContent = "—";
+    return;
+  }
+
+  if (!projectIds.length){
+    alert("No seleccionaste proyectos para el backup.");
+    $("backupStatus").textContent = "—";
+    return;
+  }
+
+  const selectedProjects = projects.filter(p => projectIds.includes(p.id));
+
+  // Fotos: si una foto viene de versión vieja sin projectId, la asumimos del primer proyecto.
+  const belongsTo = (ph, pid) => ph?.projectId ? (ph.projectId === pid) : (pid === firstId);
+  const photos = allPhotos.filter(ph => projectIds.some(pid => belongsTo(ph, pid)));
+
+  // Catálogo de ítems: traer listado por cada proyecto seleccionado
+  let catalogRows = [];
+  try{
+    for (const pid of projectIds){
+      const rows = await catGetByProject(pid);
+      if (rows && rows.length) catalogRows.push(...rows);
+    }
+  }catch{}
 
   const settings = {
     theme: localStorage.getItem(THEME_KEY) || "dark",
     accent: localStorage.getItem(ACCENT_KEY) || "blue",
-    project: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
-    template: getTemplateId(),
-    docxFit: localStorage.getItem("logi_docx_fit") || "stretch",
-    logoEnabled: localStorage.getItem("logi_logo_enabled") === "1",
+    projectDefault: localStorage.getItem("logi_project_default") || "",
+    rfTemplate: localStorage.getItem("logi_template") || "classic",
+    rfLogoEnabled: localStorage.getItem("logi_logo_enabled") || "1",
+    rfDocxFit: localStorage.getItem("logi_docx_fit") || "cover",
     logoCorner: localStorage.getItem("logi_logo_corner") || "br",
   };
 
   const backup = {
-    schemaVersion: 1,
-    app: "Logi",
+    schemaVersion: 2,
+    app: "Logi2",
     createdAt: new Date().toISOString(),
+    selection: { mode, projectIds },
+    projects: { activeId, projects: selectedProjects },
     settings,
-    items: items.map(it => ({
+    catalog: catalogRows,
+    items: photos.map(it => ({
       id: it.id,
       fecha: it.fecha || "",
       proyecto: it.proyecto || "",
@@ -1297,7 +1346,10 @@ async function createBackupZip(){
       done: !!it.done,
       mime: it.mime || "image/jpeg",
       createdAt: it.createdAt || Date.now(),
-      hasLogo: !!it.hasLogo
+      hasLogo: !!it.hasLogo,
+      projectId: it.projectId || null,
+      itemCode: it.itemCode || "",
+      itemDesc: it.itemDesc || ""
     }))
   };
 
@@ -1305,14 +1357,13 @@ async function createBackupZip(){
   zip.file("backup.json", JSON.stringify(backup, null, 2));
 
   // fotos
-  const photos = zip.folder("photos");
+  const photosFolder = zip.folder("photos");
   let i = 0;
-  for (const it of items){
+  for (const it of photos){
     i++;
-    $("backupStatus").textContent = `Agregando fotos… (${i}/${items.length})`;
+    $("backupStatus").textContent = `Agregando fotos… (${i}/${photos.length})`;
     const ext = extFromMime(it.mime || "image/jpeg");
-    // guardamos por id (merge-friendly)
-    photos.file(`${it.id}.${ext}`, it.blob);
+    photosFolder.file(`${it.id}.${ext}`, it.blob);
   }
 
   // logo (si existe)
@@ -1321,18 +1372,15 @@ async function createBackupZip(){
     try{
       const lb = await dataUrlToBlob(logoData);
       const lfolder = zip.folder("logo");
-      // intentamos preservar tipo
       const lExt = extFromMime(lb.type || "image/png");
       lfolder.file(`logo.${lExt}`, lb);
     }catch{}
   }
 
   $("backupStatus").textContent = "Comprimiendo ZIP…";
-  const outBlob = await zip.generateAsync({ type: "blob" }, (meta) => {
-    $("backupStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
-  });
+  const outBlob = await zip.generateAsync({ type:"blob", compression:"DEFLATE", compressionOptions:{ level:6 } });
 
-  const name = `logi-backup-${isoNowSafe()}.zip`;
+  const name = `logi2-backup-${isoNowSafe()}.zip`;
   const url = URL.createObjectURL(outBlob);
   const a = document.createElement("a");
   a.href = url;
@@ -1342,7 +1390,7 @@ async function createBackupZip(){
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  $("backupStatus").textContent = `Backup listo ✅ (${items.length} fotos)`;
+  $("backupStatus").textContent = `Backup listo ✅ (${photos.length} fotos · ${selectedProjects.length} proyecto(s))`;
   setTimeout(() => { $("backupStatus").textContent = "Consejo: haz backup al final del día o antes de actualizar."; }, 2500);
 }
 
@@ -1368,14 +1416,76 @@ async function restoreBackupZip(file){
     return;
   }
 
-  const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/proyecto/logo)?\n\nSi dices Cancelar, solo importo las fotos.");
+  // 1) ¿Importar también settings + logo?
+  const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/plantilla/proyecto/logo)?\n\nSi dices Cancelar, solo importo las fotos y el catálogo de ítems.");
+
+  // 2) Si el backup trae proyectos, decidir modo
+  let keepProjectStructure = false;
+  let projectIdMap = {};
+  let targetProjectId = null;
+
+  const hasProjects = !!(backup.projects && Array.isArray(backup.projects.projects) && backup.projects.projects.length);
+  if (hasProjects){
+    keepProjectStructure = confirm(
+      "Este backup trae múltiples PROYECTOS.\n\n✅ Aceptar: restaurar/mezclar proyectos (mantener estructura)\n❌ Cancelar: importar TODO dentro del proyecto actual"
+    );
+  }
+
+  const { projects: currentProjects, activeId: currentActiveId } = ensureProjects();
+  const activeP = getActiveProject() || currentProjects.find(p=>p.id===currentActiveId) || currentProjects[0];
+  targetProjectId = activeP ? activeP.id : (currentProjects[0]?.id || null);
+
+  // Mezcla/crea proyectos si aplica
+  if (hasProjects && keepProjectStructure){
+    const existingIds = new Set(currentProjects.map(p => p.id));
+    const existingNames = new Set(currentProjects.map(p => (p.name || "").trim().toLowerCase()));
+    for (const bp of backup.projects.projects){
+      const oldId = bp.id;
+      let newId = oldId;
+
+      // evitar colisiones
+      if (existingIds.has(newId)){
+        newId = genPid();
+      }
+
+      // evitar duplicado por nombre (si el id no colisiona pero el nombre sí)
+      let name = String(bp.name || "Proyecto").trim() || "Proyecto";
+      if (existingNames.has(name.toLowerCase())){
+        name = `${name} (importado)`;
+      }
+
+      projectIdMap[oldId] = newId;
+      if (!existingIds.has(newId)){
+        currentProjects.push({ id: newId, name, createdAt: bp.createdAt || Date.now() });
+        existingIds.add(newId);
+        existingNames.add(name.toLowerCase());
+      }
+    }
+    saveProjects(currentProjects);
+    // si el proyecto activo del backup existe, intentamos activarlo
+    try{
+      const bActive = backup.projects.activeId;
+      if (bActive && projectIdMap[bActive]) setActiveProjectId(projectIdMap[bActive]);
+    }catch{}
+  }
 
   // mapa de existentes (mezclar)
-  const existing = new Set(cache.map(x => x.id));
+  const existingPhotoIds = new Set(cache.map(x => x.id));
+
+  const mintPhotoId = (base) => {
+    let id = base;
+    let guard = 0;
+    while (existingPhotoIds.has(id) && guard < 20){
+      id = String(base) + "_" + Math.random().toString(36).slice(2,7);
+      guard++;
+    }
+    return id;
+  };
+
   let added = 0;
   let skipped = 0;
 
-  // intentamos importar logo primero (si se pidió)
+  // importar logo primero (si se pidió)
   if (importSettings){
     try{
       const logoFolder = zip.folder("logo");
@@ -1388,7 +1498,7 @@ async function restoreBackupZip(file){
             const fr = new FileReader();
             const dataUrl = await new Promise((res, rej)=>{
               fr.onload = () => res(fr.result);
-              fr.onerror = rej;
+              fr.onerror = () => rej(fr.error || new Error("No pude leer el logo"));
               fr.readAsDataURL(lb);
             });
             localStorage.setItem("logi_logo_dataurl", dataUrl);
@@ -1401,67 +1511,107 @@ async function restoreBackupZip(file){
   const total = backup.items.length;
   for (let idx=0; idx<total; idx++){
     const meta = backup.items[idx];
-    const id = meta.id;
+    const oldId = meta.id;
+    let newId = oldId;
 
-    if (existing.has(id)){
+    // si el id ya existe, no lo omitimos: lo renombramos
+    if (existingPhotoIds.has(newId)){
+      newId = mintPhotoId(oldId);
+    }
+    if (existingPhotoIds.has(newId)){
       skipped++;
       continue;
     }
 
-    // localizar archivo de foto por id (puede tener ext distinta)
-    const possible = [`photos/${id}.jpg`, `photos/${id}.jpeg`, `photos/${id}.png`, `photos/${id}.webp`, `photos/${id}.bin`];
-    let f = null;
-    for (const p of possible){
-      const zf = zip.file(p);
-      if (zf){ f = zf; break; }
-    }
-    // fallback: buscar por prefijo id.
+    // buscar archivo de foto usando EL ID ORIGINAL (como está en el ZIP)
+    let f = zip.file(`photos/${oldId}.jpg`);
+    if (!f) f = zip.file(`photos/${oldId}.jpeg`);
+    if (!f) f = zip.file(`photos/${oldId}.png`);
     if (!f){
       const keys = Object.keys(zip.files);
-      const match = keys.find(k => k.startsWith(`photos/${id}.`) && !zip.files[k].dir);
+      const match = keys.find(k => k.startsWith(`photos/${oldId}.`) && !zip.files[k].dir);
       if (match) f = zip.file(match);
     }
-
-    if (!f){
-      // no reventamos: saltamos
-      skipped++;
-      continue;
-    }
+    if (!f){ skipped++; continue; }
 
     $("backupStatus").textContent = `Importando… (${idx+1}/${total})`;
 
     const blob = await f.async("blob");
-    const activeP = getActiveProject();
+
+    // decidir proyecto destino
+    let pid = targetProjectId;
+    if (keepProjectStructure && meta.projectId && projectIdMap[meta.projectId]){
+      pid = projectIdMap[meta.projectId];
+    } else if (keepProjectStructure && meta.projectId && !projectIdMap[meta.projectId]){
+      // si por algún motivo no se mapeó, lo dejamos en el actual
+      pid = targetProjectId;
+    }
+
+    // nombre de proyecto para el registro
+    let projName = meta.proyecto || "";
+    if (keepProjectStructure && pid){
+      const p = currentProjects.find(x => x.id === pid);
+      if (p) projName = p.name || projName;
+    }
+    if (!projName) projName = activeP ? activeP.name : "Proyecto";
+
     const it = {
-      id,
+      id: newId,
       fecha: meta.fecha || "",
-      proyecto: meta.proyecto || "",
+      proyecto: projName,
       descripcion: meta.descripcion || "",
       done: !!meta.done,
       blob,
       mime: meta.mime || blob.type || "image/jpeg",
       createdAt: meta.createdAt || Date.now(),
       hasLogo: !!meta.hasLogo,
-      projectId: activeP ? activeP.id : null
+      projectId: pid,
+      itemCode: meta.itemCode || "",
+      itemDesc: meta.itemDesc || ""
     };
 
     await dbPut(it);
     cache.push(it);
-    existing.add(id);
+    existingPhotoIds.add(newId);
     added++;
+  }
+
+  // Catálogo de ítems (si viene en el backup)
+  if (Array.isArray(backup.catalog) && backup.catalog.length){
+    try{
+      let rows = [];
+      for (const r of backup.catalog){
+        const oldPid = r.projectId || "";
+        const item = String(r.item || "").trim();
+        if (!item) continue;
+
+        let pid = targetProjectId;
+        if (keepProjectStructure && oldPid && projectIdMap[oldPid]) pid = projectIdMap[oldPid];
+
+        const key = `${pid}::${item}`;
+        rows.push({
+          key,
+          projectId: pid,
+          item,
+          descripcion: String(r.descripcion || "").trim(),
+          createdAt: r.createdAt || Date.now()
+        });
+      }
+      if (rows.length) await catPutMany(rows);
+    }catch{}
   }
 
   // settings (si se pidió)
   if (importSettings && backup.settings){
     try{
-      if (backup.settings.theme) applyTheme(backup.settings.theme);
-      if (backup.settings.accent) applyAccent(backup.settings.accent);
-      if (typeof backup.settings.project === "string") setProjectDefault(backup.settings.project);
-      if (backup.settings.template) setTemplateId(backup.settings.template);
-      if (backup.settings.docxFit) localStorage.setItem("logi_docx_fit", backup.settings.docxFit);
-      if (typeof backup.settings.logoEnabled === "boolean") localStorage.setItem("logi_logo_enabled", backup.settings.logoEnabled ? "1":"0");
+      if (backup.settings.theme) localStorage.setItem(THEME_KEY, backup.settings.theme);
+      if (backup.settings.accent) localStorage.setItem(ACCENT_KEY, backup.settings.accent);
+      if (backup.settings.projectDefault != null) localStorage.setItem("logi_project_default", backup.settings.projectDefault);
+      if (backup.settings.rfTemplate) localStorage.setItem("logi_template", backup.settings.rfTemplate);
+      if (backup.settings.rfLogoEnabled != null) localStorage.setItem("logi_logo_enabled", backup.settings.rfLogoEnabled);
+      if (backup.settings.rfDocxFit) localStorage.setItem("logi_docx_fit", backup.settings.rfDocxFit);
       if (backup.settings.logoCorner) localStorage.setItem("logi_logo_corner", backup.settings.logoCorner);
-      // refrescar UI dependiente
+
       if (proyectoInput) proyectoInput.value = getProjectDefault();
       syncTemplateUI();
       loadDocxFit();
@@ -1472,14 +1622,101 @@ async function restoreBackupZip(file){
     }catch{}
   }
 
-  // re-render
+  // refrescar catálogo del proyecto activo
+  try{ await loadCatalogForActiveProject(); }catch{}
+
   render();
-  $("backupStatus").textContent = `Restauración completa ✅ (agregadas: ${added}, ya existían/omitidas: ${skipped})`;
+  $("backupStatus").textContent = `Restauración completa ✅ (agregadas: ${added}, omitidas: ${skipped})`;
   setTimeout(() => { $("backupStatus").textContent = "Consejo: haz backup al final del día o antes de actualizar."; }, 3500);
 }
 
+
+async function chooseBackupScope(){
+  return new Promise((resolve) => {
+    const modal = $("backupModeModal");
+    const pane = $("backupPickPane");
+    const list = $("backupPickList");
+    const btnClose = $("btnBackupModeClose");
+    const btnAll = $("btnBackupAll");
+    const btnCurrent = $("btnBackupCurrent");
+    const btnPick = $("btnBackupPick");
+    const btnPickCancel = $("btnBackupPickCancel");
+    const btnPickGo = $("btnBackupPickGo");
+
+    const { projects, activeId } = ensureProjects();
+    const esc = (v)=> String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+
+    const close = (result) => {
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden","true");
+      pane.style.display = "none";
+      // limpiar handlers para no duplicar
+      modal.onclick = null;
+      btnClose.onclick = null;
+      btnAll.onclick = null;
+      btnCurrent.onclick = null;
+      btnPick.onclick = null;
+      btnPickCancel.onclick = null;
+      btnPickGo.onclick = null;
+      resolve(result || null);
+    };
+
+    const renderPick = () => {
+      list.innerHTML = "";
+      for (const p of projects){
+        const row = document.createElement("label");
+        row.className = "chkRow";
+        row.innerHTML = `<input type="checkbox" value="${p.id}"> <div><div style="font-weight:800">${esc(p.name)}</div><div class="muted" style="margin-top:2px">${p.id === activeId ? "Proyecto actual" : ""}</div></div>`;
+        list.appendChild(row);
+      }
+      const syncBtn = () => {
+        const any = !!list.querySelector("input[type=checkbox]:checked");
+        btnPickGo.disabled = !any;
+      };
+      list.querySelectorAll("input[type=checkbox]").forEach(cb => cb.onchange = syncBtn);
+      syncBtn();
+    };
+
+    // abrir
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden","false");
+    renderPick();
+
+    // cerrar por overlay
+    modal.onclick = (e) => { if (e.target && e.target.id === "backupModeModal") close(null); };
+
+    btnClose.onclick = () => close(null);
+
+    btnAll.onclick = () => close({ mode:"all" });
+    btnCurrent.onclick = () => close({ mode:"current" });
+
+    btnPick.onclick = () => {
+      pane.style.display = "block";
+      // scroll a la lista
+      setTimeout(()=> pane.scrollIntoView({ behavior:"smooth", block:"nearest" }), 50);
+    };
+
+    btnPickCancel.onclick = () => {
+      pane.style.display = "none";
+    };
+
+    btnPickGo.onclick = () => {
+      const ids = Array.from(list.querySelectorAll("input[type=checkbox]:checked")).map(cb => cb.value);
+      if (!ids.length){ alert("Selecciona al menos un proyecto."); return; }
+      close({ mode:"pick", projectIds: ids });
+    };
+  });
+}
+
 $("btnBackupCreate").onclick = async () => {
-  try { await createBackupZip(); } catch (e){ alert("No pude crear el backup. Prueba cerrar apps y reintentar."); $("backupStatus").textContent = "—"; }
+  try {
+    const sel = await chooseBackupScope();
+    if (!sel) { $("backupStatus").textContent = "—"; return; }
+    await createBackupZip(sel);
+  } catch (e){
+    alert("No pude crear el backup. Tip: abre la app con internet una vez, o prueba en Chrome. Si persiste: borrar caché y reintentar.");
+    $("backupStatus").textContent = "—";
+  }
 };
 
 $("btnBackupRestore").onclick = () => {
@@ -4617,5 +4854,34 @@ function renderExport(){
   fechaInput.onchange = () => render();
 })();
 </script>
+
+  <!-- Modal: Respaldo (qué exportar) -->
+  <div class="modal" id="backupModeModal" aria-hidden="true">
+    <div class="modalCard projModalCard">
+      <div class="modalCloseRow">
+        <div>
+          <div class="modalTitle">Respaldo · ¿Qué exportar?</div>
+          <div class="muted">Elige explícitamente: todos, el actual o seleccionar proyectos.</div>
+        </div>
+        <button class="btn btn-secondary smallBtn" id="btnBackupModeClose">✖</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-primary" id="btnBackupAll">📦 Exportar TODOS los proyectos</button>
+        <button class="btn btn-secondary" id="btnBackupCurrent">📌 Exportar SOLO el proyecto actual</button>
+        <button class="btn btn-secondary" id="btnBackupPick">✅ Seleccionar proyectos…</button>
+      </div>
+
+      <div id="backupPickPane" style="display:none;margin-top:14px">
+        <div class="muted">Selecciona uno o varios proyectos:</div>
+        <div id="backupPickList" style="margin-top:10px"></div>
+        <div class="row" style="justify-content:flex-end;margin-top:12px">
+          <button class="btn btn-secondary" id="btnBackupPickCancel">↩ Volver</button>
+          <button class="btn btn-primary" id="btnBackupPickGo" disabled>Exportar selección</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
