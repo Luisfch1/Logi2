@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.3s2</title>
+  <title>Logi2 v0.8.3s3</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.3s2">
-  <link rel="icon" href="favicon.png?v=0.8.3s2">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3s2">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.3s3">
+  <link rel="icon" href="favicon.png?v=0.8.3s3">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3s3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -397,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.3s2</div>
+          <div class="appVersion" id="appVersion">v0.8.3s3</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1542,18 +1542,18 @@ async function restoreBackupZip(file){
     return;
   }
 
-  const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/proyecto/logo)?
+  const importSettings = confirm(`¿También quieres importar CONFIGURACIÓN (tema/acento/proyecto/logo)?
 
-Si dices Cancelar, solo importo las fotos.");
+Si dices Cancelar, solo importo las fotos.`);
 
   // ¿Respetar proyectos?
   const hasProjects = Array.isArray(backup.projects) && backup.projects.length;
   let keepProjects = !!hasProjects;
   if (hasProjects && backup.projects.length > 1){
-    keepProjects = confirm("Este backup trae varios proyectos.
+    keepProjects = confirm(`Este backup trae varios proyectos.
 
 Aceptar: RESTAURAR respetando proyectos.
-Cancelar: importar TODO al proyecto actual.");
+Cancelar: importar TODO al proyecto actual.`);
   }
 
   // Preparar mapeo de proyectos (evitar choques de IDs)
