@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.3.5-ios1</title>
+  <title>Logi2 v0.8.2s6</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.2s6">
@@ -59,9 +59,7 @@
       --danger:#ef4444;
       --shadow:0 10px 24px rgba(15,23,42,.10);
     }
-    html,body{overflow-x:hidden; max-width:100%;}
-body{margin:0;padding:14px;background:var(--bg);color:var(--text);touch-action: pan-y; -webkit-overflow-scrolling: touch;}
-img,canvas,svg{max-width:100%;}
+    body{margin:0;padding:14px;background:var(--bg);color:var(--text)}
     .wrap{max-width:900px;margin:0 auto;display:grid;gap:12px}
     h1{font-size:1.15rem;margin:4px 0 0;text-align:center}
     .card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
@@ -177,16 +175,6 @@ img,canvas,svg{max-width:100%;}
     .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px; }
     .badgeItemOk{ background:rgba(96,165,250,.92); color:#071125; border-color:transparent; }
     .badgeItemMiss{ background:rgba(248,113,113,.92); color:#2b0707; border-color:transparent; }
-
-    @media (max-width: 420px){
-      .badge{font-size:.60rem;padding:2px 7px;left:6px;top:6px}
-      .badgeShare{right:6px}
-      .badgeItem{font-size:.56rem;padding:2px 6px;bottom:6px}
-    }
-    @media (max-width: 360px){
-      .badge{font-size:.54rem;padding:2px 6px}
-      .badgeItem{font-size:.52rem}
-    }
     .gThumbMissing{ border-color: rgba(248,113,113,.9); box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
     .thumbMissing{ border-color: rgba(248,113,113,.9) !important; box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
 
@@ -409,7 +397,7 @@ img,canvas,svg{max-width:100%;}
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.3.5-ios1</div>
+          <div class="appVersion" id="appVersion">v0.8.2s6</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -897,15 +885,6 @@ function startDictation(targetEl, btnEl){
     dictation.btn.classList.add("btn-danger");
   }
   setDictateStatus("🎙️ Dictando…");
-
-  let _started = false;
-  rec.onstart = () => { _started = true; setDictateStatus("🎙️ Escuchando…"); };
-  setTimeout(() => {
-    if (dictation.active && !_started){
-      stopDictation();
-      alert("El dictado del botón 🎙️ no arrancó.\n\nEn iPhone Safari a veces no es compatible. Tip: usa el micrófono del teclado (dictado del sistema).");
-    }
-  }, 1200);
 
   rec.onresult = (event) => {
     // Reconstruir transcript completo para evitar duplicados (en algunos navegadores resultIndex se reinicia).
@@ -1639,26 +1618,6 @@ async function dbGetAll(){
     req.onerror = () => reject(req.error);
   });
 }
-async function dbGetById(id){
-  const db = await openDB();
-  return await new Promise((resolve) => {
-    try{
-      const tx = db.transaction("items", "readonly");
-      const req = tx.objectStore("items").get(id);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => resolve(null);
-    }catch{ resolve(null); }
-  });
-}
-
-async function refreshItemFromDB(id){
-  const fresh = await dbGetById(id);
-  if (!fresh) return null;
-  const i = cache.findIndex(x => x.id === id);
-  if (i >= 0) cache[i] = fresh;
-  return fresh;
-}
-
 async function dbDelete(id){
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -2333,128 +2292,6 @@ function revokeActiveUrls(){
   activeUrls = [];
 }
 
-
-/* ===========================
-   Miniaturas estables (iOS)
-   - Guardamos un thumb pequeño para evitar que Safari reviente memoria
-   - Si una imagen falla ("?"), recargamos desde IndexedDB sin reiniciar Safari
-=========================== */
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const THUMB_MAX_SIDE = 360;
-const THUMB_QUALITY = 0.70;
-const PLACEHOLDER_THUMB = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
-     <rect width='100%' height='100%' fill='${'#0b1220'}'/>
-     <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle'
-       font-family='system-ui, -apple-system, Segoe UI, Roboto, Arial' font-size='40' fill='${'#94a3b8'}'>?</text>
-   </svg>`
-);
-
-async function safeCreateBitmap(blob){
-  if (!blob) return null;
-  if (window.createImageBitmap){
-    try { return await createImageBitmap(blob); } catch {}
-  }
-  // Fallback: Image element
-  return await new Promise((resolve) => {
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => { try{ URL.revokeObjectURL(url); }catch{}; resolve(img); };
-    img.onerror = () => { try{ URL.revokeObjectURL(url); }catch{}; resolve(null); };
-    img.src = url;
-  });
-}
-
-function canvasToBlob(canvas, type="image/jpeg", quality=0.72){
-  return new Promise((resolve) => {
-    try {
-      canvas.toBlob((b)=>resolve(b), type, quality);
-    } catch { resolve(null); }
-  });
-}
-
-async function blobToThumbBlob(blob){
-  const bmp = await safeCreateBitmap(blob);
-  if (!bmp) return null;
-  const w = bmp.width || bmp.naturalWidth || 0;
-  const h = bmp.height || bmp.naturalHeight || 0;
-  if (!w || !h) return null;
-
-  const scale = Math.min(1, THUMB_MAX_SIDE / Math.max(w, h));
-  const tw = Math.max(1, Math.round(w * scale));
-  const th = Math.max(1, Math.round(h * scale));
-
-  const c = document.createElement('canvas');
-  c.width = tw; c.height = th;
-  const ctx = c.getContext('2d', { alpha: false, desynchronized: true });
-  try {
-    ctx.drawImage(bmp, 0, 0, tw, th);
-  } catch {
-    try { ctx.drawImage(bmp, 0, 0); } catch {}
-  }
-
-  const out = await canvasToBlob(c, "image/jpeg", THUMB_QUALITY);
-  try { bmp.close && bmp.close(); } catch {}
-  return out;
-}
-
-async function ensureThumbForItem(it){
-  if (!it) return null;
-  if (it.thumb) return it.thumb;
-  // Si por presión de memoria el blob se pone raro, recargar desde DB
-  if (!it.blob){
-    const fresh = await refreshItemFromDB(it.id);
-    it = fresh || it;
-  }
-  const t = await blobToThumbBlob(it.blob);
-  if (t){
-    it.thumb = t;
-    try { await dbPut(it); } catch {}
-    return t;
-  }
-  return null;
-}
-
-async function recoverImgSrc(img, id, preferThumb=true){
-  const fresh = await refreshItemFromDB(id);
-  if (!fresh) return false;
-  let b = null;
-  if (preferThumb) b = await ensureThumbForItem(fresh);
-  const blob = b || fresh.thumb || fresh.blob;
-  if (!blob) return false;
-  const u = trackUrl(URL.createObjectURL(blob));
-  img.src = u;
-  return true;
-}
-
-function attachRecoverOnError(img){
-  if (!img || img._recoverAttached) return;
-  img._recoverAttached = true;
-  img.addEventListener('error', async () => {
-    const id = Number(img.dataset.thumbid || img.dataset.open || 0);
-    if (!id || img._recoverTried) return;
-    img._recoverTried = true;
-    await recoverImgSrc(img, id, true);
-  });
-}
-
-async function hydrateThumbs(root){
-  const container = root || document;
-  const imgs = [...container.querySelectorAll('img[data-thumbid]')];
-  // Secuencial para no reventar iPhone 8
-  for (const img of imgs){
-    attachRecoverOnError(img);
-    const id = Number(img.dataset.thumbid);
-    const it = cache.find(x => x.id === id);
-    if (!it) continue;
-    const t = await ensureThumbForItem(it);
-    const blob = t || it.thumb || it.blob;
-    if (!blob) continue;
-    img.src = trackUrl(URL.createObjectURL(blob));
-    await new Promise(r => setTimeout(r, IS_IOS ? 0 : 0));
-  }
-}
-
 /* ===========================
    Preferencias (DOCX fit)
 =========================== */
@@ -2866,12 +2703,12 @@ function renderCaptura(){
     const div = document.createElement("div");
     div.className = "item" + (item.done ? " done" : "");
 
-    const thumbUrl = PLACEHOLDER_THUMB;
+    const thumbUrl = trackUrl(URL.createObjectURL(item.blob));
     const shareDisabled = !item.done;
 
     div.innerHTML = `
       <div class="itemTop">
-        <img class="thumb ${String(item.itemCode||"").trim() ? "" : "thumbMissing"}" src="${thumbUrl}" data-thumbid="${item.id}" data-open="${item.id}" alt="foto">
+        <img class="thumb ${String(item.itemCode||"").trim() ? "" : "thumbMissing"}" src="${thumbUrl}" data-open="${item.id}" alt="foto">
         <div class="grow">
           <div class="mini">
             <span>#${idx+1} · ${item.fecha}</span>
@@ -2912,8 +2749,6 @@ function renderCaptura(){
   });
 
   wireEventsCaptura();
-  // iOS: cargar miniaturas de forma segura
-  hydrateThumbs(wrap);
 }
 
 
@@ -3027,11 +2862,11 @@ if (!groups.length){
     items.forEach(it => {
       const box = document.createElement("div");
       box.className = "gThumbBox";
-      const url = PLACEHOLDER_THUMB;
+      const url = trackUrl(URL.createObjectURL(it.blob));
       const hasItem = !!String(it.itemCode || "").trim();
       const codeShort = hasItem ? String(it.itemCode || "").trim().slice(0, 14) : "";
       box.innerHTML = `
-        <img class="gThumb ${hasItem ? "" : "gThumbMissing"}" src="${url}" data-thumbid="${it.id}" data-open="${it.id}" alt="foto">
+        <img class="gThumb ${hasItem ? "" : "gThumbMissing"}" src="${url}" data-open="${it.id}" alt="foto">
         <div class="badge ${it.done ? "badgeDone" : ""}">${it.done ? "LISTO" : "PEND"}</div>
         <div class="badge badgeItem ${hasItem ? "badgeItemOk" : "badgeItemMiss"}">${hasItem ? escAttr(codeShort) : "ÍTEM?"}</div>
         <div class="badge badgeShare">📤</div>
@@ -3043,8 +2878,6 @@ if (!groups.length){
   wrap.querySelectorAll("img.gThumb").forEach(img => {
     img.onclick = () => openModal(Number(img.dataset.open));
   });
-  // iOS: cargar miniaturas de forma segura
-  hydrateThumbs(wrap);
 }
 
 /* ===========================
@@ -3052,27 +2885,15 @@ if (!groups.length){
 =========================== */
 let modalId = null;
 
-async function openModal(id){
-  // En iOS, a veces las Blob refs se dañan por presión de memoria.
-  // Siempre intentamos recargar desde IndexedDB para asegurar que la imagen abra.
-  let it = cache.find(x => x.id === id) || null;
-  const fresh = await refreshItemFromDB(id);
-  if (fresh) it = fresh;
+function openModal(id){
+  const it = cache.find(x => x.id === id);
   if (!it) return;
 
   modalId = id;
   $("modal").classList.add("open");
 
-  const imgEl = $("modalImg");
-  imgEl.dataset.open = String(id);
-  imgEl.dataset.thumbid = String(id);
-  attachRecoverOnError(imgEl);
-  imgEl.src = PLACEHOLDER_THUMB;
-
-  const blob = it.blob || it.thumb;
-  if (blob){
-    imgEl.src = trackUrl(URL.createObjectURL(blob));
-  }
+  const url = trackUrl(URL.createObjectURL(it.blob));
+  $("modalImg").src = url;
 
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
   $("modalMeta").textContent = `${it.fecha} · ${it.done ? "LISTA" : "PENDIENTE"}`;
@@ -3831,20 +3652,17 @@ async function exportZipByMode(modo, desde, hasta){
   const exportTemplate = !!$("exportTemplate")?.checked;
   const templateId = getTemplateId();
 
-  // iOS: usar datos frescos de IndexedDB para evitar blobs "dañados" en memoria
-    const freshAll = await dbGetAll();
-
-    let selected = [];
+  let selected = [];
   if (modo === "dia"){
-    selected = freshAll.filter(x => x.fecha === desde);
+    selected = cache.filter(x => x.fecha === desde);
   } else if (modo === "mes"){
     const ym = (desde || hoyISO()).slice(0,7);
-    selected = freshAll.filter(x => (x.fecha || "").startsWith(ym));
+    selected = cache.filter(x => (x.fecha || "").startsWith(ym));
   } else {
     const a = ymdToNum(desde);
     const b = ymdToNum(hasta);
     const lo = Math.min(a,b), hi = Math.max(a,b);
-    selected = freshAll.filter(x => {
+    selected = cache.filter(x => {
       const n = ymdToNum(x.fecha);
       return n >= lo && n <= hi;
     });
@@ -4392,16 +4210,13 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
     const exportTemplate = !!$("exportTemplate")?.checked;
     const templateId = getTemplateId();
 
-    // iOS: usar datos frescos de IndexedDB para evitar blobs "dañados" en memoria
-    const freshAll = await dbGetAll();
-
     let selected = [];
     if (modo === "dia") {
-      selected = freshAll.filter(x => x.fecha === desde);
+      selected = cache.filter(x => x.fecha === desde);
     } else if (modo === "mes") {
-      selected = freshAll.filter(x => (x.fecha || "").startsWith(desde.slice(0,7)));
+      selected = cache.filter(x => (x.fecha || "").startsWith(desde.slice(0,7)));
     } else {
-      selected = freshAll.filter(x => x.fecha >= desde && x.fecha <= hasta);
+      selected = cache.filter(x => x.fecha >= desde && x.fecha <= hasta);
     }
 
     const itemFilter = getExportItemCode();
