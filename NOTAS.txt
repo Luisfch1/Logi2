@@ -4,3 +4,4 @@ Selector de ítems.
 Export express pdf y Word. 
 Export zip con Word y carpeta por días. 
 Selector para export por ítem y rango de tiempo.
+Este código es el más completo y funcional en Android. Fue el primero cargado a cloudflare. No funciona en ios. 

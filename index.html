@@ -59,11 +59,7 @@
       --danger:#ef4444;
       --shadow:0 10px 24px rgba(15,23,42,.10);
     }
-    html{overflow-x:hidden;}
-    body{margin:0;padding:14px;background:var(--bg);color:var(--text)
-      overflow-x:hidden;
-      max-width:100%;
-    }
+    body{margin:0;padding:14px;background:var(--bg);color:var(--text)}
     .wrap{max-width:900px;margin:0 auto;display:grid;gap:12px}
     h1{font-size:1.15rem;margin:4px 0 0;text-align:center}
     .card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
@@ -168,12 +164,7 @@
       background:rgba(15,23,42,.8);
       border:1px solid rgba(203,213,225,.25);
       color:#e5e7eb;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      white-space:nowrap;
     }
-
     .badgeDone{
       background:rgba(52,211,153,.9);
       color:#052e1a;border-color:transparent;
@@ -181,8 +172,7 @@
     .badgeShare{ right:8px; left:auto; }
 
     /* Ítems (overlay en miniaturas) */
-    .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px;  white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; }
-
+    .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px; }
     .badgeItemOk{ background:rgba(96,165,250,.92); color:#071125; border-color:transparent; }
     .badgeItemMiss{ background:rgba(248,113,113,.92); color:#2b0707; border-color:transparent; }
     .gThumbMissing{ border-color: rgba(248,113,113,.9); box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
@@ -407,7 +397,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.3.6</div>
+          <div class="appVersion" id="appVersion">v0.8.2s6</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -863,17 +853,7 @@ function stopDictation(){
 }
 
 function startDictation(targetEl, btnEl){
-  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
-
-  // iOS PWA/Safari: Web Speech dictation suele fallar o no estar disponible.
-  if (isIOS){
-    try{ if (targetEl) targetEl.focus(); }catch{}
-    setDictateStatus("ℹ️ En iPhone usa el mic del teclado (dictado de iOS).");
-    return;
-  }
-
   if (!_SpeechRec){
-    try{ if (targetEl) targetEl.focus(); }catch{}
     alert("Dictado por voz no disponible en este navegador.\n\nTip: usa el micrófono del teclado para dictar.");
     return;
   }
@@ -891,42 +871,23 @@ function startDictation(targetEl, btnEl){
   rec.interimResults = true;
   rec.maxAlternatives = 1;
 
-  // Preparar estado (sin marcar como 'activo' hasta que realmente arranque)
   dictation.rec = rec;
+  dictation.active = true;
   dictation.btn = btnEl || null;
   dictation.target = targetEl;
+
   dictation.baseText = (targetEl.value || "").trimEnd();
   dictation.finalText = "";
-  setDictateStatus("🎙️ Preparando…");
 
   if (dictation.btn){
-    dictation.btn.textContent = "⏳";
-    dictation.btn.classList.remove("btn-danger");
-    dictation.btn.classList.add("btn-secondary");
+    dictation.btn.textContent = "⏹️";
+    dictation.btn.classList.remove("btn-secondary");
+    dictation.btn.classList.add("btn-danger");
   }
-
-  let started = false;
-  const startTimeout = setTimeout(() => {
-    if (!started){
-      // En algunos navegadores no lanza error, solo no arranca.
-      stopDictation();
-      setDictateStatus("⚠️ No se pudo iniciar el dictado. Tip: usa el mic del teclado.");
-    }
-  }, 900);
-
-  rec.onstart = () => {
-    started = true;
-    clearTimeout(startTimeout);
-    dictation.active = true;
-    if (dictation.btn){
-      dictation.btn.textContent = "⏹️";
-      dictation.btn.classList.remove("btn-secondary");
-      dictation.btn.classList.add("btn-danger");
-    }
-    setDictateStatus("🎙️ Dictando…");
-  };
+  setDictateStatus("🎙️ Dictando…");
 
   rec.onresult = (event) => {
+    // Reconstruir transcript completo para evitar duplicados (en algunos navegadores resultIndex se reinicia).
     const finals = [];
     const interims = [];
 
@@ -945,27 +906,58 @@ function startDictation(targetEl, btnEl){
 
     targetEl.value = composed;
     try { targetEl.setSelectionRange(targetEl.value.length, targetEl.value.length); } catch {}
+
+    // disparar persistencia (tu app guarda en oninput)
     try { targetEl.dispatchEvent(new Event("input", { bubbles: true })); } catch {}
   };
 
   rec.onerror = (e) => {
-    clearTimeout(startTimeout);
     setDictateStatus("⚠️ Dictado detenido (" + (e?.error || "error") + ")");
     stopDictation();
   };
+
   rec.onend = () => {
-    clearTimeout(startTimeout);
     if (dictation.active) stopDictation();
   };
 
   try { rec.start(); }
   catch (err){
-    clearTimeout(startTimeout);
     stopDictation();
-    setDictateStatus("⚠️ No se pudo iniciar el dictado.");
+    alert("No pude iniciar el dictado.\n\nDetalle: " + (err?.message || err));
   }
 }
 
+// Detener dictado si la app se oculta
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && dictation.active) stopDictation();
+});
+window.addEventListener("beforeunload", () => {
+  if (dictation.active) stopDictation();
+});
+
+/* ===========================
+   🎨 Tema (por dispositivo)
+=========================== */
+const THEME_KEY = "logi_theme";
+
+function setMetaThemeColor(color){
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", color);
+}
+
+function applyTheme(theme){
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem(THEME_KEY, theme);
+  setMetaThemeColor(theme === "light" ? "#f5f7fb" : "#0b1220");
+}
+
+function syncThemeUI(){
+  const theme = document.documentElement.dataset.theme || "dark";
+  const label = $("themeLabel");
+  if (label) label.textContent = (theme === "light") ? "Claro" : "Oscuro";
+  const btn = $("btnThemeToggle");
+  if (btn) btn.textContent = (theme === "light") ? "☀️" : "🌙";
+}
 
 function toggleTheme(){
   const cur = localStorage.getItem(THEME_KEY) || "dark";
@@ -4593,10 +4585,8 @@ function renderExport(){
     const ri = $("rangeInfo");
     if (ri) ri.style.display = "none";
     render();
-  }catch(e){
-    console.error("Init/IndexedDB error:", e);
-    const st = document.getElementById("status");
-    if (st) st.innerHTML = `<span style="color:#f87171;font-weight:800">⚠️ Error de almacenamiento local</span> · Cierra y abre la app. Si persiste: revisa modo privado y espacio libre.`;
+  }catch{
+    alert("No se pudo abrir la base local (IndexedDB). Prueba Chrome.");
   }
 
   fechaInput.onchange = () => render();
