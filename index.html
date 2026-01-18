@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.5.0</title>
+  <title>Logi2 v0.8.5.1</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -408,7 +408,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.5.0</div>
+          <div class="appVersion" id="appVersion">v0.8.5.1</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1324,7 +1324,7 @@ async function createBackupZip(){
   }
 
   $("backupStatus").textContent = "Comprimiendo ZIP…";
-  const outBlob = await zip.generateAsync({ type: "blob" }, (meta) => {
+  const outBlob = await zip.generateAsync({ type: "blob", compression: "STORE", streamFiles: true }, (meta) => {
     $("backupStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
   });
 
@@ -1549,6 +1549,8 @@ async function createBackupZipAll(){
     const folder = photos.folder(pid);
     const ext = extFromMime(it.mime || "image/jpeg");
     folder.file(`${it.id}.${ext}`, it.blob);
+    // Evita bloqueos en celulares durante backups grandes
+    if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));
   }
 
   const logoData = localStorage.getItem("logi_logo_dataurl");
@@ -1562,7 +1564,7 @@ async function createBackupZipAll(){
   }
 
   $("backupAllStatus").textContent = "Comprimiendo ZIP…";
-  const outBlob = await zip.generateAsync({ type: "blob" }, (meta) => {
+  const outBlob = await zip.generateAsync({ type: "blob", compression: "STORE", streamFiles: true }, (meta) => {
     $("backupAllStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
   });
 
@@ -1753,7 +1755,12 @@ async function restoreBackupZipAll(file){
 
 $("btnBackupAllCreate").onclick = async () => {
   try { await createBackupZipAll(); }
-  catch { alert("No pude crear el backup TOTAL. Prueba cerrar apps y reintentar."); $("backupAllStatus").textContent = "—"; }
+  catch (err) {
+    console.error(err);
+    const msg = (err && (err.message || String(err))) ? (err.message || String(err)) : "Error desconocido";
+    alert("No pude crear el backup TOTAL.\n\nTip: cierra otras apps y reintenta.\n\nDetalle: " + msg);
+    $("backupAllStatus").textContent = "—";
+  }
 };
 
 $("btnBackupAllRestore").onclick = () => {
