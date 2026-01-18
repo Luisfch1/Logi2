@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.5.2</title>
+  <title>Logi2 v0.8.5.3</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -408,7 +408,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.5.2</div>
+          <div class="appVersion" id="appVersion">v0.8.5.3</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -979,6 +979,18 @@ function startDictation(targetEl, btnEl){
   }
 }
 
+
+function applyTheme(theme){
+  const t = (theme === "light") ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  try{ localStorage.setItem(THEME_KEY, t); }catch{}
+}
+
+function syncThemeUI(){
+  const t = localStorage.getItem(THEME_KEY) || "dark";
+  const btn = 0 0"btnThemeToggle");
+  if (btn) btn.textContent = (t === "light") ? "☀️" : "🌙";
+}
 
 function toggleTheme(){
   const cur = localStorage.getItem(THEME_KEY) || "dark";
