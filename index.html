@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.6.4</title>
+    <title>Logi2 v0.8.6.0</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.6.4</div>
+          <div class="appVersion" id="appVersion">v0.8.6.0</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -750,7 +750,6 @@
           </div>
           <div class="row" style="gap:8px;flex-wrap:nowrap">
             <button class="btn btn-secondary smallBtn" id="btnUserTplUpload" title="Cargar plantilla DOCX">⬆️</button>
-            <button class="btn btn-secondary smallBtn" id="btnUserTplPreview" title="Previsualizar plantilla">👁️</button>
             <button class="btn btn-danger smallBtn" id="btnUserTplDelete" title="Eliminar plantilla">🗑️</button>
           </div>
         </div>
@@ -1872,18 +1871,15 @@ async function refreshUserTemplateStatus(){
     if (!tpl){
       $("userTplStatus").textContent = "Sin formato personalizado (usa Logi 4/6/8).";
       $("btnUserTplDelete").disabled = true;
-    if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
       return;
     }
     const slots = Number(tpl.slots || 0);
     const name = tpl.name || "Plantilla.docx";
     $("userTplStatus").textContent = `Formato activo: ${name} · ${slots||"?"} foto(s) por bloque`;
     $("btnUserTplDelete").disabled = false;
-    if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = false;
   }catch{
     $("userTplStatus").textContent = "—";
     $("btnUserTplDelete").disabled = true;
-    if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
   }
 }
 
@@ -1891,32 +1887,6 @@ $("btnUserTplUpload").onclick = () => {
   if (!getActiveProject()) { alert("Primero crea o selecciona un proyecto."); return; }
   $("userTemplateInput").value = "";
   $("userTemplateInput").click();
-};
-
-
-$('btnUserTplPreview').onclick = async () => {
-  const p = getActiveProject();
-  if (!p) { alert('Primero crea o selecciona un proyecto.'); return; }
-  try{
-    const tpl = await tplGet(p.id);
-    if (!tpl){ alert('Este proyecto no tiene formato cargado.'); return; }
-    // Previsualizacion simple: validar tags y mostrar info clave
-    const meta = await parseUserTemplateMetaFromArrayBuffer(tpl.ab);
-    const msg = [
-      `Proyecto: ${p.name}`,
-      `Plantilla: ${tpl.name || 'Plantilla.docx'}`,
-      `Bloque repetible: ${meta.hasStart && meta.hasEnd ? 'OK' : 'FALTA'}`,
-      `Foto(s) por bloque detectadas: ${meta.slots || 0}`,
-      '',
-      'Tip: Si el export Word falla, revisa que las imagenes tengan ALT TEXT en Word con:',
-      '  [[LOGI:FOTO_1]], [[LOGI:FOTO_2]] ...',
-      'y que existan [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].'
-    ].join('\n');
-    alert(msg);
-  }catch(e){
-    console.error(e);
-    alert('No pude previsualizar/validar la plantilla.\n\nDetalle: ' + (e?.message || String(e)));
-  }
 };
 
 $("btnUserTplDelete").onclick = async () => {
@@ -4195,33 +4165,6 @@ function _findNext(doc, idx, needle){
   return j;
 }
 
-function sanitizeFullDocXml(docXml){
-  // 1) Eliminar bookmarks (si se repiten, Word puede marcar corrupcion)
-  let x = docXml
-    .replace(/<w:bookmarkStart[^>]*?\/?>/g, '')
-    .replace(/<w:bookmarkEnd[^>]*?\/?>/g, '');
-
-  // 2) Renumerar TODOS los wp:docPr id (unicidad global)
-  let docPrCounter = 0;
-  x = x.replace(/<wp:docPr([^>]*?)id=\"(\d+)\"([^>]*?)(\/?)>/g, (m,a1,_old,a2,selfClose)=>{
-    const newId = String(++docPrCounter);
-    let attrs = `${a1}id=\"${newId}\"${a2}`;
-    attrs = attrs.replace(/name=\"Imagen\s+\d+\"/g, `name=\"Imagen ${newId}\"`);
-    return `<wp:docPr${attrs}${selfClose}>`;
-  });
-
-  // 3) Renumerar TODOS los pic:cNvPr id (unicidad global)
-  let picCounter = 0;
-  x = x.replace(/<pic:cNvPr([^>]*?)id=\"(\d+)\"([^>]*?)(\/?)>/g, (m,a1,_old,a2,selfClose)=>{
-    const newId = String(++picCounter);
-    let attrs = `${a1}id=\"${newId}\"${a2}`;
-    attrs = attrs.replace(/name=\"Picture\s+\d+\"/g, `name=\"Picture ${newId}\"`);
-    return `<pic:cNvPr${attrs}${selfClose}>`;
-  });
-
-  return x;
-}
-
 async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, tituloProyecto, startISO, endISO, tplRec, opts={}){
   if (!window.JSZip) throw new Error("JSZip no cargó.");
   const onProgress = opts.onProgress || null;
@@ -4269,26 +4212,8 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   if (sP0 < 0 || sP1 < 0 || eP0 < 0 || eP1 < 0) throw new Error("La plantilla tiene marcadores pero la estructura no es la esperada.");
 
   const prefix = docXml.slice(0, sP0);
-	  const blockXml = docXml.slice(sP1 + "</w:p>".length, eP0);
+  const blockXml = docXml.slice(sP1 + "</w:p>".length, eP0);
   const suffix = docXml.slice(eP1 + "</w:p>".length);
-
-	  // Evitar corrupción por IDs duplicados al repetir el bloque:
-	  // - Quitar bookmarks (Word se queja si se repite w:id)
-	  // - Renumerar wp:docPr id (Word exige unicidad)
-	  const sanitizedBlockXml = blockXml
-	    .replace(/<w:bookmarkStart[\s\S]*?\/>/g, "")
-	    .replace(/<w:bookmarkEnd[\s\S]*?\/>/g, "");
-	  const docPrNums = Array.from(docXml.matchAll(/<wp:docPr[^>]*?id=\"(\d+)\"/g))
-	    .map(m => parseInt(m[1], 10))
-	    .filter(n => Number.isFinite(n));
-	  let maxDocPr = docPrNums.length ? Math.max(...docPrNums) : 0;
-
-		  // También: algunos DOCX (especialmente hechos en Word) reutilizan pic:cNvPr id="0".
-		  // Si repetimos el bloque, Word puede marcar el archivo como corrupto.
-		  const picIdNums = Array.from(docXml.matchAll(/<pic:cNvPr[^>]*?id=\"(\d+)\"/g))
-		    .map(m => parseInt(m[1], 10))
-		    .filter(n => Number.isFinite(n));
-		  let maxPicId = picIdNums.length ? Math.max(...picIdNums) : 0;
 
   // Mapear relaciones base (para saber max rId y max imageN)
   const ridNums = Array.from(relXml.matchAll(/Id=\"rId(\d+)\"/g)).map(m => parseInt(m[1],10)).filter(n=>Number.isFinite(n));
@@ -4303,7 +4228,7 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   // Helpers: relación nueva + media
   const insertRel = (id, target, contentTypeHint) => {
     // Insertar antes del cierre </Relationships>
-    const relTag = `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/>`;
+    const relTag = `<Relationship Id=\"${id}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"${target}\"/>`;
     relXml = relXml.replace(/<\/Relationships>\s*$/i, relTag + "</Relationships>");
   };
 
@@ -4338,25 +4263,7 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
       const chunk = arr.slice(idx, idx + slots);
       idx += slots;
 
-	      let bx = sanitizedBlockXml;
-
-	      // Renumerar docPr id dentro del bloque para evitar IDs duplicados
-	      // (Word puede marcar el DOCX como corrupto si se repiten).
-	      bx = bx.replace(/<wp:docPr([^>]*?)id=\"(\d+)\"([^>]*?)\/>/g, (m, a1, _old, a2) => {
-	        const newId = String(++maxDocPr);
-	        let attrs = `${a1}id=\"${newId}\"${a2}`;
-	        // Si el usuario tiene name="Imagen N", lo actualizamos (opcional)
-	        attrs = attrs.replace(/name=\"Imagen\s+\d+\"/g, `name=\"Imagen ${newId}\"`);
-	        return `<wp:docPr${attrs}/>`;
-	      });
-
-		      // Renumerar pic:cNvPr id (Word también exige unicidad en estos IDs)
-		      bx = bx.replace(/<pic:cNvPr([^>]*?)id=\"(\d+)\"([^>]*?)\/>/g, (m, a1, _old, a2) => {
-		        const newId = String(++maxPicId);
-		        let attrs = `${a1}id=\"${newId}\"${a2}`;
-		        attrs = attrs.replace(/name=\"Picture\s+\d+\"/g, `name=\"Picture ${newId}\"`);
-		        return `<pic:cNvPr${attrs}/>`;
-		      });
+      let bx = blockXml;
       bx = bx.replaceAll("[[LOGI:ITEM]]", xmlEscape(code));
       bx = bx.replaceAll("[[LOGI:ACTIVIDAD]]", xmlEscape(actividad));
       bx = bx.replaceAll("[[LOGI:UNIDAD]]", xmlEscape(unidad));
@@ -4395,8 +4302,7 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   }
 
   // Ensamblar doc final
-  let newDocXml = prefix + xmlForItemBlocks.join("") + suffix;
-  newDocXml = sanitizeFullDocXml(newDocXml);
+  const newDocXml = prefix + xmlForItemBlocks.join("") + suffix;
   zip.file(docPath, newDocXml);
   zip.file(relPath, relXml);
 
