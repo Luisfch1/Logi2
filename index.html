@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s6</title>
+    <title>Logi2 v0.8.6.5</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s6">
-  <link rel="icon" href="favicon.png?v=0.8.2s6">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s6">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
+  <link rel="icon" href="favicon.png?v=0.8.3.9">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3.9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -401,13 +401,15 @@
         <!-- Inputs ocultos (global) -->
         <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
         <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
+        <input id="backupAllInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
         <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        <input id="userTemplateInput" class="hiddenFileInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
 
     <div class="appbar">
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.3.6</div>
+          <div class="appVersion" id="appVersion">v0.8.6.5</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -697,15 +699,28 @@
 
         <div class="sheetRow">
           <div class="sheetRowMain">
-            <div class="sheetRowTitle">Respaldo</div>
-            <div class="muted">Crear / restaurar backup (ZIP con fotos)</div>
+            <div class="sheetRowTitle">Respaldo (proyecto)</div>
+            <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
           </div>
           <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup">⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup">⬆️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup del proyecto">⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup del proyecto">⬆️</button>
           </div>
         </div>
-        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.
+        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
+
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Respaldo TOTAL</div>
+            <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total">🌎⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total">🌎⬆️</button>
+          </div>
+        </div>
+        <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
+
         <div class="sheetRow dangerRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Borrar todo</div>
@@ -713,7 +728,6 @@
           </div>
           <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
         </div>
-</div>
 
 
         <div class="sheetRow">
@@ -728,6 +742,31 @@
           </div>
         </div>
         <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
+
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Formato del proyecto</div>
+            <div class="muted">Plantilla DOCX del usuario (1 formato por proyecto)</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnUserTplUpload" title="Cargar plantilla DOCX">⬆️</button>
+            <button class="btn btn-secondary smallBtn" id="btnUserTplPreview" title="Previsualizar plantilla">👁️</button>
+            <button class="btn btn-danger smallBtn" id="btnUserTplDelete" title="Eliminar plantilla">🗑️</button>
+          </div>
+        </div>
+        <div class="muted" id="userTplStatus" style="margin-top:-2px">Sin formato personalizado (usa Logi 4/6/8).</div>
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Diagnostico (Word)</div>
+            <div class="muted">Caja negra para detectar por que un DOCX sale danado</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnDiagView" title="Ver bitacora">LOG</button>
+            <button class="btn btn-secondary smallBtn" id="btnDiagDownload" title="Descargar diagnostico">DIAG</button>
+            <button class="btn btn-danger smallBtn" id="btnDiagClear" title="Limpiar bitacora">CLR</button>
+          </div>
+        </div>
+        <div class="muted" id="diagStatus" style="margin-top:-2px">-</div>
 
 
       
@@ -821,6 +860,177 @@
 
 <script>
 function $(id){ return document.getElementById(id); }
+
+/* ===========================
+   Black box / bitacora (diagnostico export Word)
+=========================== */
+const DIAG_LOG_KEY = "logi_diag_log_v1";
+const DIAG_MAX = 200;
+let __lastDiagBlob = null;
+let __lastDiagName = null;
+
+function diagLoad(){
+  try{
+    const raw = localStorage.getItem(DIAG_LOG_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch{ return []; }
+}
+let diagLog = diagLoad();
+
+function diagSave(){
+  try{ localStorage.setItem(DIAG_LOG_KEY, JSON.stringify(diagLog)); }catch{}
+}
+
+function diagNow(){
+  const d = new Date();
+  const pad = (n)=> String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function diagPush(level, msg, data){
+  const rec = { t: diagNow(), level: level||"info", msg: String(msg||""), data: data||null };
+  diagLog.push(rec);
+  if (diagLog.length > DIAG_MAX) diagLog = diagLog.slice(-DIAG_MAX);
+  diagSave();
+  try{ console.log("[LOGI-DIAG]", rec); }catch{}
+}
+
+function diagSetStatus(text){
+  const el = $("diagStatus");
+  if (el) el.textContent = text || "-";
+}
+
+async function diagDownloadBlob(blob, name){
+  if (!blob) return;
+  const fname = name || "logi_diagnostico.zip";
+  try{
+    await shareBlobAsFile(blob, fname, blob.type || "application/zip", "Logi - Diagnostico");
+  }catch(e){
+    // fallback: a href
+    try{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
+    }catch{}
+  }
+}
+
+function diagView(){
+  const last = diagLog.slice(-60);
+  const txt = last.map(r => `${r.t} [${r.level}] ${r.msg}${r.data ? " | " + JSON.stringify(r.data) : ""}`).join("\n");
+  alert(txt || "(bitacora vacia)");
+}
+
+function diagClear(){
+  diagLog = [];
+  diagSave();
+  __lastDiagBlob = null;
+  __lastDiagName = null;
+  diagSetStatus("-"
+  );
+  alert("Bitacora limpiada.");
+}
+
+async function buildDocxDiagZip(files, meta){
+  const zip = new JSZip();
+  try{ zip.file("meta.json", JSON.stringify(meta||{}, null, 2)); }catch{}
+  try{ zip.file("bitacora.json", JSON.stringify(diagLog||[], null, 2)); }catch{}
+  if (files){
+    if (files.typesXml) zip.file("Content_Types.xml", files.typesXml);
+    if (files.relsXml)  zip.file("document.xml.rels", files.relsXml);
+    if (files.docXml)   zip.file("document.xml", files.docXml);
+  }
+  return await zip.generateAsync({ type: "blob", compression: "STORE" });
+}
+
+function _findDupIds(regex, xmlStr){
+  const m = {};
+  let r;
+  while((r = regex.exec(xmlStr))){
+    const id = r[1];
+    m[id] = (m[id]||0) + 1;
+  }
+  const dups = Object.keys(m).filter(k => m[k] > 1);
+  return dups.length ? dups.slice(0,25).map(k => `${k} (x${m[k]})`) : [];
+}
+
+async function validateDocxBlob(blob){
+  const out = { ok: false, errors: [], files: { docXml: null, relsXml: null, typesXml: null } };
+  try{
+    if (!blob) { out.errors.push("No blob"); return out; }
+    const zip = await JSZip.loadAsync(blob);
+
+    const readText = async (path) => {
+      const f = zip.file(path);
+      if (!f) return null;
+      return await f.async("string");
+    };
+
+    out.files.typesXml = await readText("[Content_Types].xml");
+    out.files.docXml   = await readText("word/document.xml");
+    out.files.relsXml  = await readText("word/_rels/document.xml.rels");
+
+    if (!out.files.typesXml) out.errors.push("Falta [Content_Types].xml");
+    if (!out.files.docXml)   out.errors.push("Falta word/document.xml");
+    if (!out.files.relsXml)  out.errors.push("Falta word/_rels/document.xml.rels");
+
+    const parseXml = (xml, label) => {
+      try{
+        const p = new DOMParser().parseFromString(xml || "", "application/xml");
+        const pe = p.getElementsByTagName("parsererror");
+        if (pe && pe.length) out.errors.push(label + " XML invalido");
+      }catch(e){ out.errors.push(label + " XML no parseable"); }
+    };
+
+    if (out.files.typesXml) parseXml(out.files.typesXml, "Content_Types");
+    if (out.files.docXml)   parseXml(out.files.docXml, "document.xml");
+    if (out.files.relsXml)  parseXml(out.files.relsXml, "document.xml.rels");
+
+    if (out.files.relsXml && out.files.relsXml.includes('\\"')){
+      out.errors.push("document.xml.rels contiene \\\" (comillas escapadas)");
+    }
+
+    if (out.files.docXml){
+      const d1 = _findDupIds(/<wp:docPr[^>]*\sid="(\d+)"/g, out.files.docXml);
+      if (d1.length) out.errors.push("Duplicados wp:docPr id: " + d1.join(", "));
+      const d2 = _findDupIds(/<pic:cNvPr[^>]*\sid="(\d+)"/g, out.files.docXml);
+      if (d2.length) out.errors.push("Duplicados pic:cNvPr id: " + d2.join(", "));
+    }
+
+    out.ok = out.errors.length === 0;
+    return out;
+  }catch(e){
+    out.errors.push("ZIP invalido: " + (e?.message || String(e)));
+    return out;
+  }
+}
+
+// UI hooks
+setTimeout(() => {
+  try{
+    const b1 = $("btnDiagView");
+    if (b1) b1.onclick = () => diagView();
+    const b2 = $("btnDiagDownload");
+    if (b2) b2.onclick = async () => {
+      if (__lastDiagBlob){
+        await diagDownloadBlob(__lastDiagBlob, __lastDiagName || "logi_diagnostico.zip");
+      } else {
+        // Descarga solo bitacora
+        const blob = new Blob([JSON.stringify(diagLog||[], null, 2)], { type: "application/json" });
+        await diagDownloadBlob(blob, "logi_bitacora.json");
+      }
+    };
+    const b3 = $("btnDiagClear");
+    if (b3) b3.onclick = () => diagClear();
+    diagSetStatus($("diagStatus")?.textContent || "-");
+  }catch{}
+}, 200);
+
 
 
 /* ===========================
@@ -966,6 +1176,18 @@ function startDictation(targetEl, btnEl){
   }
 }
 
+
+function applyTheme(theme){
+  const t = (theme === "light") ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  try{ localStorage.setItem(THEME_KEY, t); }catch{}
+}
+
+function syncThemeUI(){
+  const t = localStorage.getItem(THEME_KEY) || "dark";
+  const btn = $("btnThemeToggle");
+  if (btn) btn.textContent = (t === "light") ? "☀️" : "🌙";
+}
 
 function toggleTheme(){
   const cur = localStorage.getItem(THEME_KEY) || "dark";
@@ -1133,6 +1355,9 @@ $("sheetBackdrop").addEventListener("click", (e)=>{ if (e.target.id === "sheetBa
 /* ===========================
    🎨 Acento (por dispositivo)
 =========================== */
+// Keys de configuración (localStorage)
+// Nota: THEME_KEY era usado en varias partes pero no estaba definido.
+const THEME_KEY  = "logi_theme";
 const ACCENT_KEY = "logi_accent";
 
 const PROJECT_KEY = "logi_project";
@@ -1311,7 +1536,7 @@ async function createBackupZip(){
   }
 
   $("backupStatus").textContent = "Comprimiendo ZIP…";
-  const outBlob = await zip.generateAsync({ type: "blob" }, (meta) => {
+  const outBlob = await zip.generateAsync({ type: "blob", compression: "STORE", streamFiles: true }, (meta) => {
     $("backupStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
   });
 
@@ -1461,6 +1686,309 @@ async function restoreBackupZip(file){
   setTimeout(() => { $("backupStatus").textContent = "Consejo: haz backup al final del día o antes de actualizar."; }, 3500);
 }
 
+/* ===========================
+   🌎 Backup TOTAL / Restore TOTAL (ZIP)
+   - Incluye TODOS los proyectos + fotos + catálogo
+   - Restore mezcla (no borra lo existente)
+=========================== */
+
+async function createBackupZipAll(){
+  if (!window.JSZip){
+    alert("JSZip no está disponible. Abre la app con internet (una vez) y prueba de nuevo.");
+    return;
+  }
+
+  $("backupAllStatus").textContent = "Preparando backup TOTAL…";
+
+  const { projects, activeId } = ensureProjects();
+  const allItems = await dbGetAll();
+  const allCatalog = await catGetAll();
+
+  const firstId = projects[0]?.id || activeId;
+
+  const settings = {
+    theme: localStorage.getItem(THEME_KEY) || "dark",
+    accent: localStorage.getItem(ACCENT_KEY) || "blue",
+    project: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
+    template: getTemplateId(),
+    docxFit: localStorage.getItem("logi_docx_fit") || "stretch",
+    logoEnabled: localStorage.getItem("logi_logo_enabled") === "1",
+    logoCorner: localStorage.getItem("logi_logo_corner") || "br",
+  };
+
+  const backup = {
+    schemaVersion: 2,
+    type: "all",
+    app: "Logi",
+    createdAt: new Date().toISOString(),
+    settings,
+    projects,
+    activeProjectId: activeId,
+    catalog: (allCatalog || []).map(r => ({
+      projectId: r.projectId || firstId,
+      item: r.item || "",
+      descripcion: r.descripcion || "",
+      unidad: r.unidad || "",
+      createdAt: r.createdAt || Date.now()
+    })),
+    items: (allItems || []).map(it => {
+      const pid = it.projectId || firstId;
+      const pName = (projects.find(p => p.id === pid)?.name) || "";
+      return {
+        id: it.id,
+        fecha: it.fecha || "",
+        proyecto: it.proyecto || pName || "",
+        descripcion: it.descripcion || "",
+        done: !!it.done,
+        mime: it.mime || "image/jpeg",
+        createdAt: it.createdAt || Date.now(),
+        hasLogo: !!it.hasLogo,
+        projectId: pid,
+        projectName: pName
+      };
+    })
+  };
+
+  const zip = new JSZip();
+  zip.file("backup.json", JSON.stringify(backup, null, 2));
+
+  const photos = zip.folder("photos");
+  let i = 0;
+  for (const it of (allItems || [])){
+    i++;
+    $("backupAllStatus").textContent = `Agregando fotos… (${i}/${allItems.length})`;
+    const pid = it.projectId || firstId;
+    const folder = photos.folder(pid);
+    const ext = extFromMime(it.mime || "image/jpeg");
+    folder.file(`${it.id}.${ext}`, it.blob);
+    // Evita bloqueos en celulares durante backups grandes
+    if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+
+  const logoData = localStorage.getItem("logi_logo_dataurl");
+  if (logoData){
+    try{
+      const lb = await dataUrlToBlob(logoData);
+      const lfolder = zip.folder("logo");
+      const lExt = extFromMime(lb.type || "image/png");
+      lfolder.file(`logo.${lExt}`, lb);
+    }catch{}
+  }
+
+  $("backupAllStatus").textContent = "Comprimiendo ZIP…";
+  const outBlob = await zip.generateAsync({ type: "blob", compression: "STORE", streamFiles: true }, (meta) => {
+    $("backupAllStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
+  });
+
+  const name = `logi-backup-TOTAL-${isoNowSafe()}.zip`;
+  const url = URL.createObjectURL(outBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  $("backupAllStatus").textContent = `Backup TOTAL listo ✅ (${(allItems||[]).length} fotos)`;
+}
+
+async function restoreBackupZipAll(file){
+  if (!window.JSZip){
+    alert("JSZip no está disponible. Abre la app con internet (una vez) y prueba de nuevo.");
+    return;
+  }
+
+  $("backupAllStatus").textContent = "Leyendo ZIP…";
+  const zip = await JSZip.loadAsync(file);
+  const bj = zip.file("backup.json");
+  if (!bj){
+    alert("Ese ZIP no parece un backup de Logi (falta backup.json).");
+    return;
+  }
+
+  const jsonText = await bj.async("string");
+  let backup = null;
+  try { backup = JSON.parse(jsonText); } catch { backup = null; }
+
+  if (!backup || backup.type !== "all" || !Array.isArray(backup.items) || !Array.isArray(backup.projects)){
+    alert("Backup TOTAL inválido: no encontré estructura esperada.");
+    return;
+  }
+
+  const ok = confirm(
+    "Vas a RESTAURAR un backup TOTAL.\n\n" +
+    "• No se borrará nada.\n" +
+    "• Se mezclarán fotos nuevas.\n" +
+    "• Se recrearán proyectos faltantes y su catálogo.\n\n" +
+    "¿Continuar?"
+  );
+  if (!ok){ $("backupAllStatus").textContent = "Cancelado."; return; }
+
+  const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/logo)?");
+
+  const existingAll = new Set((await dbGetAll()).map(x => x.id));
+
+  // map projects by name
+  let { projects, activeId } = ensureProjects();
+  const norm = s => String(s||"").trim().toLowerCase();
+  const nameToId = {};
+  for (const p of projects) nameToId[norm(p.name)] = p.id;
+
+  const mapPid = {};
+  for (const bp of backup.projects){
+    const key = norm(bp.name);
+    if (nameToId[key]){
+      mapPid[bp.id] = nameToId[key];
+    } else {
+      const newId = genPid();
+      projects.push({ id: newId, name: bp.name || "Proyecto", createdAt: Date.now() });
+      nameToId[key] = newId;
+      mapPid[bp.id] = newId;
+    }
+  }
+  saveProjects(projects);
+
+  if (backup.activeProjectId && mapPid[backup.activeProjectId]){
+    setActiveProjectId(mapPid[backup.activeProjectId]);
+    activeId = mapPid[backup.activeProjectId];
+  }
+
+  if (importSettings){
+    // logo
+    try{
+      const logoFolder = zip.folder("logo");
+      if (logoFolder){
+        const candidates = Object.keys(logoFolder.files || {}).filter(p => p.startsWith("logo/") && !logoFolder.files[p].dir);
+        if (candidates.length){
+          const lf = zip.file(candidates[0]);
+          if (lf){
+            const lb = await lf.async("blob");
+            const fr = new FileReader();
+            const dataUrl = await new Promise((res, rej)=>{
+              fr.onload = () => res(fr.result);
+              fr.onerror = rej;
+              fr.readAsDataURL(lb);
+            });
+            localStorage.setItem("logi_logo_dataurl", dataUrl);
+          }
+        }
+      }
+    }catch{}
+
+    if (backup.settings){
+      try{
+        if (backup.settings.theme) applyTheme(backup.settings.theme);
+        if (backup.settings.accent) applyAccent(backup.settings.accent);
+        if (backup.settings.template) setTemplateId(backup.settings.template);
+        if (backup.settings.docxFit) localStorage.setItem("logi_docx_fit", backup.settings.docxFit);
+        if (typeof backup.settings.logoEnabled === "boolean") localStorage.setItem("logi_logo_enabled", backup.settings.logoEnabled ? "1":"0");
+        if (backup.settings.logoCorner) localStorage.setItem("logi_logo_corner", backup.settings.logoCorner);
+      }catch{}
+    }
+  }
+
+  // Import photos
+  let added = 0, skipped = 0;
+  const total = backup.items.length;
+  const keys = Object.keys(zip.files);
+
+  for (let idx=0; idx<total; idx++){
+    const meta = backup.items[idx];
+    const id = meta.id;
+    if (!id){ skipped++; continue; }
+    if (existingAll.has(id)){ skipped++; continue; }
+
+    const bpid = meta.projectId || backup.projects?.[0]?.id;
+    const targetPid = mapPid[bpid] || activeId;
+
+    // find file photos/<backupPid>/<id>.*
+    const base = `photos/${bpid}/${id}.`;
+    const match = keys.find(k => k.startsWith(base) && !zip.files[k].dir);
+    let f = match ? zip.file(match) : null;
+
+    if (!f){
+      // fallback anywhere under photos
+      const any = keys.find(k => k.startsWith('photos/') && k.includes(`/${id}.`) && !zip.files[k].dir);
+      if (any) f = zip.file(any);
+    }
+
+    if (!f){ skipped++; continue; }
+
+    $("backupAllStatus").textContent = `Importando… (${idx+1}/${total})`;
+
+    const blob = await f.async("blob");
+    const projName = projects.find(p => p.id === targetPid)?.name || "";
+
+    const it = {
+      id,
+      fecha: meta.fecha || "",
+      proyecto: meta.proyecto || projName || "",
+      descripcion: meta.descripcion || "",
+      done: !!meta.done,
+      mime: meta.mime || blob.type || "image/jpeg",
+      createdAt: meta.createdAt || Date.now(),
+      hasLogo: !!meta.hasLogo,
+      blob,
+      projectId: targetPid
+    };
+
+    await dbPut(it);
+    existingAll.add(id);
+    added++;
+  }
+
+  // restore catalog
+  if (Array.isArray(backup.catalog) && backup.catalog.length){
+    const rows = backup.catalog.map(r => {
+      const pid = mapPid[r.projectId] || activeId;
+      const item = String(r.item || "").trim();
+      return {
+        key: `${pid}::${item}`,
+        projectId: pid,
+        item,
+        descripcion: r.descripcion || "",
+        unidad: r.unidad || "",
+        createdAt: r.createdAt || Date.now()
+      };
+    }).filter(x => x.item);
+    if (rows.length) await catPutMany(rows);
+  }
+
+  // refresh UI
+  refreshProjectUI();
+  await loadCacheForActiveProject();
+  await loadCatalogForActiveProject();
+  render();
+  updateStorageUI();
+
+  $("backupAllStatus").textContent = `Restauración TOTAL ✅ (agregadas: ${added}, omitidas: ${skipped})`;
+}
+
+$("btnBackupAllCreate").onclick = async () => {
+  try { await createBackupZipAll(); }
+  catch (err) {
+    console.error(err);
+    const msg = (err && (err.message || String(err))) ? (err.message || String(err)) : "Error desconocido";
+    alert("No pude crear el backup TOTAL.\n\nTip: cierra otras apps y reintenta.\n\nDetalle: " + msg);
+    $("backupAllStatus").textContent = "—";
+  }
+};
+
+$("btnBackupAllRestore").onclick = () => {
+  $("backupAllInput").value = "";
+  $("backupAllInput").click();
+};
+
+$("backupAllInput").onchange = async () => {
+  const file = $("backupAllInput").files?.[0];
+  if (!file) return;
+  try { await restoreBackupZipAll(file); }
+  catch { alert("No pude restaurar ese ZIP TOTAL."); $("backupAllStatus").textContent = "—"; }
+  finally { $("backupAllInput").value = ""; updateStorageUI(); }
+};
+
+
 $("btnBackupCreate").onclick = async () => {
   try { await createBackupZip(); } catch (e){ alert("No pude crear el backup. Prueba cerrar apps y reintentar."); $("backupStatus").textContent = "—"; }
 };
@@ -1510,6 +2038,108 @@ $("btnItemsClear").onclick = async () => {
     render();
   }catch{
     alert("No pude borrar el listado. Intenta de nuevo.");
+  }
+};
+
+/* ===========================
+   🧩 Formato personalizado por proyecto (DOCX)
+=========================== */
+async function refreshUserTemplateStatus(){
+  const p = getActiveProject();
+  if (!p){
+    if ($("userTplStatus")) $("userTplStatus").textContent = "—";
+    return;
+  }
+  try{
+    const tpl = await tplGet(p.id);
+    if (!tpl){
+      $("userTplStatus").textContent = "Sin formato personalizado (usa Logi 4/6/8).";
+      $("btnUserTplDelete").disabled = true;
+    if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
+      return;
+    }
+    const slots = Number(tpl.slots || 0);
+    const name = tpl.name || "Plantilla.docx";
+    $("userTplStatus").textContent = `Formato activo: ${name} · ${slots||"?"} foto(s) por bloque`;
+    $("btnUserTplDelete").disabled = false;
+    if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = false;
+  }catch{
+    $("userTplStatus").textContent = "—";
+    $("btnUserTplDelete").disabled = true;
+    if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
+  }
+}
+
+$("btnUserTplUpload").onclick = () => {
+  if (!getActiveProject()) { alert("Primero crea o selecciona un proyecto."); return; }
+  $("userTemplateInput").value = "";
+  $("userTemplateInput").click();
+};
+
+
+$('btnUserTplPreview').onclick = async () => {
+  const p = getActiveProject();
+  if (!p) { alert('Primero crea o selecciona un proyecto.'); return; }
+  try{
+    const tpl = await tplGet(p.id);
+    if (!tpl){ alert('Este proyecto no tiene formato cargado.'); return; }
+    // Previsualizacion simple: validar tags y mostrar info clave
+    const meta = await parseUserTemplateMetaFromArrayBuffer(tpl.ab);
+    const msg = [
+      `Proyecto: ${p.name}`,
+      `Plantilla: ${tpl.name || 'Plantilla.docx'}`,
+      `Bloque repetible: ${meta.hasStart && meta.hasEnd ? 'OK' : 'FALTA'}`,
+      `Foto(s) por bloque detectadas: ${meta.slots || 0}`,
+      '',
+      'Tip: Si el export Word falla, revisa que las imagenes tengan ALT TEXT en Word con:',
+      '  [[LOGI:FOTO_1]], [[LOGI:FOTO_2]] ...',
+      'y que existan [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].'
+    ].join('\n');
+    alert(msg);
+  }catch(e){
+    console.error(e);
+    alert('No pude previsualizar/validar la plantilla.\n\nDetalle: ' + (e?.message || String(e)));
+  }
+};
+
+$("btnUserTplDelete").onclick = async () => {
+  const p = getActiveProject();
+  if (!p) return;
+  const ok = confirm(`Vas a ELIMINAR el formato personalizado del proyecto:\n\n${p.name}\n\n(Esto NO borra fotos)\n\n¿Continuar?`);
+  if (!ok) return;
+  try{
+    await tplDelete(p.id);
+    await refreshUserTemplateStatus();
+    alert("Formato eliminado ✅");
+  }catch{
+    alert("No pude eliminar el formato. Intenta de nuevo.");
+  }
+};
+
+$("userTemplateInput").onchange = async () => {
+  const file = $("userTemplateInput").files?.[0];
+  if (!file) return;
+  const p = getActiveProject();
+  if (!p) { $("userTemplateInput").value = ""; return; }
+
+  $("userTplStatus").textContent = "Leyendo plantilla…";
+  try{
+    const ab = await file.arrayBuffer();
+    const meta = await parseUserTemplateMetaFromArrayBuffer(ab);
+    if (!meta.hasStart || !meta.hasEnd){
+      throw new Error("La plantilla no trae los marcadores [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].");
+    }
+    if (!meta.slots) throw new Error("La plantilla no tiene slots [[LOGI:FOTO_n]].");
+
+    await tplPut(p.id, { name: file.name, ab, slots: meta.slots });
+    await refreshUserTemplateStatus();
+    alert("Formato cargado ✅\n\nTip: cuando exportes Word, Logi usará esta plantilla automáticamente.");
+  }catch(e){
+    console.error(e);
+    alert("No pude cargar esa plantilla.\n\nDetalle: " + (e?.message || String(e)));
+    $("userTplStatus").textContent = "Sin formato personalizado (usa Logi 4/6/8).";
+  }finally{
+    $("userTemplateInput").value = "";
   }
 };
 
@@ -1569,10 +2199,11 @@ $("itemsInput").onchange = async () => {
    IndexedDB
 =========================== */
 const DB_NAME = "logi2_db_v1";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
+const DB_STORE_TPL = "templates";   // plantilla DOCX por proyecto
 
 function openDB(){
   return new Promise((resolve, reject) => {
@@ -1599,6 +2230,12 @@ function openDB(){
         const cat = db.createObjectStore(DB_STORE_CATALOG, { keyPath: "key" });
         cat.createIndex("byProject", "projectId");
         cat.createIndex("byItem", "item");
+      }
+
+      // Store plantillas (DOCX) por proyecto
+      if (!db.objectStoreNames.contains(DB_STORE_TPL)){
+        const t = db.createObjectStore(DB_STORE_TPL, { keyPath: "projectId" });
+        t.createIndex("byProject", "projectId");
       }
     };
 
@@ -1648,8 +2285,42 @@ async function dbClear(){
 /* ===========================
    Catálogo de ítems (por proyecto)
 =========================== */
-let catalog = [];          // rows: {key, projectId, item, descripcion, createdAt}
+let catalog = [];          // rows: {key, projectId, item, descripcion, unidad, createdAt}
 let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
+let catalogUnitMap = {};   // { itemCode: unidad } para el proyecto activo
+
+/* ===========================
+   Plantillas DOCX (por proyecto)
+=========================== */
+async function tplGet(projectId){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_TPL, "readonly");
+    const req = tx.objectStore(DB_STORE_TPL).get(projectId);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function tplPut(projectId, rec){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_TPL, "readwrite");
+    tx.objectStore(DB_STORE_TPL).put({ projectId, ...rec, updatedAt: Date.now() });
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function tplDelete(projectId){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_TPL, "readwrite");
+    tx.objectStore(DB_STORE_TPL).delete(projectId);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
 
 async function catGetByProject(projectId){
   const db = await openDB();
@@ -1657,6 +2328,16 @@ async function catGetByProject(projectId){
     const tx = db.transaction(DB_STORE_CATALOG, "readonly");
     const idx = tx.objectStore(DB_STORE_CATALOG).index("byProject");
     const req = idx.getAll(projectId);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function catGetAll(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_CATALOG, "readonly");
+    const req = tx.objectStore(DB_STORE_CATALOG).getAll();
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
@@ -1691,8 +2372,13 @@ async function catClearProject(projectId){
 
 function rebuildCatalogMap(){
   catalogMap = {};
+  catalogUnitMap = {};
   for (const r of catalog){
-    if (r?.item) catalogMap[String(r.item).trim()] = (r.descripcion || "").trim();
+    if (r?.item){
+      const k = String(r.item).trim();
+      catalogMap[k] = (r.descripcion || "").trim();
+      catalogUnitMap[k] = (r.unidad || "").trim();
+    }
   }
 }
 
@@ -1713,7 +2399,7 @@ function refreshCatalogDatalist(){
   for (const r of rows){
     const opt = document.createElement("option");
     opt.value = String(r.item || "").trim();
-    opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}` : String(r.item || "");
+    opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}${(r.unidad||'').trim() ? ' ['+(r.unidad||'').trim()+']' : ''}` : String(r.item || "");
     dl.appendChild(opt);
   }
 }
@@ -1787,9 +2473,10 @@ async function importItemsFile(file){
   const header = rows[0].map(normalizeHeader);
   const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
   const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
+  const idxUnit = header.findIndex(h => h === "unidad" || h === "und" || h === "unit" || h === "unidad_item");
 
-  if (idxItem === -1 || idxDesc === -1){
-    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM y DESCRIPCION.");
+  if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
+    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM, DESCRIPCION y UNIDAD.");
     return { added:0, skipped:0, total:0 };
   }
 
@@ -1807,6 +2494,7 @@ async function importItemsFile(file){
     const r = rows[i] || [];
     const item = String(r[idxItem] || "").trim();
     const descripcion = String(r[idxDesc] || "").trim();
+    const unidad = String(r[idxUnit] || "").trim();
 
     if (!item) { skipped++; continue; }
 
@@ -1816,6 +2504,7 @@ async function importItemsFile(file){
       projectId,
       item,
       descripcion,
+      unidad,
       createdAt: Date.now()
     });
     added++;
@@ -1853,9 +2542,9 @@ function downloadTemplateItems(){
       try{
         if (!window.XLSX) throw new Error("XLSX no cargó.");
         const wb = XLSX.utils.book_new();
-        const data = [["ITEM","DESCRIPCION"],["",""]];
+        const data = [["ITEM","DESCRIPCION","UNIDAD"],["","",""]];
         const ws = XLSX.utils.aoa_to_sheet(data);
-        ws["!cols"] = [{ wch: 18 }, { wch: 60 }];
+        ws["!cols"] = [{ wch: 18 }, { wch: 60 }, { wch: 12 }];
         XLSX.utils.book_append_sheet(wb, ws, "ITEMS");
         const out = XLSX.write(wb, { bookType:"xlsx", type:"array" });
         const blob = new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1990,6 +2679,7 @@ function onProjectChanged(){
     try{
       await loadCacheForActiveProject();
       await loadCatalogForActiveProject();
+      await refreshUserTemplateStatus();
     }catch(e){
       console.error(e);
       alert("No pude actualizar la galería del proyecto. Si persiste, usa 'Reiniciar caché' en configuración.");
@@ -3395,6 +4085,48 @@ async function buildRegistroFotograficoDocxBuffer(
 
   const projText = (tituloProyecto || "").trim();
 
+  // Proyecto en encabezado (máx 2 líneas, con "…" si recorta)
+  function wrapProjectHeaderText(text, maxCharsPerLine=30, maxLines=2){
+    const s = String(text || "").replace(/\s+/g, " ").trim();
+    if (!s) return "";
+    const words = s.split(" ").filter(Boolean);
+    const lines = [];
+    let line = "";
+
+    for (const w of words){
+      const test = line ? (line + " " + w) : w;
+      if (test.length <= maxCharsPerLine){
+        line = test;
+      } else {
+        if (line) lines.push(line);
+        line = w;
+        if (maxLines && lines.length >= maxLines) break;
+      }
+    }
+    if ((!maxLines || lines.length < maxLines) && line) lines.push(line);
+
+    // Si recortó, agrega "…" al final de la última línea
+    if (maxLines && lines.length === maxLines && words.length){
+      const joined = lines.join(" ");
+      if (joined.length < s.length){
+        let last = lines[lines.length - 1];
+        if (!last.endsWith("…")){
+          // intenta agregar sin pasarse del máximo
+          if ((last + "…").length <= maxCharsPerLine) lines[lines.length - 1] = last + "…";
+          else {
+            // recorta un poco y pone elipsis
+            const cut = Math.max(0, maxCharsPerLine - 1);
+            lines[lines.length - 1] = last.slice(0, cut) + "…";
+          }
+        }
+      }
+    }
+
+    return lines.slice(0, maxLines).join("\n");
+  }
+
+  const projHeaderText = wrapProjectHeaderText(projText, 30, 2);
+
   // Logo (opcional)
   const logoAb = await loadLogiLogoArrayBuffer();
   const logoRun = logoAb ? new ImageRun({ data: logoAb, transformation: { width: 38, height: 38 } }) : null;
@@ -3426,24 +4158,50 @@ async function buildRegistroFotograficoDocxBuffer(
             verticalAlign: VerticalAlign.CENTER,
             margins: { top: 140, bottom: 140, left: 120, right: 220 },
             children: [
-              new Paragraph({
-                children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
-                alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: 40 }
+              // Fila superior: Proyecto (izquierda) + Logi (derecha)
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: noneBorders,
+                rows: [
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        width: { size: 70, type: WidthType.PERCENTAGE },
+                        borders: noneBorders,
+                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                        children: [
+                          new Paragraph({
+                            children: projHeaderText
+                              ? [new TextRun({ text: projHeaderText, bold: true, color: "FFFFFF", size: 36 })]
+                              : [new TextRun({ text: "", color: "FFFFFF" })],
+                            alignment: AlignmentType.LEFT,
+                            spacing: { before: 0, after: 0 }
+                          })
+                        ]
+                      }),
+                      new TableCell({
+                        width: { size: 30, type: WidthType.PERCENTAGE },
+                        borders: noneBorders,
+                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                        children: [
+                          new Paragraph({
+                            children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
+                            alignment: AlignmentType.RIGHT,
+                            spacing: { before: 0, after: 0 }
+                          })
+                        ]
+                      })
+                    ]
+                  })
+                ]
               }),
+
+              // Segunda fila: rango/fecha del reporte
               new Paragraph({
                 children: [new TextRun({ text: titleLine, bold: true, color: "E5E7EB" })],
                 alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: projText ? 30 : 0 }
-              }),
-              ...(projText ? [new Paragraph({
-                children: [
-                  new TextRun({ text: "Proyecto: ", bold: true, color: "CBD5E1" }),
-                  new TextRun({ text: projText, color: "CBD5E1" }),
-                ],
-                alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: 0 }
-              })] : [])
+                spacing: { before: 40, after: 0 }
+              })
             ]
           })
         ]
@@ -3592,6 +4350,251 @@ async function buildRegistroFotograficoDocxBuffer(
 
   const blob = await Packer.toBlob(doc);
   return await blob.arrayBuffer();
+}
+
+/* ===========================
+   DOCX desde plantilla del usuario (tags LOGI)
+   - 1 plantilla por proyecto
+   - Repite el bloque [[LOGI:ITEMS_START]] ... [[LOGI:ITEMS_END]]
+   - Inserta fotos en slots [[LOGI:FOTO_n]]
+=========================== */
+async function parseUserTemplateMetaFromArrayBuffer(ab){
+  if (!window.JSZip) throw new Error("JSZip no está disponible.");
+  const zip = await JSZip.loadAsync(ab);
+  const docXml = await zip.file("word/document.xml").async("string");
+  const hasStart = docXml.includes("[[LOGI:ITEMS_START]]");
+  const hasEnd = docXml.includes("[[LOGI:ITEMS_END]]");
+  const slotMatches = Array.from(docXml.matchAll(/\[\[LOGI:FOTO_(\d+)\]\]/g)).map(m => parseInt(m[1],10)).filter(n=>Number.isFinite(n));
+  const slots = slotMatches.length ? Math.max(...slotMatches) : 0;
+  return { hasStart, hasEnd, slots };
+}
+
+function _findPrev(doc, idx, needle){
+  const j = doc.lastIndexOf(needle, idx);
+  return j;
+}
+function _findNext(doc, idx, needle){
+  const j = doc.indexOf(needle, idx);
+  return j;
+}
+
+function sanitizeFullDocXml(docXml){
+  // 1) Eliminar bookmarks (si se repiten, Word puede marcar corrupcion)
+  let x = docXml
+    .replace(/<w:bookmarkStart[^>]*?\/?>/g, '')
+    .replace(/<w:bookmarkEnd[^>]*?\/?>/g, '');
+
+  // 2) Renumerar TODOS los wp:docPr id (unicidad global)
+  let docPrCounter = 0;
+  x = x.replace(/<wp:docPr([^>]*?)id=\"(\d+)\"([^>]*?)(\/?)>/g, (m,a1,_old,a2,selfClose)=>{
+    const newId = String(++docPrCounter);
+    let attrs = `${a1}id=\"${newId}\"${a2}`;
+    attrs = attrs.replace(/name=\"Imagen\s+\d+\"/g, `name=\"Imagen ${newId}\"`);
+    return `<wp:docPr${attrs}${selfClose}>`;
+  });
+
+  // 3) Renumerar TODOS los pic:cNvPr id (unicidad global)
+  let picCounter = 0;
+  x = x.replace(/<pic:cNvPr([^>]*?)id=\"(\d+)\"([^>]*?)(\/?)>/g, (m,a1,_old,a2,selfClose)=>{
+    const newId = String(++picCounter);
+    let attrs = `${a1}id=\"${newId}\"${a2}`;
+    attrs = attrs.replace(/name=\"Picture\s+\d+\"/g, `name=\"Picture ${newId}\"`);
+    return `<pic:cNvPr${attrs}${selfClose}>`;
+  });
+
+  return x;
+}
+
+async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, tituloProyecto, startISO, endISO, tplRec, opts={}){
+  if (!window.JSZip) throw new Error("JSZip no cargó.");
+  const onProgress = opts.onProgress || null;
+
+  // Agrupar por ítem (código) respetando orden por fecha/creación
+  const photos = (selected || []).slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  const groups = {};
+  const order = [];
+  for (const it of photos){
+    const code = String(it.itemCode || "SIN ASIGNAR").trim() || "SIN ASIGNAR";
+    if (!groups[code]){ groups[code] = []; order.push(code); }
+    groups[code].push(it);
+  }
+
+  const tplAb = tplRec.ab;
+  const zip = await JSZip.loadAsync(tplAb);
+  const docPath = "word/document.xml";
+  const relPath = "word/_rels/document.xml.rels";
+  let docXml = await zip.file(docPath).async("string");
+  let relXml = await zip.file(relPath).async("string");
+
+  // Meta / slots
+  let slots = Number(tplRec.slots || 0);
+  if (!slots){
+    const meta = await parseUserTemplateMetaFromArrayBuffer(tplAb);
+    slots = meta.slots;
+  }
+  if (!slots) throw new Error("La plantilla no tiene slots [[LOGI:FOTO_n]].");
+
+  // Reemplazos globales
+  docXml = docXml.replaceAll("[[LOGI:PROYECTO]]", xmlEscape(tituloProyecto || ""));
+  // Fechas (por si el usuario las usa)
+  docXml = docXml.replaceAll("[[LOGI:FECHA_DESDE]]", xmlEscape(startISO || ""));
+  docXml = docXml.replaceAll("[[LOGI:FECHA_HASTA]]", xmlEscape(endISO || ""));
+
+  // Extraer bloque repetible (entre párrafos marcadores)
+  const sIdx = docXml.indexOf("[[LOGI:ITEMS_START]]");
+  const eIdx = docXml.indexOf("[[LOGI:ITEMS_END]]");
+  if (sIdx < 0 || eIdx < 0 || eIdx <= sIdx) throw new Error("No encontré [[LOGI:ITEMS_START]]/[[LOGI:ITEMS_END]] en la plantilla.");
+
+  const sP0 = _findPrev(docXml, sIdx, "<w:p");
+  const sP1 = _findNext(docXml, sIdx, "</w:p>");
+  const eP0 = _findPrev(docXml, eIdx, "<w:p");
+  const eP1 = _findNext(docXml, eIdx, "</w:p>");
+  if (sP0 < 0 || sP1 < 0 || eP0 < 0 || eP1 < 0) throw new Error("La plantilla tiene marcadores pero la estructura no es la esperada.");
+
+  const prefix = docXml.slice(0, sP0);
+	  const blockXml = docXml.slice(sP1 + "</w:p>".length, eP0);
+  const suffix = docXml.slice(eP1 + "</w:p>".length);
+
+	  // Evitar corrupción por IDs duplicados al repetir el bloque:
+	  // - Quitar bookmarks (Word se queja si se repite w:id)
+	  // - Renumerar wp:docPr id (Word exige unicidad)
+	  const sanitizedBlockXml = blockXml
+	    .replace(/<w:bookmarkStart[\s\S]*?\/>/g, "")
+	    .replace(/<w:bookmarkEnd[\s\S]*?\/>/g, "");
+	  const docPrNums = Array.from(docXml.matchAll(/<wp:docPr[^>]*?id=\"(\d+)\"/g))
+	    .map(m => parseInt(m[1], 10))
+	    .filter(n => Number.isFinite(n));
+	  let maxDocPr = docPrNums.length ? Math.max(...docPrNums) : 0;
+
+		  // También: algunos DOCX (especialmente hechos en Word) reutilizan pic:cNvPr id="0".
+		  // Si repetimos el bloque, Word puede marcar el archivo como corrupto.
+		  const picIdNums = Array.from(docXml.matchAll(/<pic:cNvPr[^>]*?id=\"(\d+)\"/g))
+		    .map(m => parseInt(m[1], 10))
+		    .filter(n => Number.isFinite(n));
+		  let maxPicId = picIdNums.length ? Math.max(...picIdNums) : 0;
+
+  // Mapear relaciones base (para saber max rId y max imageN)
+  const ridNums = Array.from(relXml.matchAll(/Id=\"rId(\d+)\"/g)).map(m => parseInt(m[1],10)).filter(n=>Number.isFinite(n));
+  let maxRid = ridNums.length ? Math.max(...ridNums) : 0;
+  const mediaFiles = Object.keys(zip.files).filter(p => p.startsWith("word/media/") );
+  const imgNums = mediaFiles.map(p => {
+    const m = p.match(/image(\d+)\./);
+    return m ? parseInt(m[1],10) : 0;
+  }).filter(n=>Number.isFinite(n));
+  let maxImg = imgNums.length ? Math.max(...imgNums) : 0;
+
+  // Helpers: relación nueva + media
+  const insertRel = (id, target, contentTypeHint) => {
+    // Insertar antes del cierre </Relationships>
+    const relTag = `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/>`;
+    relXml = relXml.replace(/<\/Relationships>\s*$/i, relTag + "</Relationships>");
+  };
+
+  // Detectar en el bloque los slots y su rId base (por cada foto)
+  function extractSlotRidMap(xml){
+    const map = {};
+    // docPr descr="[[LOGI:FOTO_1]]" ... a:blip r:embed="rId11"
+    const re = /descr=\"\[\[LOGI:FOTO_(\d+)\]\]\"[\s\S]*?r:embed=\"(rId\d+)\"/g;
+    let m;
+    while ((m = re.exec(xml))){
+      const slot = parseInt(m[1],10);
+      const rid = m[2];
+      if (Number.isFinite(slot) && rid) map[slot] = rid;
+    }
+    return map;
+  }
+  const baseSlotRid = extractSlotRidMap(blockXml);
+
+  const xmlForItemBlocks = [];
+  let globalDone = 0;
+  const globalTot = photos.length;
+
+  for (const code of order){
+    const arr = groups[code] || [];
+    const actividad = (code !== "SIN ASIGNAR") ? (catalogMap[code] || "") : "";
+    const unidad = (code !== "SIN ASIGNAR") ? (catalogUnitMap[code] || "") : "";
+
+    // chunks de tamaño slots
+    let idx = 0;
+    let photoNo = 1;
+    while (idx < arr.length){
+      const chunk = arr.slice(idx, idx + slots);
+      idx += slots;
+
+	      let bx = sanitizedBlockXml;
+
+	      // Renumerar docPr id dentro del bloque para evitar IDs duplicados
+	      // (Word puede marcar el DOCX como corrupto si se repiten).
+	      bx = bx.replace(/<wp:docPr([^>]*?)id=\"(\d+)\"([^>]*?)\/>/g, (m, a1, _old, a2) => {
+	        const newId = String(++maxDocPr);
+	        let attrs = `${a1}id=\"${newId}\"${a2}`;
+	        // Si el usuario tiene name="Imagen N", lo actualizamos (opcional)
+	        attrs = attrs.replace(/name=\"Imagen\s+\d+\"/g, `name=\"Imagen ${newId}\"`);
+	        return `<wp:docPr${attrs}/>`;
+	      });
+
+		      // Renumerar pic:cNvPr id (Word también exige unicidad en estos IDs)
+		      bx = bx.replace(/<pic:cNvPr([^>]*?)id=\"(\d+)\"([^>]*?)\/>/g, (m, a1, _old, a2) => {
+		        const newId = String(++maxPicId);
+		        let attrs = `${a1}id=\"${newId}\"${a2}`;
+		        attrs = attrs.replace(/name=\"Picture\s+\d+\"/g, `name=\"Picture ${newId}\"`);
+		        return `<pic:cNvPr${attrs}/>`;
+		      });
+      bx = bx.replaceAll("[[LOGI:ITEM]]", xmlEscape(code));
+      bx = bx.replaceAll("[[LOGI:ACTIVIDAD]]", xmlEscape(actividad));
+      bx = bx.replaceAll("[[LOGI:UNIDAD]]", xmlEscape(unidad));
+
+      for (let s = 1; s <= slots; s++){
+        const it = chunk[s-1];
+        const desc = it ? String(it.descripcion || "").trim() : "";
+        bx = bx.replaceAll(`[[LOGI:FOTO_${s}_DESC]]`, xmlEscape(desc));
+        bx = bx.replaceAll(`[[LOGI:FOTO_${s}_NO]]`, xmlEscape(String(photoNo)));
+
+        // Imagen
+        if (it && it.blob){
+          const baseRid = baseSlotRid[s];
+          if (baseRid){
+            const newRid = `rId${++maxRid}`;
+            const ext = "jpeg";
+            const newImgName = `image${++maxImg}.${ext}`;
+            const target = `media/${newImgName}`;
+            insertRel(newRid, target);
+
+            // normalizar a JPEG para que Word no explote
+            const normalized = await normalizeToFixedFrameJpg(it.blob, 1600, 1000, "cover");
+            const u8 = new Uint8Array(await normalized.arrayBuffer());
+            zip.file(`word/${target}`, u8);
+
+            // reemplazar rId en este bloque
+            bx = bx.replaceAll(baseRid, newRid);
+          }
+        }
+        if (it) photoNo++;
+        if (it) globalDone++;
+        if (onProgress) await onProgress(globalDone, globalTot);
+      }
+      xmlForItemBlocks.push(bx);
+    }
+  }
+
+  // Ensamblar doc final
+  let newDocXml = prefix + xmlForItemBlocks.join("") + suffix;
+  newDocXml = sanitizeFullDocXml(newDocXml);
+  zip.file(docPath, newDocXml);
+  zip.file(relPath, relXml);
+
+  const out = await zip.generateAsync({ type: "arraybuffer" });
+  return out;
+}
+
+function xmlEscape(s){
+  return String(s ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&apos;")
+    .replaceAll("\n","&#10;");
 }
 
 /* ===========================
@@ -3747,7 +4750,8 @@ async function exportZipByMode(modo, desde, hasta){
   const { imgWcm: IMG_W_CM, imgHcm: IMG_H_CM, pairsPerPage: PAIRS_PER_PAGE } = docxDimsForLayout(layoutKey);
 
   const { start, end } = computeRangeForTitle(modo, desde, hasta);
-  const tituloProyecto = (proyectoInput.value || "").trim();
+  const activeP = (typeof getActiveProject === "function") ? getActiveProject() : null;
+  const tituloProyecto = ((activeP && activeP.name) ? activeP.name : (proyectoInput.value || "")).trim();
 
   const zi = zipInfo;
   const totalDocx = selected.length;
@@ -4094,12 +5098,28 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
     }
 
     // Textos a la derecha (alineados a la derecha)
+    // Proyecto (visible, a la izquierda del bloque derecho)
+    if (projText){
+      const projSize = 16;
+      const padL = 24;
+      const reserveRight = 220; // deja espacio para "Logi" + márgenes a la derecha
+      const maxW = Math.max(120, rightW - padL - reserveRight);
+      const lines = wrapRestLines(projText, fontB, projSize, maxW, 2);
+      let yProj = pageH - 26;
+      for (let i=0; i<lines.length; i++){
+        page.drawText(lines[i], {
+          x: leftW + padL,
+          y: yProj - i * (projSize + 2),
+          size: projSize,
+          font: fontB,
+          color: rgb(1,1,1)
+        });
+      }
+    }
+
+    // Textos a la derecha (alineados a la derecha)
     drawRightText(page, "Logi", pageH - 30, 22, true, rgb(1,1,1));
     drawRightText(page, titleLine, pageH - 50, 10.5, true, rgb(0xE5/255,0xE7/255,0xEB/255));
-    if (projText){
-      const projLine = `Proyecto: ${projText}`;
-      drawRightText(page, projLine, pageH - 65, 10, false, rgb(0xCB/255,0xD5/255,0xE1/255));
-    }
 
     // ===== Grid =====
     for (let row = 0; row < rows; row++){
@@ -4240,9 +5260,57 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
     const start = (modo === "mes") ? desde.slice(0,7) : desde;
     const end   = (modo === "rango") ? hasta : ((modo === "mes") ? desde.slice(0,7) : desde);
 
-    const tituloProyecto = (proyectoInput.value || "").trim();
+    const activeP = (typeof getActiveProject === "function") ? getActiveProject() : null;
+    const tituloProyecto = ((activeP && activeP.name) ? activeP.name : (proyectoInput.value || "")).trim();
 
     if (fmt === "docx") {
+      // Si hay formato personalizado (plantilla DOCX) para este proyecto, úsalo
+      const activeId = getActiveProjectId() || ensureProjects().activeId;
+      const tplRec = await tplGet(activeId);
+      if (tplRec && tplRec.ab){
+        const zi = $("zipInfo");
+        const total = selected.length;
+        const nextPaint = () => new Promise(res => requestAnimationFrame(() => setTimeout(res, 0)));
+        if (zi){ zi.textContent = `Generando Word (formato del usuario)... 0/${total}`; await nextPaint(); }
+
+        const onProgress = async (done, tot) => {
+          if (!zi) return;
+          zi.textContent = `Generando Word (formato del usuario)... ${done}/${tot}`;
+          await nextPaint();
+        };
+
+        const docxBuffer = await buildRegistroFotograficoDocxFromUserTemplateBuffer(
+          selected, tituloProyecto, start, end, tplRec,
+          { onProgress }
+        );
+        const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+        const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+
+        try{
+          diagPush("info","docx_export_built",{mode:"docx",photos:selected.length,range:(start+".."+end),project:tituloProyecto||""});
+          const v = await validateDocxBlob(blob);
+          if (!v.ok){
+            diagPush("error","docx_invalid",{errors:v.errors.slice(0,10)});
+            __lastDiagName = "logi_diagnostico_"+start+"_a_"+end+".zip";
+            __lastDiagBlob = await buildDocxDiagZip(v.files,{mode:"docx",start,end,project:tituloProyecto||"",errors:v.errors});
+            diagSetStatus("Ultimo DOCX: ERROR ("+v.errors.length+"). Usa DIAG.");
+            const msg = "El Word generado parece danado ("+v.errors.length+" error(es)).\n\n" + v.errors.slice(0,6).join("\n") + "\n\nQuieres descargar el diagnostico ahora?";
+            if (confirm(msg)) await diagDownloadBlob(__lastDiagBlob, __lastDiagName);
+          } else {
+            diagPush("info","docx_ok",{mode:"docx"});
+            diagSetStatus("Ultimo DOCX: OK " + diagNow());
+          }
+        }catch(e){
+          diagPush("error","diag_exception",{message:(e?.message||String(e))});
+          diagSetStatus("Ultimo DOCX: diagnostico fallo");
+        }
+
+        await shareBlobAsFile(blob, `Logi_Reporte_${start}_a_${end}${itemTag}.docx`, blob.type, "Logi - Word");
+        $("zipInfo").textContent = "Word listo ✅";
+        setTimeout(()=> $("zipInfo").textContent = "", 1800);
+        return;
+      }
+
       if (!window.docx) {
         alert("La librería DOCX no cargó. Abre con internet o en Chrome.");
         return;
@@ -4269,6 +5337,26 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
 
       const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+
+        try{
+          diagPush("info","docx_export_built",{mode:"docx",photos:selected.length,range:(start+".."+end),project:tituloProyecto||""});
+          const v = await validateDocxBlob(blob);
+          if (!v.ok){
+            diagPush("error","docx_invalid",{errors:v.errors.slice(0,10)});
+            __lastDiagName = "logi_diagnostico_"+start+"_a_"+end+".zip";
+            __lastDiagBlob = await buildDocxDiagZip(v.files,{mode:"docx",start,end,project:tituloProyecto||"",errors:v.errors});
+            diagSetStatus("Ultimo DOCX: ERROR ("+v.errors.length+"). Usa DIAG.");
+            const msg = "El Word generado parece danado ("+v.errors.length+" error(es)).\n\n" + v.errors.slice(0,6).join("\n") + "\n\nQuieres descargar el diagnostico ahora?";
+            if (confirm(msg)) await diagDownloadBlob(__lastDiagBlob, __lastDiagName);
+          } else {
+            diagPush("info","docx_ok",{mode:"docx"});
+            diagSetStatus("Ultimo DOCX: OK " + diagNow());
+          }
+        }catch(e){
+          diagPush("error","diag_exception",{message:(e?.message||String(e))});
+          diagSetStatus("Ultimo DOCX: diagnostico fallo");
+        }
+
       await shareBlobAsFile(blob, `Logi_Reporte_${start}_a_${end}${itemTag}.docx`, blob.type, "Logi - Word");
       $("zipInfo").textContent = "Word listo ✅";
       setTimeout(()=> $("zipInfo").textContent = "", 1800);
@@ -4590,6 +5678,7 @@ function renderExport(){
   try{
     await loadCacheForActiveProject();
     await loadCatalogForActiveProject();
+    await refreshUserTemplateStatus();
     const ri = $("rangeInfo");
     if (ri) ri.style.display = "none";
     render();

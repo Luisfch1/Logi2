@@ -2166,24 +2166,50 @@ async function buildRegistroFotograficoDocxBuffer(
             verticalAlign: VerticalAlign.CENTER,
             margins: { top: 140, bottom: 140, left: 120, right: 220 },
             children: [
-              new Paragraph({
-                children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
-                alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: 40 }
+              // Fila superior: Proyecto (izquierda) + Logi (derecha)
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: noneBorders,
+                rows: [
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        width: { size: 70, type: WidthType.PERCENTAGE },
+                        borders: noneBorders,
+                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                        children: [
+                          new Paragraph({
+                            children: projText
+                              ? [new TextRun({ text: projText, bold: true, color: "FFFFFF", size: 32 })]
+                              : [new TextRun({ text: "", color: "FFFFFF" })],
+                            alignment: AlignmentType.LEFT,
+                            spacing: { before: 0, after: 0 }
+                          })
+                        ]
+                      }),
+                      new TableCell({
+                        width: { size: 30, type: WidthType.PERCENTAGE },
+                        borders: noneBorders,
+                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                        children: [
+                          new Paragraph({
+                            children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
+                            alignment: AlignmentType.RIGHT,
+                            spacing: { before: 0, after: 0 }
+                          })
+                        ]
+                      })
+                    ]
+                  })
+                ]
               }),
+
+              // Segunda fila: rango/fecha del reporte
               new Paragraph({
                 children: [new TextRun({ text: titleLine, bold: true, color: "E5E7EB" })],
                 alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: projText ? 30 : 0 }
-              }),
-              ...(projText ? [new Paragraph({
-                children: [
-                  new TextRun({ text: "Proyecto: ", bold: true, color: "CBD5E1" }),
-                  new TextRun({ text: projText, color: "CBD5E1" }),
-                ],
-                alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: 0 }
-              })] : [])
+                spacing: { before: 40, after: 0 }
+              })
             ]
           })
         ]
