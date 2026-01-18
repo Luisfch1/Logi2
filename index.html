@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.5.1</title>
+  <title>Logi2 v0.8.5.2</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -408,7 +408,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.5.1</div>
+          <div class="appVersion" id="appVersion">v0.8.5.2</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1146,6 +1146,9 @@ $("sheetBackdrop").addEventListener("click", (e)=>{ if (e.target.id === "sheetBa
 /* ===========================
    🎨 Acento (por dispositivo)
 =========================== */
+// Keys de configuración (localStorage)
+// Nota: THEME_KEY era usado en varias partes pero no estaba definido.
+const THEME_KEY  = "logi_theme";
 const ACCENT_KEY = "logi_accent";
 
 const PROJECT_KEY = "logi_project";
