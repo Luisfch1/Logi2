@@ -1,19 +1,16 @@
-if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
-    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM, DESCRIPCION y UNIDAD.");
-    return { added:0, skipped:0, total:0 };
-  }<!doctype html>
+<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.4.1</title>
+  <title>Logi2 v0.8.5.0</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.4.1">
-  <link rel="icon" href="favicon.png?v=0.8.4.1">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.4.1">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
+  <link rel="icon" href="favicon.png?v=0.8.3.9">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3.9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -404,14 +401,14 @@ if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
         <!-- Inputs ocultos (global) -->
         <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
         <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
+        <input id="backupAllInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
         <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-        <input id="tplInput" class="hiddenFileInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
 
     <div class="appbar">
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.4.1</div>
+          <div class="appVersion" id="appVersion">v0.8.5.0</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -701,15 +698,28 @@ if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
 
         <div class="sheetRow">
           <div class="sheetRowMain">
-            <div class="sheetRowTitle">Respaldo</div>
-            <div class="muted">Crear / restaurar backup (ZIP con fotos)</div>
+            <div class="sheetRowTitle">Respaldo (proyecto)</div>
+            <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
           </div>
           <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup">⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup">⬆️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup del proyecto">⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup del proyecto">⬆️</button>
           </div>
         </div>
-        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.
+        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
+
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Respaldo TOTAL</div>
+            <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total">🌎⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total">🌎⬆️</button>
+          </div>
+        </div>
+        <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
+
         <div class="sheetRow dangerRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Borrar todo</div>
@@ -717,7 +727,6 @@ if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
           </div>
           <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
         </div>
-</div>
 
 
         <div class="sheetRow">
@@ -733,18 +742,8 @@ if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
         </div>
         <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
 
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Formato del proyecto</div>
-            <div class="muted" id="tplLabel">Cargar un formato (Word .docx) por proyecto</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnTplHelp" title="Cómo funciona">❔</button>
-            <button class="btn btn-secondary smallBtn" id="btnTplUpload" title="Cargar formato">⬆️</button>
-            <button class="btn btn-danger smallBtn" id="btnTplClear" title="Eliminar formato del proyecto">🗑️</button>
-          </div>
-        </div>
-        <div class="muted" id="tplStatus" style="margin-top:-2px">—</div>
+
+      
         <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Almacenamiento</div>
@@ -1475,6 +1474,302 @@ async function restoreBackupZip(file){
   setTimeout(() => { $("backupStatus").textContent = "Consejo: haz backup al final del día o antes de actualizar."; }, 3500);
 }
 
+/* ===========================
+   🌎 Backup TOTAL / Restore TOTAL (ZIP)
+   - Incluye TODOS los proyectos + fotos + catálogo
+   - Restore mezcla (no borra lo existente)
+=========================== */
+
+async function createBackupZipAll(){
+  if (!window.JSZip){
+    alert("JSZip no está disponible. Abre la app con internet (una vez) y prueba de nuevo.");
+    return;
+  }
+
+  $("backupAllStatus").textContent = "Preparando backup TOTAL…";
+
+  const { projects, activeId } = ensureProjects();
+  const allItems = await dbGetAll();
+  const allCatalog = await catGetAll();
+
+  const firstId = projects[0]?.id || activeId;
+
+  const settings = {
+    theme: localStorage.getItem(THEME_KEY) || "dark",
+    accent: localStorage.getItem(ACCENT_KEY) || "blue",
+    project: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
+    template: getTemplateId(),
+    docxFit: localStorage.getItem("logi_docx_fit") || "stretch",
+    logoEnabled: localStorage.getItem("logi_logo_enabled") === "1",
+    logoCorner: localStorage.getItem("logi_logo_corner") || "br",
+  };
+
+  const backup = {
+    schemaVersion: 2,
+    type: "all",
+    app: "Logi",
+    createdAt: new Date().toISOString(),
+    settings,
+    projects,
+    activeProjectId: activeId,
+    catalog: (allCatalog || []).map(r => ({
+      projectId: r.projectId || firstId,
+      item: r.item || "",
+      descripcion: r.descripcion || "",
+      unidad: r.unidad || "",
+      createdAt: r.createdAt || Date.now()
+    })),
+    items: (allItems || []).map(it => {
+      const pid = it.projectId || firstId;
+      const pName = (projects.find(p => p.id === pid)?.name) || "";
+      return {
+        id: it.id,
+        fecha: it.fecha || "",
+        proyecto: it.proyecto || pName || "",
+        descripcion: it.descripcion || "",
+        done: !!it.done,
+        mime: it.mime || "image/jpeg",
+        createdAt: it.createdAt || Date.now(),
+        hasLogo: !!it.hasLogo,
+        projectId: pid,
+        projectName: pName
+      };
+    })
+  };
+
+  const zip = new JSZip();
+  zip.file("backup.json", JSON.stringify(backup, null, 2));
+
+  const photos = zip.folder("photos");
+  let i = 0;
+  for (const it of (allItems || [])){
+    i++;
+    $("backupAllStatus").textContent = `Agregando fotos… (${i}/${allItems.length})`;
+    const pid = it.projectId || firstId;
+    const folder = photos.folder(pid);
+    const ext = extFromMime(it.mime || "image/jpeg");
+    folder.file(`${it.id}.${ext}`, it.blob);
+  }
+
+  const logoData = localStorage.getItem("logi_logo_dataurl");
+  if (logoData){
+    try{
+      const lb = await dataUrlToBlob(logoData);
+      const lfolder = zip.folder("logo");
+      const lExt = extFromMime(lb.type || "image/png");
+      lfolder.file(`logo.${lExt}`, lb);
+    }catch{}
+  }
+
+  $("backupAllStatus").textContent = "Comprimiendo ZIP…";
+  const outBlob = await zip.generateAsync({ type: "blob" }, (meta) => {
+    $("backupAllStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
+  });
+
+  const name = `logi-backup-TOTAL-${isoNowSafe()}.zip`;
+  const url = URL.createObjectURL(outBlob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  $("backupAllStatus").textContent = `Backup TOTAL listo ✅ (${(allItems||[]).length} fotos)`;
+}
+
+async function restoreBackupZipAll(file){
+  if (!window.JSZip){
+    alert("JSZip no está disponible. Abre la app con internet (una vez) y prueba de nuevo.");
+    return;
+  }
+
+  $("backupAllStatus").textContent = "Leyendo ZIP…";
+  const zip = await JSZip.loadAsync(file);
+  const bj = zip.file("backup.json");
+  if (!bj){
+    alert("Ese ZIP no parece un backup de Logi (falta backup.json).");
+    return;
+  }
+
+  const jsonText = await bj.async("string");
+  let backup = null;
+  try { backup = JSON.parse(jsonText); } catch { backup = null; }
+
+  if (!backup || backup.type !== "all" || !Array.isArray(backup.items) || !Array.isArray(backup.projects)){
+    alert("Backup TOTAL inválido: no encontré estructura esperada.");
+    return;
+  }
+
+  const ok = confirm(
+    "Vas a RESTAURAR un backup TOTAL.\n\n" +
+    "• No se borrará nada.\n" +
+    "• Se mezclarán fotos nuevas.\n" +
+    "• Se recrearán proyectos faltantes y su catálogo.\n\n" +
+    "¿Continuar?"
+  );
+  if (!ok){ $("backupAllStatus").textContent = "Cancelado."; return; }
+
+  const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/logo)?");
+
+  const existingAll = new Set((await dbGetAll()).map(x => x.id));
+
+  // map projects by name
+  let { projects, activeId } = ensureProjects();
+  const norm = s => String(s||"").trim().toLowerCase();
+  const nameToId = {};
+  for (const p of projects) nameToId[norm(p.name)] = p.id;
+
+  const mapPid = {};
+  for (const bp of backup.projects){
+    const key = norm(bp.name);
+    if (nameToId[key]){
+      mapPid[bp.id] = nameToId[key];
+    } else {
+      const newId = genPid();
+      projects.push({ id: newId, name: bp.name || "Proyecto", createdAt: Date.now() });
+      nameToId[key] = newId;
+      mapPid[bp.id] = newId;
+    }
+  }
+  saveProjects(projects);
+
+  if (backup.activeProjectId && mapPid[backup.activeProjectId]){
+    setActiveProjectId(mapPid[backup.activeProjectId]);
+    activeId = mapPid[backup.activeProjectId];
+  }
+
+  if (importSettings){
+    // logo
+    try{
+      const logoFolder = zip.folder("logo");
+      if (logoFolder){
+        const candidates = Object.keys(logoFolder.files || {}).filter(p => p.startsWith("logo/") && !logoFolder.files[p].dir);
+        if (candidates.length){
+          const lf = zip.file(candidates[0]);
+          if (lf){
+            const lb = await lf.async("blob");
+            const fr = new FileReader();
+            const dataUrl = await new Promise((res, rej)=>{
+              fr.onload = () => res(fr.result);
+              fr.onerror = rej;
+              fr.readAsDataURL(lb);
+            });
+            localStorage.setItem("logi_logo_dataurl", dataUrl);
+          }
+        }
+      }
+    }catch{}
+
+    if (backup.settings){
+      try{
+        if (backup.settings.theme) applyTheme(backup.settings.theme);
+        if (backup.settings.accent) applyAccent(backup.settings.accent);
+        if (backup.settings.template) setTemplateId(backup.settings.template);
+        if (backup.settings.docxFit) localStorage.setItem("logi_docx_fit", backup.settings.docxFit);
+        if (typeof backup.settings.logoEnabled === "boolean") localStorage.setItem("logi_logo_enabled", backup.settings.logoEnabled ? "1":"0");
+        if (backup.settings.logoCorner) localStorage.setItem("logi_logo_corner", backup.settings.logoCorner);
+      }catch{}
+    }
+  }
+
+  // Import photos
+  let added = 0, skipped = 0;
+  const total = backup.items.length;
+  const keys = Object.keys(zip.files);
+
+  for (let idx=0; idx<total; idx++){
+    const meta = backup.items[idx];
+    const id = meta.id;
+    if (!id){ skipped++; continue; }
+    if (existingAll.has(id)){ skipped++; continue; }
+
+    const bpid = meta.projectId || backup.projects?.[0]?.id;
+    const targetPid = mapPid[bpid] || activeId;
+
+    // find file photos/<backupPid>/<id>.*
+    const base = `photos/${bpid}/${id}.`;
+    const match = keys.find(k => k.startsWith(base) && !zip.files[k].dir);
+    let f = match ? zip.file(match) : null;
+
+    if (!f){
+      // fallback anywhere under photos
+      const any = keys.find(k => k.startsWith('photos/') && k.includes(`/${id}.`) && !zip.files[k].dir);
+      if (any) f = zip.file(any);
+    }
+
+    if (!f){ skipped++; continue; }
+
+    $("backupAllStatus").textContent = `Importando… (${idx+1}/${total})`;
+
+    const blob = await f.async("blob");
+    const projName = projects.find(p => p.id === targetPid)?.name || "";
+
+    const it = {
+      id,
+      fecha: meta.fecha || "",
+      proyecto: meta.proyecto || projName || "",
+      descripcion: meta.descripcion || "",
+      done: !!meta.done,
+      mime: meta.mime || blob.type || "image/jpeg",
+      createdAt: meta.createdAt || Date.now(),
+      hasLogo: !!meta.hasLogo,
+      blob,
+      projectId: targetPid
+    };
+
+    await dbPut(it);
+    existingAll.add(id);
+    added++;
+  }
+
+  // restore catalog
+  if (Array.isArray(backup.catalog) && backup.catalog.length){
+    const rows = backup.catalog.map(r => {
+      const pid = mapPid[r.projectId] || activeId;
+      const item = String(r.item || "").trim();
+      return {
+        key: `${pid}::${item}`,
+        projectId: pid,
+        item,
+        descripcion: r.descripcion || "",
+        unidad: r.unidad || "",
+        createdAt: r.createdAt || Date.now()
+      };
+    }).filter(x => x.item);
+    if (rows.length) await catPutMany(rows);
+  }
+
+  // refresh UI
+  refreshProjectUI();
+  await loadCacheForActiveProject();
+  await loadCatalogForActiveProject();
+  render();
+  updateStorageUI();
+
+  $("backupAllStatus").textContent = `Restauración TOTAL ✅ (agregadas: ${added}, omitidas: ${skipped})`;
+}
+
+$("btnBackupAllCreate").onclick = async () => {
+  try { await createBackupZipAll(); }
+  catch { alert("No pude crear el backup TOTAL. Prueba cerrar apps y reintentar."); $("backupAllStatus").textContent = "—"; }
+};
+
+$("btnBackupAllRestore").onclick = () => {
+  $("backupAllInput").value = "";
+  $("backupAllInput").click();
+};
+
+$("backupAllInput").onchange = async () => {
+  const file = $("backupAllInput").files?.[0];
+  if (!file) return;
+  try { await restoreBackupZipAll(file); }
+  catch { alert("No pude restaurar ese ZIP TOTAL."); $("backupAllStatus").textContent = "—"; }
+  finally { $("backupAllInput").value = ""; updateStorageUI(); }
+};
+
+
 $("btnBackupCreate").onclick = async () => {
   try { await createBackupZip(); } catch (e){ alert("No pude crear el backup. Prueba cerrar apps y reintentar."); $("backupStatus").textContent = "—"; }
 };
@@ -1583,11 +1878,10 @@ $("itemsInput").onchange = async () => {
    IndexedDB
 =========================== */
 const DB_NAME = "logi2_db_v1";
-const DB_VERSION = 3;
+const DB_VERSION = 2;
 
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
-const DB_STORE_TEMPLATES = "templates"; // formatos (DOCX) por proyecto
 
 function openDB(){
   return new Promise((resolve, reject) => {
@@ -1614,12 +1908,6 @@ function openDB(){
         const cat = db.createObjectStore(DB_STORE_CATALOG, { keyPath: "key" });
         cat.createIndex("byProject", "projectId");
         cat.createIndex("byItem", "item");
-      }
-
-      // Store formatos (DOCX) por proyecto
-      if (!db.objectStoreNames.contains(DB_STORE_TEMPLATES)){
-        const tpl = db.createObjectStore(DB_STORE_TEMPLATES, { keyPath: "projectId" });
-        tpl.createIndex("byProject", "projectId");
       }
     };
 
@@ -1669,9 +1957,8 @@ async function dbClear(){
 /* ===========================
    Catálogo de ítems (por proyecto)
 =========================== */
-let catalog = [];          // rows: {key, projectId, item, descripcion, createdAt}
+let catalog = [];          // rows: {key, projectId, item, descripcion, unidad, createdAt}
 let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
-let catalogUnitMap = {};   // { itemCode: unidad } para el proyecto activo
 
 async function catGetByProject(projectId){
   const db = await openDB();
@@ -1679,6 +1966,16 @@ async function catGetByProject(projectId){
     const tx = db.transaction(DB_STORE_CATALOG, "readonly");
     const idx = tx.objectStore(DB_STORE_CATALOG).index("byProject");
     const req = idx.getAll(projectId);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function catGetAll(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_CATALOG, "readonly");
+    const req = tx.objectStore(DB_STORE_CATALOG).getAll();
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
@@ -1713,12 +2010,8 @@ async function catClearProject(projectId){
 
 function rebuildCatalogMap(){
   catalogMap = {};
-  catalogUnitMap = {};
   for (const r of catalog){
-    if (!r?.item) continue;
-    const code = String(r.item).trim();
-    catalogMap[code] = (r.descripcion || "").trim();
-    if (r.unidad != null) catalogUnitMap[code] = String(r.unidad || "").trim();
+    if (r?.item) catalogMap[String(r.item).trim()] = (r.descripcion || "").trim();
   }
 }
 
@@ -1739,7 +2032,7 @@ function refreshCatalogDatalist(){
   for (const r of rows){
     const opt = document.createElement("option");
     opt.value = String(r.item || "").trim();
-    opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}` : String(r.item || "");
+    opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}${(r.unidad||'').trim() ? ' ['+(r.unidad||'').trim()+']' : ''}` : String(r.item || "");
     dl.appendChild(opt);
   }
 }
@@ -1774,103 +2067,6 @@ function updateGalleryItemHint(){
   if (!hintEl) return;
   const code = getGalleryItemCode();
   hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
-}
-
-
-
-/* ===========================
-   🧾 Formatos (DOCX) por proyecto
-   - Se guarda 1 formato por proyecto (IndexedDB)
-   - Por ahora solo se usa para exportar Word (.docx)
-=========================== */
-async function tplGet(projectId){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE_TEMPLATES, "readonly");
-    const req = tx.objectStore(DB_STORE_TEMPLATES).get(projectId);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function tplPut(projectId, name, blob, meta){
-  const db = await openDB();
-  const row = { projectId, name: name || "formato.docx", blob, meta: meta || {}, updatedAt: Date.now() };
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE_TEMPLATES, "readwrite");
-    tx.objectStore(DB_STORE_TEMPLATES).put(row);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function tplDelete(projectId){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE_TEMPLATES, "readwrite");
-    tx.objectStore(DB_STORE_TEMPLATES).delete(projectId);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-function tplExplain(){
-  alert(
-    "Formato del proyecto (Word .docx)
-
-"+
-    "• Se carga 1 formato por proyecto.
-"+
-    "• El membrete y pie del usuario se respetan (porque vienen dentro del .docx).
-"+
-    "• El formato debe tener tags como: [[LOGI:ITEMS_START]] / [[LOGI:ITEMS_END]] y [[LOGI:FOTO_1_DESC]]...
-"+
-    "• Si no cargas formato, se usa Logi (4/6/8 fotos).
-
-"+
-    "Por ahora: el formato personalizado aplica SOLO al export Word. (PDF lo hacemos en el siguiente paso.)"
-  );
-}
-
-async function tplValidateDocx(blob){
-  if (!window.JSZip) throw new Error("JSZip no cargó.");
-  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
-  const doc = await zip.file("word/document.xml")?.async("string");
-  const rels = await zip.file("word/_rels/document.xml.rels")?.async("string");
-  if (!doc || !rels) throw new Error("DOCX inválido (faltan partes internas)." );
-
-  const hasStart = doc.includes("[[LOGI:ITEMS_START]]");
-  const hasEnd   = doc.includes("[[LOGI:ITEMS_END]]");
-  if (!hasStart || !hasEnd) throw new Error("El formato no tiene [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].");
-
-  const slotMatches = [...doc.matchAll(/\[\[LOGI:FOTO_(\d+)\]\]/g)].map(m => parseInt(m[1],10)).filter(n => Number.isFinite(n));
-  const slots = slotMatches.length ? Math.max(...slotMatches) : 0;
-  if (!slots) throw new Error("No detecté fotos (tags tipo [[LOGI:FOTO_1]] en el 'texto alternativo' de las imágenes)." );
-
-  // Debe existir tag de descripción por slot
-  for (let i=1;i<=slots;i++){
-    if (!doc.includes(`[[LOGI:FOTO_${i}_DESC]]`)) throw new Error(`Falta [[LOGI:FOTO_${i}_DESC]] en el formato.`);
-    if (!doc.includes(`[[LOGI:FOTO_${i}_NO]]`)) throw new Error(`Falta [[LOGI:FOTO_${i}_NO]] en el formato.`);
-  }
-
-  return { slots };
-}
-
-async function refreshTemplateStatus(){
-  const st = $("tplStatus");
-  const lab = $("tplLabel");
-  const p = getActiveProject();
-  if (!p) { if (st) st.textContent = "—"; return; }
-  if (lab) lab.textContent = `Formato por proyecto: ${p.name}`;
-
-  try{
-    const tpl = await tplGet(p.id);
-    if (!tpl){ if (st) st.textContent = "Sin formato cargado. (Se usa Logi.)"; return; }
-    const slots = tpl?.meta?.slots ? `• fotos/bloque: ${tpl.meta.slots}` : "";
-    if (st) st.textContent = `Formato cargado ✅ ${tpl.name || ""} ${slots}`.trim();
-  }catch{
-    if (st) st.textContent = "No pude leer el formato del proyecto.";
-  }
 }
 
 function normalizeHeader(s){
@@ -1910,8 +2106,7 @@ async function importItemsFile(file){
   const header = rows[0].map(normalizeHeader);
   const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
   const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
-
-  const idxUnit = header.findIndex(h => h === "unidad" || h === "unit" || h === "u" || h === "unidad_item");
+  const idxUnit = header.findIndex(h => h === "unidad" || h === "und" || h === "unit" || h === "unidad_item");
 
   if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
     alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM, DESCRIPCION y UNIDAD.");
@@ -1980,9 +2175,9 @@ function downloadTemplateItems(){
       try{
         if (!window.XLSX) throw new Error("XLSX no cargó.");
         const wb = XLSX.utils.book_new();
-        const data = [["ITEM","DESCRIPCION","UNIDAD"],["","","" ]];
+        const data = [["ITEM","DESCRIPCION","UNIDAD"],["","",""]];
         const ws = XLSX.utils.aoa_to_sheet(data);
-        ws["!cols"] = [{ wch: 18 }, { wch: 60 }, { wch: 10 }];
+        ws["!cols"] = [{ wch: 18 }, { wch: 60 }, { wch: 12 }];
         XLSX.utils.book_append_sheet(wb, ws, "ITEMS");
         const out = XLSX.write(wb, { bookType:"xlsx", type:"array" });
         const blob = new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1994,64 +2189,6 @@ function downloadTemplateItems(){
   })();
 }
 
-
-
-
-/* ===========================
-   🧾 Formato del proyecto (DOCX)
-=========================== */
-const tplInput = $("tplInput");
-
-$("btnTplHelp").onclick = () => { try{ tplExplain(); }catch{} };
-
-$("btnTplUpload").onclick = () => {
-  if (!tplInput) return;
-  tplInput.value = "";
-  tplInput.click();
-};
-
-$("btnTplClear").onclick = async () => {
-  const p = getActiveProject();
-  if (!p) return;
-  const ok = confirm(`Vas a eliminar el FORMATO (Word) del proyecto:
-
-${p.name}
-
-¿Continuar?`);
-  if (!ok) return;
-  try{
-    await tplDelete(p.id);
-    await refreshTemplateStatus();
-  }catch(e){
-    console.error(e);
-    alert("No pude eliminar el formato. Intenta de nuevo.");
-  }
-};
-
-if (tplInput){
-  tplInput.onchange = async () => {
-    const file = tplInput.files?.[0];
-    if (!file) return;
-
-    const p = getActiveProject();
-    if (!p){ alert("No pude determinar el proyecto activo."); return; }
-
-    $("tplStatus").textContent = "Validando formato…";
-    try{
-      const meta = await tplValidateDocx(file);
-      await tplPut(p.id, file.name || "formato.docx", file, meta);
-      $("tplStatus").textContent = `Formato cargado ✅ ${file.name} • fotos/bloque: ${meta.slots}`;
-    }catch(e){
-      console.error(e);
-      alert("Ese formato no sirve aún.
-
-Detalle: " + (e?.message || e));
-      await refreshTemplateStatus();
-    }finally{
-      tplInput.value = "";
-    }
-  };
-}
 
 /* ===========================
    Utilidades
@@ -2175,7 +2312,6 @@ function onProjectChanged(){
     try{
       await loadCacheForActiveProject();
       await loadCatalogForActiveProject();
-      await refreshTemplateStatus();
     }catch(e){
       console.error(e);
       alert("No pude actualizar la galería del proyecto. Si persiste, usa 'Reiniciar caché' en configuración.");
@@ -3517,164 +3653,6 @@ function buildCaptionRuns(n, meta, templateId){
   return buildCaptionRunsSized(n, caption, Math.round(_CAPTION_FONT_PT_BASE*2));
 }
 
-
-async function buildRegistroFotograficoDocxFromTemplateBuffer(selected, templateBlob, tituloProyecto, desdeISO, hastaISO, opts={}){
-  if (!selected || !selected.length) throw new Error("No hay fotos para exportar.");
-  if (!window.JSZip) throw new Error("JSZip no cargó.");
-
-  // Cargar plantilla DOCX
-  const zip = await JSZip.loadAsync(await templateBlob.arrayBuffer());
-  let docXml = await zip.file("word/document.xml")?.async("string");
-  let relsXml = await zip.file("word/_rels/document.xml.rels")?.async("string");
-  if (!docXml || !relsXml) throw new Error("Plantilla DOCX inválida.");
-
-  // Util: encuentra el rango del párrafo que contiene un tag
-  function paraRange(xml, tag){
-    const t = xml.indexOf(tag);
-    if (t === -1) return null;
-    const pStart = xml.lastIndexOf("<w:p", t);
-    const pEnd = xml.indexOf("</w:p>", t);
-    if (pStart === -1 || pEnd === -1) return null;
-    return { pStart, pEnd: pEnd + "</w:p>".length };
-  }
-
-  const START_TAG = "[[LOGI:ITEMS_START]]";
-  const END_TAG   = "[[LOGI:ITEMS_END]]";
-  const a = paraRange(docXml, START_TAG);
-  const b = paraRange(docXml, END_TAG);
-  if (!a || !b || b.pStart < a.pEnd) throw new Error("Plantilla sin bloque ITEMS_START/END correctamente ubicado.");
-
-  const prefix = docXml.slice(0, a.pStart);
-  const block  = docXml.slice(a.pEnd, b.pStart);
-  const suffix = docXml.slice(b.pEnd);
-
-  // Detectar slots por alt-text: descr="[[LOGI:FOTO_N]]"
-  const slotNums = [...block.matchAll(/\[\[LOGI:FOTO_(\d+)\]\]/g)]
-    .map(m => parseInt(m[1],10))
-    .filter(n => Number.isFinite(n));
-  const slots = slotNums.length ? Math.max(...slotNums) : 0;
-  if (!slots) throw new Error("No detecté slots de foto en el bloque.");
-
-  // Map slot -> rId embed original (en la plantilla)
-  const slotToRid = {};
-  for (let i=1;i<=slots;i++){
-    const tag = `[[LOGI:FOTO_${i}]]`;
-    const esc = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const rgx = new RegExp(`descr="${esc}"[\\s\\S]*?r:embed="(rId\\d+)"`);
-    const m = block.match(rgx);
-    if (!m) throw new Error(`No pude asociar el slot ${i} a una imagen (alt-text descr="${tag}").`);
-    slotToRid[i] = m[1];
-  }
-
-  // Próximo rId disponible
-  const ridNums = [...relsXml.matchAll(/Id="rId(\d+)"/g)].map(m => parseInt(m[1],10)).filter(n=>Number.isFinite(n));
-  let nextRid = (ridNums.length ? Math.max(...ridNums) : 0) + 1;
-
-  // Próximo imageN disponible
-  const files = Object.keys(zip.files || {});
-  const imgNums = files.filter(f => f.startsWith("word/media/image"))
-    .map(f => {
-      const m = f.match(/image(\d+)\./);
-      return m ? parseInt(m[1],10) : NaN;
-    })
-    .filter(n => Number.isFinite(n));
-  let nextImg = (imgNums.length ? Math.max(...imgNums) : 0) + 1;
-
-  // blank jpeg (para slots vacíos)
-  let blankJpegBytes = null;
-  async function getBlankJpeg(){
-    if (blankJpegBytes) return blankJpegBytes;
-    const canvas = document.createElement('canvas');
-    canvas.width = 20; canvas.height = 20;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0,0,20,20);
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
-    blankJpegBytes = new Uint8Array(await (blob || new Blob()).arrayBuffer());
-    return blankJpegBytes;
-  }
-
-  async function toJpegBytes(anyBlob){
-    try{
-      const file = new File([anyBlob], 'img', { type: anyBlob.type || 'image/jpeg' });
-      const { blob } = await compressImage(file, 2000, 0.85);
-      return new Uint8Array(await blob.arrayBuffer());
-    }catch{
-      return new Uint8Array(await anyBlob.arrayBuffer());
-    }
-  }
-
-  // Agrupar por ítem y ordenar por fecha
-  const rows = selected.slice().sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
-  const byItem = new Map();
-  for (const it of rows){
-    const code = String(it.itemCode || "").trim() || "SIN_ITEM";
-    if (!byItem.has(code)) byItem.set(code, []);
-    byItem.get(code).push(it);
-  }
-
-  const blocksOut = [];
-  for (const [itemCode, photos] of byItem.entries()){
-    let contador = 1;
-    const actividad = itemCode !== "SIN_ITEM" ? (catalogMap[itemCode] || "") : "";
-    const unidad = itemCode !== "SIN_ITEM" ? (catalogUnitMap[itemCode] || "") : "";
-
-    for (let k=0; k<photos.length; k += slots){
-      const group = photos.slice(k, k+slots);
-      let xml = block;
-      xml = xml.replaceAll('[[LOGI:ITEM]]', itemCode === 'SIN_ITEM' ? '' : itemCode);
-      xml = xml.replaceAll('[[LOGI:ACTIVIDAD]]', actividad);
-      xml = xml.replaceAll('[[LOGI:UNIDAD]]', unidad);
-
-      for (let s=1; s<=slots; s++){
-        const ph = group[s-1] || null;
-        const ridOld = slotToRid[s];
-        const ridNew = `rId${nextRid++}`;
-
-        // Cambiar rid en este bloque (solo donde corresponde)
-        // Nota: ridOld puede aparecer 2 veces (a:blip y a:blipFill). Reemplazamos todas las ocurrencias en este bloque.
-        xml = xml.split(`r:embed="${ridOld}"`).join(`r:embed="${ridNew}"`);
-
-        // texto
-        const noTag = `[[LOGI:FOTO_${s}_NO]]`;
-        const descTag = `[[LOGI:FOTO_${s}_DESC]]`;
-        if (ph){
-          const no = String(contador++);
-          const desc = String(ph.descripcion || "").trim();
-          xml = xml.replaceAll(noTag, no);
-          xml = xml.replaceAll(descTag, desc);
-        } else {
-          xml = xml.replaceAll(noTag, "");
-          xml = xml.replaceAll(descTag, "");
-        }
-
-        // imagen
-        const bytes = ph ? await toJpegBytes(ph.blob) : await getBlankJpeg();
-        const imgPath = `word/media/image${nextImg++}.jpg`;
-        zip.file(imgPath, bytes);
-
-        const rel = `  <Relationship Id="${ridNew}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgPath.split('/').pop()}"/>
-`;
-        relsXml = relsXml.replace("</Relationships>", rel + "</Relationships>");
-      }
-
-      blocksOut.push(xml);
-    }
-  }
-
-  let outXml = prefix + blocksOut.join("") + suffix;
-  // Tags globales simples
-  if (tituloProyecto) outXml = outXml.replaceAll('[[LOGI:PROYECTO]]', tituloProyecto);
-  // Limpieza de tags por si quedaron
-  outXml = outXml.replaceAll(START_TAG, "").replaceAll(END_TAG, "");
-
-  zip.file("word/document.xml", outXml);
-  zip.file("word/_rels/document.xml.rels", relsXml);
-
-  const outBuf = await zip.generateAsync({ type: "uint8array" });
-  return outBuf.buffer;
-}
-
 async function buildRegistroFotograficoDocxBuffer(
   selected, tituloProyecto, startISO, endISO, imgWcm, imgHcm,
   pairsPerPage = 4,
@@ -3739,6 +3717,48 @@ async function buildRegistroFotograficoDocxBuffer(
 
   const projText = (tituloProyecto || "").trim();
 
+  // Proyecto en encabezado (máx 2 líneas, con "…" si recorta)
+  function wrapProjectHeaderText(text, maxCharsPerLine=30, maxLines=2){
+    const s = String(text || "").replace(/\s+/g, " ").trim();
+    if (!s) return "";
+    const words = s.split(" ").filter(Boolean);
+    const lines = [];
+    let line = "";
+
+    for (const w of words){
+      const test = line ? (line + " " + w) : w;
+      if (test.length <= maxCharsPerLine){
+        line = test;
+      } else {
+        if (line) lines.push(line);
+        line = w;
+        if (maxLines && lines.length >= maxLines) break;
+      }
+    }
+    if ((!maxLines || lines.length < maxLines) && line) lines.push(line);
+
+    // Si recortó, agrega "…" al final de la última línea
+    if (maxLines && lines.length === maxLines && words.length){
+      const joined = lines.join(" ");
+      if (joined.length < s.length){
+        let last = lines[lines.length - 1];
+        if (!last.endsWith("…")){
+          // intenta agregar sin pasarse del máximo
+          if ((last + "…").length <= maxCharsPerLine) lines[lines.length - 1] = last + "…";
+          else {
+            // recorta un poco y pone elipsis
+            const cut = Math.max(0, maxCharsPerLine - 1);
+            lines[lines.length - 1] = last.slice(0, cut) + "…";
+          }
+        }
+      }
+    }
+
+    return lines.slice(0, maxLines).join("\n");
+  }
+
+  const projHeaderText = wrapProjectHeaderText(projText, 30, 2);
+
   // Logo (opcional)
   const logoAb = await loadLogiLogoArrayBuffer();
   const logoRun = logoAb ? new ImageRun({ data: logoAb, transformation: { width: 38, height: 38 } }) : null;
@@ -3770,24 +3790,50 @@ async function buildRegistroFotograficoDocxBuffer(
             verticalAlign: VerticalAlign.CENTER,
             margins: { top: 140, bottom: 140, left: 120, right: 220 },
             children: [
-              new Paragraph({
-                children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
-                alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: 40 }
+              // Fila superior: Proyecto (izquierda) + Logi (derecha)
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: noneBorders,
+                rows: [
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        width: { size: 70, type: WidthType.PERCENTAGE },
+                        borders: noneBorders,
+                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                        children: [
+                          new Paragraph({
+                            children: projHeaderText
+                              ? [new TextRun({ text: projHeaderText, bold: true, color: "FFFFFF", size: 36 })]
+                              : [new TextRun({ text: "", color: "FFFFFF" })],
+                            alignment: AlignmentType.LEFT,
+                            spacing: { before: 0, after: 0 }
+                          })
+                        ]
+                      }),
+                      new TableCell({
+                        width: { size: 30, type: WidthType.PERCENTAGE },
+                        borders: noneBorders,
+                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                        children: [
+                          new Paragraph({
+                            children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
+                            alignment: AlignmentType.RIGHT,
+                            spacing: { before: 0, after: 0 }
+                          })
+                        ]
+                      })
+                    ]
+                  })
+                ]
               }),
+
+              // Segunda fila: rango/fecha del reporte
               new Paragraph({
                 children: [new TextRun({ text: titleLine, bold: true, color: "E5E7EB" })],
                 alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: projText ? 30 : 0 }
-              }),
-              ...(projText ? [new Paragraph({
-                children: [
-                  new TextRun({ text: "Proyecto: ", bold: true, color: "CBD5E1" }),
-                  new TextRun({ text: projText, color: "CBD5E1" }),
-                ],
-                alignment: AlignmentType.RIGHT,
-                spacing: { before: 0, after: 0 }
-              })] : [])
+                spacing: { before: 40, after: 0 }
+              })
             ]
           })
         ]
@@ -4091,8 +4137,8 @@ async function exportZipByMode(modo, desde, hasta){
   const { imgWcm: IMG_W_CM, imgHcm: IMG_H_CM, pairsPerPage: PAIRS_PER_PAGE } = docxDimsForLayout(layoutKey);
 
   const { start, end } = computeRangeForTitle(modo, desde, hasta);
-  const activeProject = getActiveProject();
-  const tituloProyecto = (activeProject?.name || proyectoInput.value || "").trim();
+  const activeP = (typeof getActiveProject === "function") ? getActiveProject() : null;
+  const tituloProyecto = ((activeP && activeP.name) ? activeP.name : (proyectoInput.value || "")).trim();
 
   const zi = zipInfo;
   const totalDocx = selected.length;
@@ -4106,24 +4152,10 @@ async function exportZipByMode(modo, desde, hasta){
     await nextPaint();
   };
 
-  let docxBuffer;
-  try{
-    const tpl = activeProject ? await tplGet(activeProject.id) : null;
-    if (tpl && tpl.blob){
-      docxBuffer = await buildRegistroFotograficoDocxFromTemplateBuffer(selected, tpl.blob, tituloProyecto, start, end, { onProgress });
-    } else {
-      docxBuffer = await buildRegistroFotograficoDocxBuffer(
-        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
-        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
-      );
-    }
-  }catch(e){
-    console.warn("Plantilla DOCX: fallback a formato Logi", e);
-    docxBuffer = await buildRegistroFotograficoDocxBuffer(
-      selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
-      { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
-    );
-  }
+  const docxBuffer = await buildRegistroFotograficoDocxBuffer(
+    selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
+    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
+  );
 
   const itemTag2 = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
   root.file(`Logi_Reporte_${start}_a_${end}${itemTag2}.docx`, docxBuffer);
@@ -4453,12 +4485,28 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
     }
 
     // Textos a la derecha (alineados a la derecha)
+    // Proyecto (visible, a la izquierda del bloque derecho)
+    if (projText){
+      const projSize = 16;
+      const padL = 24;
+      const reserveRight = 220; // deja espacio para "Logi" + márgenes a la derecha
+      const maxW = Math.max(120, rightW - padL - reserveRight);
+      const lines = wrapRestLines(projText, fontB, projSize, maxW, 2);
+      let yProj = pageH - 26;
+      for (let i=0; i<lines.length; i++){
+        page.drawText(lines[i], {
+          x: leftW + padL,
+          y: yProj - i * (projSize + 2),
+          size: projSize,
+          font: fontB,
+          color: rgb(1,1,1)
+        });
+      }
+    }
+
+    // Textos a la derecha (alineados a la derecha)
     drawRightText(page, "Logi", pageH - 30, 22, true, rgb(1,1,1));
     drawRightText(page, titleLine, pageH - 50, 10.5, true, rgb(0xE5/255,0xE7/255,0xEB/255));
-    if (projText){
-      const projLine = `Proyecto: ${projText}`;
-      drawRightText(page, projLine, pageH - 65, 10, false, rgb(0xCB/255,0xD5/255,0xE1/255));
-    }
 
     // ===== Grid =====
     for (let row = 0; row < rows; row++){
@@ -4599,8 +4647,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
     const start = (modo === "mes") ? desde.slice(0,7) : desde;
     const end   = (modo === "rango") ? hasta : ((modo === "mes") ? desde.slice(0,7) : desde);
 
-    const activeProject = getActiveProject();
-    const tituloProyecto = (activeProject?.name || proyectoInput.value || "").trim();
+    const activeP = (typeof getActiveProject === "function") ? getActiveProject() : null;
+    const tituloProyecto = ((activeP && activeP.name) ? activeP.name : (proyectoInput.value || "")).trim();
 
     if (fmt === "docx") {
       if (!window.docx) {
@@ -4621,25 +4669,11 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
         zi.textContent = `Generando Word... ${done}/${tot}`;
         await nextPaint();
       };
-      let docxBuffer;
-      try{
-        const tpl = activeProject ? await tplGet(activeProject.id) : null;
-        if (tpl && tpl.blob){
-          // Plantilla por proyecto (solo Word)
-          docxBuffer = await buildRegistroFotograficoDocxFromTemplateBuffer(selected, tpl.blob, tituloProyecto, start, end, { onProgress });
-        } else {
-          docxBuffer = await buildRegistroFotograficoDocxBuffer(
-            selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
-            { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
-          );
-        }
-      }catch(e){
-        console.warn("Plantilla DOCX: fallback a formato Logi", e);
-        docxBuffer = await buildRegistroFotograficoDocxBuffer(
-          selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
-          { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
-        );
-      }
+
+      const docxBuffer = await buildRegistroFotograficoDocxBuffer(
+        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
+        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
+      );
 
       const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
@@ -4964,7 +4998,6 @@ function renderExport(){
   try{
     await loadCacheForActiveProject();
     await loadCatalogForActiveProject();
-    await refreshTemplateStatus();
     const ri = $("rangeInfo");
     if (ri) ri.style.display = "none";
     render();
