@@ -1,16 +1,19 @@
-<!doctype html>
+if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
+    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM, DESCRIPCION y UNIDAD.");
+    return { added:0, skipped:0, total:0 };
+  }<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.2s6</title>
+  <title>Logi2 v0.8.4.1</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s6">
-  <link rel="icon" href="favicon.png?v=0.8.2s6">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s6">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.4.1">
+  <link rel="icon" href="favicon.png?v=0.8.4.1">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.4.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -59,7 +62,11 @@
       --danger:#ef4444;
       --shadow:0 10px 24px rgba(15,23,42,.10);
     }
-    body{margin:0;padding:14px;background:var(--bg);color:var(--text)}
+    html{overflow-x:hidden;}
+    body{margin:0;padding:14px;background:var(--bg);color:var(--text)
+      overflow-x:hidden;
+      max-width:100%;
+    }
     .wrap{max-width:900px;margin:0 auto;display:grid;gap:12px}
     h1{font-size:1.15rem;margin:4px 0 0;text-align:center}
     .card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
@@ -164,7 +171,12 @@
       background:rgba(15,23,42,.8);
       border:1px solid rgba(203,213,225,.25);
       color:#e5e7eb;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      white-space:nowrap;
     }
+
     .badgeDone{
       background:rgba(52,211,153,.9);
       color:#052e1a;border-color:transparent;
@@ -172,7 +184,8 @@
     .badgeShare{ right:8px; left:auto; }
 
     /* Ítems (overlay en miniaturas) */
-    .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px; }
+    .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px;  white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; }
+
     .badgeItemOk{ background:rgba(96,165,250,.92); color:#071125; border-color:transparent; }
     .badgeItemMiss{ background:rgba(248,113,113,.92); color:#2b0707; border-color:transparent; }
     .gThumbMissing{ border-color: rgba(248,113,113,.9); box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
@@ -392,12 +405,13 @@
         <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
         <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
         <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        <input id="tplInput" class="hiddenFileInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
 
     <div class="appbar">
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.2s6</div>
+          <div class="appVersion" id="appVersion">v0.8.4.1</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -719,8 +733,18 @@
         </div>
         <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
 
-
-      
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Formato del proyecto</div>
+            <div class="muted" id="tplLabel">Cargar un formato (Word .docx) por proyecto</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnTplHelp" title="Cómo funciona">❔</button>
+            <button class="btn btn-secondary smallBtn" id="btnTplUpload" title="Cargar formato">⬆️</button>
+            <button class="btn btn-danger smallBtn" id="btnTplClear" title="Eliminar formato del proyecto">🗑️</button>
+          </div>
+        </div>
+        <div class="muted" id="tplStatus" style="margin-top:-2px">—</div>
         <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Almacenamiento</div>
@@ -853,7 +877,17 @@ function stopDictation(){
 }
 
 function startDictation(targetEl, btnEl){
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+
+  // iOS PWA/Safari: Web Speech dictation suele fallar o no estar disponible.
+  if (isIOS){
+    try{ if (targetEl) targetEl.focus(); }catch{}
+    setDictateStatus("ℹ️ En iPhone usa el mic del teclado (dictado de iOS).");
+    return;
+  }
+
   if (!_SpeechRec){
+    try{ if (targetEl) targetEl.focus(); }catch{}
     alert("Dictado por voz no disponible en este navegador.\n\nTip: usa el micrófono del teclado para dictar.");
     return;
   }
@@ -871,23 +905,42 @@ function startDictation(targetEl, btnEl){
   rec.interimResults = true;
   rec.maxAlternatives = 1;
 
+  // Preparar estado (sin marcar como 'activo' hasta que realmente arranque)
   dictation.rec = rec;
-  dictation.active = true;
   dictation.btn = btnEl || null;
   dictation.target = targetEl;
-
   dictation.baseText = (targetEl.value || "").trimEnd();
   dictation.finalText = "";
+  setDictateStatus("🎙️ Preparando…");
 
   if (dictation.btn){
-    dictation.btn.textContent = "⏹️";
-    dictation.btn.classList.remove("btn-secondary");
-    dictation.btn.classList.add("btn-danger");
+    dictation.btn.textContent = "⏳";
+    dictation.btn.classList.remove("btn-danger");
+    dictation.btn.classList.add("btn-secondary");
   }
-  setDictateStatus("🎙️ Dictando…");
+
+  let started = false;
+  const startTimeout = setTimeout(() => {
+    if (!started){
+      // En algunos navegadores no lanza error, solo no arranca.
+      stopDictation();
+      setDictateStatus("⚠️ No se pudo iniciar el dictado. Tip: usa el mic del teclado.");
+    }
+  }, 900);
+
+  rec.onstart = () => {
+    started = true;
+    clearTimeout(startTimeout);
+    dictation.active = true;
+    if (dictation.btn){
+      dictation.btn.textContent = "⏹️";
+      dictation.btn.classList.remove("btn-secondary");
+      dictation.btn.classList.add("btn-danger");
+    }
+    setDictateStatus("🎙️ Dictando…");
+  };
 
   rec.onresult = (event) => {
-    // Reconstruir transcript completo para evitar duplicados (en algunos navegadores resultIndex se reinicia).
     const finals = [];
     const interims = [];
 
@@ -906,58 +959,27 @@ function startDictation(targetEl, btnEl){
 
     targetEl.value = composed;
     try { targetEl.setSelectionRange(targetEl.value.length, targetEl.value.length); } catch {}
-
-    // disparar persistencia (tu app guarda en oninput)
     try { targetEl.dispatchEvent(new Event("input", { bubbles: true })); } catch {}
   };
 
   rec.onerror = (e) => {
+    clearTimeout(startTimeout);
     setDictateStatus("⚠️ Dictado detenido (" + (e?.error || "error") + ")");
     stopDictation();
   };
-
   rec.onend = () => {
+    clearTimeout(startTimeout);
     if (dictation.active) stopDictation();
   };
 
   try { rec.start(); }
   catch (err){
+    clearTimeout(startTimeout);
     stopDictation();
-    alert("No pude iniciar el dictado.\n\nDetalle: " + (err?.message || err));
+    setDictateStatus("⚠️ No se pudo iniciar el dictado.");
   }
 }
 
-// Detener dictado si la app se oculta
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden && dictation.active) stopDictation();
-});
-window.addEventListener("beforeunload", () => {
-  if (dictation.active) stopDictation();
-});
-
-/* ===========================
-   🎨 Tema (por dispositivo)
-=========================== */
-const THEME_KEY = "logi_theme";
-
-function setMetaThemeColor(color){
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", color);
-}
-
-function applyTheme(theme){
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem(THEME_KEY, theme);
-  setMetaThemeColor(theme === "light" ? "#f5f7fb" : "#0b1220");
-}
-
-function syncThemeUI(){
-  const theme = document.documentElement.dataset.theme || "dark";
-  const label = $("themeLabel");
-  if (label) label.textContent = (theme === "light") ? "Claro" : "Oscuro";
-  const btn = $("btnThemeToggle");
-  if (btn) btn.textContent = (theme === "light") ? "☀️" : "🌙";
-}
 
 function toggleTheme(){
   const cur = localStorage.getItem(THEME_KEY) || "dark";
@@ -1561,10 +1583,11 @@ $("itemsInput").onchange = async () => {
    IndexedDB
 =========================== */
 const DB_NAME = "logi2_db_v1";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
+const DB_STORE_TEMPLATES = "templates"; // formatos (DOCX) por proyecto
 
 function openDB(){
   return new Promise((resolve, reject) => {
@@ -1591,6 +1614,12 @@ function openDB(){
         const cat = db.createObjectStore(DB_STORE_CATALOG, { keyPath: "key" });
         cat.createIndex("byProject", "projectId");
         cat.createIndex("byItem", "item");
+      }
+
+      // Store formatos (DOCX) por proyecto
+      if (!db.objectStoreNames.contains(DB_STORE_TEMPLATES)){
+        const tpl = db.createObjectStore(DB_STORE_TEMPLATES, { keyPath: "projectId" });
+        tpl.createIndex("byProject", "projectId");
       }
     };
 
@@ -1642,6 +1671,7 @@ async function dbClear(){
 =========================== */
 let catalog = [];          // rows: {key, projectId, item, descripcion, createdAt}
 let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
+let catalogUnitMap = {};   // { itemCode: unidad } para el proyecto activo
 
 async function catGetByProject(projectId){
   const db = await openDB();
@@ -1683,8 +1713,12 @@ async function catClearProject(projectId){
 
 function rebuildCatalogMap(){
   catalogMap = {};
+  catalogUnitMap = {};
   for (const r of catalog){
-    if (r?.item) catalogMap[String(r.item).trim()] = (r.descripcion || "").trim();
+    if (!r?.item) continue;
+    const code = String(r.item).trim();
+    catalogMap[code] = (r.descripcion || "").trim();
+    if (r.unidad != null) catalogUnitMap[code] = String(r.unidad || "").trim();
   }
 }
 
@@ -1742,6 +1776,103 @@ function updateGalleryItemHint(){
   hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
 }
 
+
+
+/* ===========================
+   🧾 Formatos (DOCX) por proyecto
+   - Se guarda 1 formato por proyecto (IndexedDB)
+   - Por ahora solo se usa para exportar Word (.docx)
+=========================== */
+async function tplGet(projectId){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_TEMPLATES, "readonly");
+    const req = tx.objectStore(DB_STORE_TEMPLATES).get(projectId);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function tplPut(projectId, name, blob, meta){
+  const db = await openDB();
+  const row = { projectId, name: name || "formato.docx", blob, meta: meta || {}, updatedAt: Date.now() };
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_TEMPLATES, "readwrite");
+    tx.objectStore(DB_STORE_TEMPLATES).put(row);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function tplDelete(projectId){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_TEMPLATES, "readwrite");
+    tx.objectStore(DB_STORE_TEMPLATES).delete(projectId);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function tplExplain(){
+  alert(
+    "Formato del proyecto (Word .docx)
+
+"+
+    "• Se carga 1 formato por proyecto.
+"+
+    "• El membrete y pie del usuario se respetan (porque vienen dentro del .docx).
+"+
+    "• El formato debe tener tags como: [[LOGI:ITEMS_START]] / [[LOGI:ITEMS_END]] y [[LOGI:FOTO_1_DESC]]...
+"+
+    "• Si no cargas formato, se usa Logi (4/6/8 fotos).
+
+"+
+    "Por ahora: el formato personalizado aplica SOLO al export Word. (PDF lo hacemos en el siguiente paso.)"
+  );
+}
+
+async function tplValidateDocx(blob){
+  if (!window.JSZip) throw new Error("JSZip no cargó.");
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const doc = await zip.file("word/document.xml")?.async("string");
+  const rels = await zip.file("word/_rels/document.xml.rels")?.async("string");
+  if (!doc || !rels) throw new Error("DOCX inválido (faltan partes internas)." );
+
+  const hasStart = doc.includes("[[LOGI:ITEMS_START]]");
+  const hasEnd   = doc.includes("[[LOGI:ITEMS_END]]");
+  if (!hasStart || !hasEnd) throw new Error("El formato no tiene [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].");
+
+  const slotMatches = [...doc.matchAll(/\[\[LOGI:FOTO_(\d+)\]\]/g)].map(m => parseInt(m[1],10)).filter(n => Number.isFinite(n));
+  const slots = slotMatches.length ? Math.max(...slotMatches) : 0;
+  if (!slots) throw new Error("No detecté fotos (tags tipo [[LOGI:FOTO_1]] en el 'texto alternativo' de las imágenes)." );
+
+  // Debe existir tag de descripción por slot
+  for (let i=1;i<=slots;i++){
+    if (!doc.includes(`[[LOGI:FOTO_${i}_DESC]]`)) throw new Error(`Falta [[LOGI:FOTO_${i}_DESC]] en el formato.`);
+    if (!doc.includes(`[[LOGI:FOTO_${i}_NO]]`)) throw new Error(`Falta [[LOGI:FOTO_${i}_NO]] en el formato.`);
+  }
+
+  return { slots };
+}
+
+async function refreshTemplateStatus(){
+  const st = $("tplStatus");
+  const lab = $("tplLabel");
+  const p = getActiveProject();
+  if (!p) { if (st) st.textContent = "—"; return; }
+  if (lab) lab.textContent = `Formato por proyecto: ${p.name}`;
+
+  try{
+    const tpl = await tplGet(p.id);
+    if (!tpl){ if (st) st.textContent = "Sin formato cargado. (Se usa Logi.)"; return; }
+    const slots = tpl?.meta?.slots ? `• fotos/bloque: ${tpl.meta.slots}` : "";
+    if (st) st.textContent = `Formato cargado ✅ ${tpl.name || ""} ${slots}`.trim();
+  }catch{
+    if (st) st.textContent = "No pude leer el formato del proyecto.";
+  }
+}
+
 function normalizeHeader(s){
   return String(s || "")
     .trim()
@@ -1780,8 +1911,10 @@ async function importItemsFile(file){
   const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
   const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
 
-  if (idxItem === -1 || idxDesc === -1){
-    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM y DESCRIPCION.");
+  const idxUnit = header.findIndex(h => h === "unidad" || h === "unit" || h === "u" || h === "unidad_item");
+
+  if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
+    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM, DESCRIPCION y UNIDAD.");
     return { added:0, skipped:0, total:0 };
   }
 
@@ -1799,6 +1932,7 @@ async function importItemsFile(file){
     const r = rows[i] || [];
     const item = String(r[idxItem] || "").trim();
     const descripcion = String(r[idxDesc] || "").trim();
+    const unidad = String(r[idxUnit] || "").trim();
 
     if (!item) { skipped++; continue; }
 
@@ -1808,6 +1942,7 @@ async function importItemsFile(file){
       projectId,
       item,
       descripcion,
+      unidad,
       createdAt: Date.now()
     });
     added++;
@@ -1845,9 +1980,9 @@ function downloadTemplateItems(){
       try{
         if (!window.XLSX) throw new Error("XLSX no cargó.");
         const wb = XLSX.utils.book_new();
-        const data = [["ITEM","DESCRIPCION"],["",""]];
+        const data = [["ITEM","DESCRIPCION","UNIDAD"],["","","" ]];
         const ws = XLSX.utils.aoa_to_sheet(data);
-        ws["!cols"] = [{ wch: 18 }, { wch: 60 }];
+        ws["!cols"] = [{ wch: 18 }, { wch: 60 }, { wch: 10 }];
         XLSX.utils.book_append_sheet(wb, ws, "ITEMS");
         const out = XLSX.write(wb, { bookType:"xlsx", type:"array" });
         const blob = new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1859,6 +1994,64 @@ function downloadTemplateItems(){
   })();
 }
 
+
+
+
+/* ===========================
+   🧾 Formato del proyecto (DOCX)
+=========================== */
+const tplInput = $("tplInput");
+
+$("btnTplHelp").onclick = () => { try{ tplExplain(); }catch{} };
+
+$("btnTplUpload").onclick = () => {
+  if (!tplInput) return;
+  tplInput.value = "";
+  tplInput.click();
+};
+
+$("btnTplClear").onclick = async () => {
+  const p = getActiveProject();
+  if (!p) return;
+  const ok = confirm(`Vas a eliminar el FORMATO (Word) del proyecto:
+
+${p.name}
+
+¿Continuar?`);
+  if (!ok) return;
+  try{
+    await tplDelete(p.id);
+    await refreshTemplateStatus();
+  }catch(e){
+    console.error(e);
+    alert("No pude eliminar el formato. Intenta de nuevo.");
+  }
+};
+
+if (tplInput){
+  tplInput.onchange = async () => {
+    const file = tplInput.files?.[0];
+    if (!file) return;
+
+    const p = getActiveProject();
+    if (!p){ alert("No pude determinar el proyecto activo."); return; }
+
+    $("tplStatus").textContent = "Validando formato…";
+    try{
+      const meta = await tplValidateDocx(file);
+      await tplPut(p.id, file.name || "formato.docx", file, meta);
+      $("tplStatus").textContent = `Formato cargado ✅ ${file.name} • fotos/bloque: ${meta.slots}`;
+    }catch(e){
+      console.error(e);
+      alert("Ese formato no sirve aún.
+
+Detalle: " + (e?.message || e));
+      await refreshTemplateStatus();
+    }finally{
+      tplInput.value = "";
+    }
+  };
+}
 
 /* ===========================
    Utilidades
@@ -1982,6 +2175,7 @@ function onProjectChanged(){
     try{
       await loadCacheForActiveProject();
       await loadCatalogForActiveProject();
+      await refreshTemplateStatus();
     }catch(e){
       console.error(e);
       alert("No pude actualizar la galería del proyecto. Si persiste, usa 'Reiniciar caché' en configuración.");
@@ -3323,6 +3517,164 @@ function buildCaptionRuns(n, meta, templateId){
   return buildCaptionRunsSized(n, caption, Math.round(_CAPTION_FONT_PT_BASE*2));
 }
 
+
+async function buildRegistroFotograficoDocxFromTemplateBuffer(selected, templateBlob, tituloProyecto, desdeISO, hastaISO, opts={}){
+  if (!selected || !selected.length) throw new Error("No hay fotos para exportar.");
+  if (!window.JSZip) throw new Error("JSZip no cargó.");
+
+  // Cargar plantilla DOCX
+  const zip = await JSZip.loadAsync(await templateBlob.arrayBuffer());
+  let docXml = await zip.file("word/document.xml")?.async("string");
+  let relsXml = await zip.file("word/_rels/document.xml.rels")?.async("string");
+  if (!docXml || !relsXml) throw new Error("Plantilla DOCX inválida.");
+
+  // Util: encuentra el rango del párrafo que contiene un tag
+  function paraRange(xml, tag){
+    const t = xml.indexOf(tag);
+    if (t === -1) return null;
+    const pStart = xml.lastIndexOf("<w:p", t);
+    const pEnd = xml.indexOf("</w:p>", t);
+    if (pStart === -1 || pEnd === -1) return null;
+    return { pStart, pEnd: pEnd + "</w:p>".length };
+  }
+
+  const START_TAG = "[[LOGI:ITEMS_START]]";
+  const END_TAG   = "[[LOGI:ITEMS_END]]";
+  const a = paraRange(docXml, START_TAG);
+  const b = paraRange(docXml, END_TAG);
+  if (!a || !b || b.pStart < a.pEnd) throw new Error("Plantilla sin bloque ITEMS_START/END correctamente ubicado.");
+
+  const prefix = docXml.slice(0, a.pStart);
+  const block  = docXml.slice(a.pEnd, b.pStart);
+  const suffix = docXml.slice(b.pEnd);
+
+  // Detectar slots por alt-text: descr="[[LOGI:FOTO_N]]"
+  const slotNums = [...block.matchAll(/\[\[LOGI:FOTO_(\d+)\]\]/g)]
+    .map(m => parseInt(m[1],10))
+    .filter(n => Number.isFinite(n));
+  const slots = slotNums.length ? Math.max(...slotNums) : 0;
+  if (!slots) throw new Error("No detecté slots de foto en el bloque.");
+
+  // Map slot -> rId embed original (en la plantilla)
+  const slotToRid = {};
+  for (let i=1;i<=slots;i++){
+    const tag = `[[LOGI:FOTO_${i}]]`;
+    const esc = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rgx = new RegExp(`descr="${esc}"[\\s\\S]*?r:embed="(rId\\d+)"`);
+    const m = block.match(rgx);
+    if (!m) throw new Error(`No pude asociar el slot ${i} a una imagen (alt-text descr="${tag}").`);
+    slotToRid[i] = m[1];
+  }
+
+  // Próximo rId disponible
+  const ridNums = [...relsXml.matchAll(/Id="rId(\d+)"/g)].map(m => parseInt(m[1],10)).filter(n=>Number.isFinite(n));
+  let nextRid = (ridNums.length ? Math.max(...ridNums) : 0) + 1;
+
+  // Próximo imageN disponible
+  const files = Object.keys(zip.files || {});
+  const imgNums = files.filter(f => f.startsWith("word/media/image"))
+    .map(f => {
+      const m = f.match(/image(\d+)\./);
+      return m ? parseInt(m[1],10) : NaN;
+    })
+    .filter(n => Number.isFinite(n));
+  let nextImg = (imgNums.length ? Math.max(...imgNums) : 0) + 1;
+
+  // blank jpeg (para slots vacíos)
+  let blankJpegBytes = null;
+  async function getBlankJpeg(){
+    if (blankJpegBytes) return blankJpegBytes;
+    const canvas = document.createElement('canvas');
+    canvas.width = 20; canvas.height = 20;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,20,20);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
+    blankJpegBytes = new Uint8Array(await (blob || new Blob()).arrayBuffer());
+    return blankJpegBytes;
+  }
+
+  async function toJpegBytes(anyBlob){
+    try{
+      const file = new File([anyBlob], 'img', { type: anyBlob.type || 'image/jpeg' });
+      const { blob } = await compressImage(file, 2000, 0.85);
+      return new Uint8Array(await blob.arrayBuffer());
+    }catch{
+      return new Uint8Array(await anyBlob.arrayBuffer());
+    }
+  }
+
+  // Agrupar por ítem y ordenar por fecha
+  const rows = selected.slice().sort((a,b)=> (a.createdAt||0) - (b.createdAt||0));
+  const byItem = new Map();
+  for (const it of rows){
+    const code = String(it.itemCode || "").trim() || "SIN_ITEM";
+    if (!byItem.has(code)) byItem.set(code, []);
+    byItem.get(code).push(it);
+  }
+
+  const blocksOut = [];
+  for (const [itemCode, photos] of byItem.entries()){
+    let contador = 1;
+    const actividad = itemCode !== "SIN_ITEM" ? (catalogMap[itemCode] || "") : "";
+    const unidad = itemCode !== "SIN_ITEM" ? (catalogUnitMap[itemCode] || "") : "";
+
+    for (let k=0; k<photos.length; k += slots){
+      const group = photos.slice(k, k+slots);
+      let xml = block;
+      xml = xml.replaceAll('[[LOGI:ITEM]]', itemCode === 'SIN_ITEM' ? '' : itemCode);
+      xml = xml.replaceAll('[[LOGI:ACTIVIDAD]]', actividad);
+      xml = xml.replaceAll('[[LOGI:UNIDAD]]', unidad);
+
+      for (let s=1; s<=slots; s++){
+        const ph = group[s-1] || null;
+        const ridOld = slotToRid[s];
+        const ridNew = `rId${nextRid++}`;
+
+        // Cambiar rid en este bloque (solo donde corresponde)
+        // Nota: ridOld puede aparecer 2 veces (a:blip y a:blipFill). Reemplazamos todas las ocurrencias en este bloque.
+        xml = xml.split(`r:embed="${ridOld}"`).join(`r:embed="${ridNew}"`);
+
+        // texto
+        const noTag = `[[LOGI:FOTO_${s}_NO]]`;
+        const descTag = `[[LOGI:FOTO_${s}_DESC]]`;
+        if (ph){
+          const no = String(contador++);
+          const desc = String(ph.descripcion || "").trim();
+          xml = xml.replaceAll(noTag, no);
+          xml = xml.replaceAll(descTag, desc);
+        } else {
+          xml = xml.replaceAll(noTag, "");
+          xml = xml.replaceAll(descTag, "");
+        }
+
+        // imagen
+        const bytes = ph ? await toJpegBytes(ph.blob) : await getBlankJpeg();
+        const imgPath = `word/media/image${nextImg++}.jpg`;
+        zip.file(imgPath, bytes);
+
+        const rel = `  <Relationship Id="${ridNew}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgPath.split('/').pop()}"/>
+`;
+        relsXml = relsXml.replace("</Relationships>", rel + "</Relationships>");
+      }
+
+      blocksOut.push(xml);
+    }
+  }
+
+  let outXml = prefix + blocksOut.join("") + suffix;
+  // Tags globales simples
+  if (tituloProyecto) outXml = outXml.replaceAll('[[LOGI:PROYECTO]]', tituloProyecto);
+  // Limpieza de tags por si quedaron
+  outXml = outXml.replaceAll(START_TAG, "").replaceAll(END_TAG, "");
+
+  zip.file("word/document.xml", outXml);
+  zip.file("word/_rels/document.xml.rels", relsXml);
+
+  const outBuf = await zip.generateAsync({ type: "uint8array" });
+  return outBuf.buffer;
+}
+
 async function buildRegistroFotograficoDocxBuffer(
   selected, tituloProyecto, startISO, endISO, imgWcm, imgHcm,
   pairsPerPage = 4,
@@ -3739,7 +4091,8 @@ async function exportZipByMode(modo, desde, hasta){
   const { imgWcm: IMG_W_CM, imgHcm: IMG_H_CM, pairsPerPage: PAIRS_PER_PAGE } = docxDimsForLayout(layoutKey);
 
   const { start, end } = computeRangeForTitle(modo, desde, hasta);
-  const tituloProyecto = (proyectoInput.value || "").trim();
+  const activeProject = getActiveProject();
+  const tituloProyecto = (activeProject?.name || proyectoInput.value || "").trim();
 
   const zi = zipInfo;
   const totalDocx = selected.length;
@@ -3753,10 +4106,24 @@ async function exportZipByMode(modo, desde, hasta){
     await nextPaint();
   };
 
-  const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-    selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
-    { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
-  );
+  let docxBuffer;
+  try{
+    const tpl = activeProject ? await tplGet(activeProject.id) : null;
+    if (tpl && tpl.blob){
+      docxBuffer = await buildRegistroFotograficoDocxFromTemplateBuffer(selected, tpl.blob, tituloProyecto, start, end, { onProgress });
+    } else {
+      docxBuffer = await buildRegistroFotograficoDocxBuffer(
+        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
+        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
+      );
+    }
+  }catch(e){
+    console.warn("Plantilla DOCX: fallback a formato Logi", e);
+    docxBuffer = await buildRegistroFotograficoDocxBuffer(
+      selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
+      { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
+    );
+  }
 
   const itemTag2 = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
   root.file(`Logi_Reporte_${start}_a_${end}${itemTag2}.docx`, docxBuffer);
@@ -4232,7 +4599,8 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
     const start = (modo === "mes") ? desde.slice(0,7) : desde;
     const end   = (modo === "rango") ? hasta : ((modo === "mes") ? desde.slice(0,7) : desde);
 
-    const tituloProyecto = (proyectoInput.value || "").trim();
+    const activeProject = getActiveProject();
+    const tituloProyecto = (activeProject?.name || proyectoInput.value || "").trim();
 
     if (fmt === "docx") {
       if (!window.docx) {
@@ -4253,11 +4621,25 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
         zi.textContent = `Generando Word... ${done}/${tot}`;
         await nextPaint();
       };
-
-      const docxBuffer = await buildRegistroFotograficoDocxBuffer(
-        selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
-        { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
-      );
+      let docxBuffer;
+      try{
+        const tpl = activeProject ? await tplGet(activeProject.id) : null;
+        if (tpl && tpl.blob){
+          // Plantilla por proyecto (solo Word)
+          docxBuffer = await buildRegistroFotograficoDocxFromTemplateBuffer(selected, tpl.blob, tituloProyecto, start, end, { onProgress });
+        } else {
+          docxBuffer = await buildRegistroFotograficoDocxBuffer(
+            selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
+            { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
+          );
+        }
+      }catch(e){
+        console.warn("Plantilla DOCX: fallback a formato Logi", e);
+        docxBuffer = await buildRegistroFotograficoDocxBuffer(
+          selected, tituloProyecto, start, end, IMG_W_CM, IMG_H_CM, PAIRS_PER_PAGE,
+          { applyLogo: exportLogo && !!logoBitmap, applyStamp: exportStampDT, applyTemplate: exportTemplate, templateId, onProgress }
+        );
+      }
 
       const blob = new Blob([docxBuffer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
@@ -4582,11 +4964,14 @@ function renderExport(){
   try{
     await loadCacheForActiveProject();
     await loadCatalogForActiveProject();
+    await refreshTemplateStatus();
     const ri = $("rangeInfo");
     if (ri) ri.style.display = "none";
     render();
-  }catch{
-    alert("No se pudo abrir la base local (IndexedDB). Prueba Chrome.");
+  }catch(e){
+    console.error("Init/IndexedDB error:", e);
+    const st = document.getElementById("status");
+    if (st) st.innerHTML = `<span style="color:#f87171;font-weight:800">⚠️ Error de almacenamiento local</span> · Cierra y abre la app. Si persiste: revisa modo privado y espacio libre.`;
   }
 
   fechaInput.onchange = () => render();
