@@ -1,6 +1,6 @@
 // sw.js
 // Incrementa la versión en cada deploy para invalidar caché
-const CACHE_VERSION = "logi2-v0.8.5.4";
+const CACHE_VERSION = "logi2-v0.8.3.6";
 const CACHE = `logi2-cache-${CACHE_VERSION}`;
 
 const ASSETS = [
@@ -13,8 +13,7 @@ const ASSETS = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon-192-maskable.png",
-  "./icon-512-maskable.png",
-  "./Logi2_Plantilla_Items.xlsx"
+  "./icon-512-maskable.png"
 ];
 
 self.addEventListener("message", (event) => {

@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-  <title>Logi2 v0.8.5.4</title>
+  <title>Logi2 v0.8.2s6</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
-  <link rel="icon" href="favicon.png?v=0.8.3.9">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3.9">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.2s6">
+  <link rel="icon" href="favicon.png?v=0.8.2s6">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.2s6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -401,14 +401,13 @@
         <!-- Inputs ocultos (global) -->
         <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
         <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
-        <input id="backupAllInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
         <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
 
     <div class="appbar">
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.5.4</div>
+          <div class="appVersion" id="appVersion">v0.8.3.6</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -698,28 +697,15 @@
 
         <div class="sheetRow">
           <div class="sheetRowMain">
-            <div class="sheetRowTitle">Respaldo (proyecto)</div>
-            <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
+            <div class="sheetRowTitle">Respaldo</div>
+            <div class="muted">Crear / restaurar backup (ZIP con fotos)</div>
           </div>
           <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup del proyecto">⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup del proyecto">⬆️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup">⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup">⬆️</button>
           </div>
         </div>
-        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Respaldo TOTAL</div>
-            <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total">🌎⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total">🌎⬆️</button>
-          </div>
-        </div>
-        <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
-
+        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.
         <div class="sheetRow dangerRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Borrar todo</div>
@@ -727,6 +713,7 @@
           </div>
           <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
         </div>
+</div>
 
 
         <div class="sheetRow">
@@ -980,18 +967,6 @@ function startDictation(targetEl, btnEl){
 }
 
 
-function applyTheme(theme){
-  const t = (theme === "light") ? "light" : "dark";
-  document.documentElement.setAttribute("data-theme", t);
-  try{ localStorage.setItem(THEME_KEY, t); }catch{}
-}
-
-function syncThemeUI(){
-  const t = localStorage.getItem(THEME_KEY) || "dark";
-  const btn = $("btnThemeToggle");
-  if (btn) btn.textContent = (t === "light") ? "☀️" : "🌙";
-}
-
 function toggleTheme(){
   const cur = localStorage.getItem(THEME_KEY) || "dark";
   applyTheme(cur === "dark" ? "light" : "dark");
@@ -1158,9 +1133,6 @@ $("sheetBackdrop").addEventListener("click", (e)=>{ if (e.target.id === "sheetBa
 /* ===========================
    🎨 Acento (por dispositivo)
 =========================== */
-// Keys de configuración (localStorage)
-// Nota: THEME_KEY era usado en varias partes pero no estaba definido.
-const THEME_KEY  = "logi_theme";
 const ACCENT_KEY = "logi_accent";
 
 const PROJECT_KEY = "logi_project";
@@ -1339,7 +1311,7 @@ async function createBackupZip(){
   }
 
   $("backupStatus").textContent = "Comprimiendo ZIP…";
-  const outBlob = await zip.generateAsync({ type: "blob", compression: "STORE", streamFiles: true }, (meta) => {
+  const outBlob = await zip.generateAsync({ type: "blob" }, (meta) => {
     $("backupStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
   });
 
@@ -1488,309 +1460,6 @@ async function restoreBackupZip(file){
   $("backupStatus").textContent = `Restauración completa ✅ (agregadas: ${added}, ya existían/omitidas: ${skipped})`;
   setTimeout(() => { $("backupStatus").textContent = "Consejo: haz backup al final del día o antes de actualizar."; }, 3500);
 }
-
-/* ===========================
-   🌎 Backup TOTAL / Restore TOTAL (ZIP)
-   - Incluye TODOS los proyectos + fotos + catálogo
-   - Restore mezcla (no borra lo existente)
-=========================== */
-
-async function createBackupZipAll(){
-  if (!window.JSZip){
-    alert("JSZip no está disponible. Abre la app con internet (una vez) y prueba de nuevo.");
-    return;
-  }
-
-  $("backupAllStatus").textContent = "Preparando backup TOTAL…";
-
-  const { projects, activeId } = ensureProjects();
-  const allItems = await dbGetAll();
-  const allCatalog = await catGetAll();
-
-  const firstId = projects[0]?.id || activeId;
-
-  const settings = {
-    theme: localStorage.getItem(THEME_KEY) || "dark",
-    accent: localStorage.getItem(ACCENT_KEY) || "blue",
-    project: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
-    template: getTemplateId(),
-    docxFit: localStorage.getItem("logi_docx_fit") || "stretch",
-    logoEnabled: localStorage.getItem("logi_logo_enabled") === "1",
-    logoCorner: localStorage.getItem("logi_logo_corner") || "br",
-  };
-
-  const backup = {
-    schemaVersion: 2,
-    type: "all",
-    app: "Logi",
-    createdAt: new Date().toISOString(),
-    settings,
-    projects,
-    activeProjectId: activeId,
-    catalog: (allCatalog || []).map(r => ({
-      projectId: r.projectId || firstId,
-      item: r.item || "",
-      descripcion: r.descripcion || "",
-      unidad: r.unidad || "",
-      createdAt: r.createdAt || Date.now()
-    })),
-    items: (allItems || []).map(it => {
-      const pid = it.projectId || firstId;
-      const pName = (projects.find(p => p.id === pid)?.name) || "";
-      return {
-        id: it.id,
-        fecha: it.fecha || "",
-        proyecto: it.proyecto || pName || "",
-        descripcion: it.descripcion || "",
-        done: !!it.done,
-        mime: it.mime || "image/jpeg",
-        createdAt: it.createdAt || Date.now(),
-        hasLogo: !!it.hasLogo,
-        projectId: pid,
-        projectName: pName
-      };
-    })
-  };
-
-  const zip = new JSZip();
-  zip.file("backup.json", JSON.stringify(backup, null, 2));
-
-  const photos = zip.folder("photos");
-  let i = 0;
-  for (const it of (allItems || [])){
-    i++;
-    $("backupAllStatus").textContent = `Agregando fotos… (${i}/${allItems.length})`;
-    const pid = it.projectId || firstId;
-    const folder = photos.folder(pid);
-    const ext = extFromMime(it.mime || "image/jpeg");
-    folder.file(`${it.id}.${ext}`, it.blob);
-    // Evita bloqueos en celulares durante backups grandes
-    if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));
-  }
-
-  const logoData = localStorage.getItem("logi_logo_dataurl");
-  if (logoData){
-    try{
-      const lb = await dataUrlToBlob(logoData);
-      const lfolder = zip.folder("logo");
-      const lExt = extFromMime(lb.type || "image/png");
-      lfolder.file(`logo.${lExt}`, lb);
-    }catch{}
-  }
-
-  $("backupAllStatus").textContent = "Comprimiendo ZIP…";
-  const outBlob = await zip.generateAsync({ type: "blob", compression: "STORE", streamFiles: true }, (meta) => {
-    $("backupAllStatus").textContent = `Comprimiendo… ${Math.floor(meta.percent)}%`;
-  });
-
-  const name = `logi-backup-TOTAL-${isoNowSafe()}.zip`;
-  const url = URL.createObjectURL(outBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-
-  $("backupAllStatus").textContent = `Backup TOTAL listo ✅ (${(allItems||[]).length} fotos)`;
-}
-
-async function restoreBackupZipAll(file){
-  if (!window.JSZip){
-    alert("JSZip no está disponible. Abre la app con internet (una vez) y prueba de nuevo.");
-    return;
-  }
-
-  $("backupAllStatus").textContent = "Leyendo ZIP…";
-  const zip = await JSZip.loadAsync(file);
-  const bj = zip.file("backup.json");
-  if (!bj){
-    alert("Ese ZIP no parece un backup de Logi (falta backup.json).");
-    return;
-  }
-
-  const jsonText = await bj.async("string");
-  let backup = null;
-  try { backup = JSON.parse(jsonText); } catch { backup = null; }
-
-  if (!backup || backup.type !== "all" || !Array.isArray(backup.items) || !Array.isArray(backup.projects)){
-    alert("Backup TOTAL inválido: no encontré estructura esperada.");
-    return;
-  }
-
-  const ok = confirm(
-    "Vas a RESTAURAR un backup TOTAL.\n\n" +
-    "• No se borrará nada.\n" +
-    "• Se mezclarán fotos nuevas.\n" +
-    "• Se recrearán proyectos faltantes y su catálogo.\n\n" +
-    "¿Continuar?"
-  );
-  if (!ok){ $("backupAllStatus").textContent = "Cancelado."; return; }
-
-  const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/logo)?");
-
-  const existingAll = new Set((await dbGetAll()).map(x => x.id));
-
-  // map projects by name
-  let { projects, activeId } = ensureProjects();
-  const norm = s => String(s||"").trim().toLowerCase();
-  const nameToId = {};
-  for (const p of projects) nameToId[norm(p.name)] = p.id;
-
-  const mapPid = {};
-  for (const bp of backup.projects){
-    const key = norm(bp.name);
-    if (nameToId[key]){
-      mapPid[bp.id] = nameToId[key];
-    } else {
-      const newId = genPid();
-      projects.push({ id: newId, name: bp.name || "Proyecto", createdAt: Date.now() });
-      nameToId[key] = newId;
-      mapPid[bp.id] = newId;
-    }
-  }
-  saveProjects(projects);
-
-  if (backup.activeProjectId && mapPid[backup.activeProjectId]){
-    setActiveProjectId(mapPid[backup.activeProjectId]);
-    activeId = mapPid[backup.activeProjectId];
-  }
-
-  if (importSettings){
-    // logo
-    try{
-      const logoFolder = zip.folder("logo");
-      if (logoFolder){
-        const candidates = Object.keys(logoFolder.files || {}).filter(p => p.startsWith("logo/") && !logoFolder.files[p].dir);
-        if (candidates.length){
-          const lf = zip.file(candidates[0]);
-          if (lf){
-            const lb = await lf.async("blob");
-            const fr = new FileReader();
-            const dataUrl = await new Promise((res, rej)=>{
-              fr.onload = () => res(fr.result);
-              fr.onerror = rej;
-              fr.readAsDataURL(lb);
-            });
-            localStorage.setItem("logi_logo_dataurl", dataUrl);
-          }
-        }
-      }
-    }catch{}
-
-    if (backup.settings){
-      try{
-        if (backup.settings.theme) applyTheme(backup.settings.theme);
-        if (backup.settings.accent) applyAccent(backup.settings.accent);
-        if (backup.settings.template) setTemplateId(backup.settings.template);
-        if (backup.settings.docxFit) localStorage.setItem("logi_docx_fit", backup.settings.docxFit);
-        if (typeof backup.settings.logoEnabled === "boolean") localStorage.setItem("logi_logo_enabled", backup.settings.logoEnabled ? "1":"0");
-        if (backup.settings.logoCorner) localStorage.setItem("logi_logo_corner", backup.settings.logoCorner);
-      }catch{}
-    }
-  }
-
-  // Import photos
-  let added = 0, skipped = 0;
-  const total = backup.items.length;
-  const keys = Object.keys(zip.files);
-
-  for (let idx=0; idx<total; idx++){
-    const meta = backup.items[idx];
-    const id = meta.id;
-    if (!id){ skipped++; continue; }
-    if (existingAll.has(id)){ skipped++; continue; }
-
-    const bpid = meta.projectId || backup.projects?.[0]?.id;
-    const targetPid = mapPid[bpid] || activeId;
-
-    // find file photos/<backupPid>/<id>.*
-    const base = `photos/${bpid}/${id}.`;
-    const match = keys.find(k => k.startsWith(base) && !zip.files[k].dir);
-    let f = match ? zip.file(match) : null;
-
-    if (!f){
-      // fallback anywhere under photos
-      const any = keys.find(k => k.startsWith('photos/') && k.includes(`/${id}.`) && !zip.files[k].dir);
-      if (any) f = zip.file(any);
-    }
-
-    if (!f){ skipped++; continue; }
-
-    $("backupAllStatus").textContent = `Importando… (${idx+1}/${total})`;
-
-    const blob = await f.async("blob");
-    const projName = projects.find(p => p.id === targetPid)?.name || "";
-
-    const it = {
-      id,
-      fecha: meta.fecha || "",
-      proyecto: meta.proyecto || projName || "",
-      descripcion: meta.descripcion || "",
-      done: !!meta.done,
-      mime: meta.mime || blob.type || "image/jpeg",
-      createdAt: meta.createdAt || Date.now(),
-      hasLogo: !!meta.hasLogo,
-      blob,
-      projectId: targetPid
-    };
-
-    await dbPut(it);
-    existingAll.add(id);
-    added++;
-  }
-
-  // restore catalog
-  if (Array.isArray(backup.catalog) && backup.catalog.length){
-    const rows = backup.catalog.map(r => {
-      const pid = mapPid[r.projectId] || activeId;
-      const item = String(r.item || "").trim();
-      return {
-        key: `${pid}::${item}`,
-        projectId: pid,
-        item,
-        descripcion: r.descripcion || "",
-        unidad: r.unidad || "",
-        createdAt: r.createdAt || Date.now()
-      };
-    }).filter(x => x.item);
-    if (rows.length) await catPutMany(rows);
-  }
-
-  // refresh UI
-  refreshProjectUI();
-  await loadCacheForActiveProject();
-  await loadCatalogForActiveProject();
-  render();
-  updateStorageUI();
-
-  $("backupAllStatus").textContent = `Restauración TOTAL ✅ (agregadas: ${added}, omitidas: ${skipped})`;
-}
-
-$("btnBackupAllCreate").onclick = async () => {
-  try { await createBackupZipAll(); }
-  catch (err) {
-    console.error(err);
-    const msg = (err && (err.message || String(err))) ? (err.message || String(err)) : "Error desconocido";
-    alert("No pude crear el backup TOTAL.\n\nTip: cierra otras apps y reintenta.\n\nDetalle: " + msg);
-    $("backupAllStatus").textContent = "—";
-  }
-};
-
-$("btnBackupAllRestore").onclick = () => {
-  $("backupAllInput").value = "";
-  $("backupAllInput").click();
-};
-
-$("backupAllInput").onchange = async () => {
-  const file = $("backupAllInput").files?.[0];
-  if (!file) return;
-  try { await restoreBackupZipAll(file); }
-  catch { alert("No pude restaurar ese ZIP TOTAL."); $("backupAllStatus").textContent = "—"; }
-  finally { $("backupAllInput").value = ""; updateStorageUI(); }
-};
-
 
 $("btnBackupCreate").onclick = async () => {
   try { await createBackupZip(); } catch (e){ alert("No pude crear el backup. Prueba cerrar apps y reintentar."); $("backupStatus").textContent = "—"; }
@@ -1979,7 +1648,7 @@ async function dbClear(){
 /* ===========================
    Catálogo de ítems (por proyecto)
 =========================== */
-let catalog = [];          // rows: {key, projectId, item, descripcion, unidad, createdAt}
+let catalog = [];          // rows: {key, projectId, item, descripcion, createdAt}
 let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
 
 async function catGetByProject(projectId){
@@ -1988,16 +1657,6 @@ async function catGetByProject(projectId){
     const tx = db.transaction(DB_STORE_CATALOG, "readonly");
     const idx = tx.objectStore(DB_STORE_CATALOG).index("byProject");
     const req = idx.getAll(projectId);
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function catGetAll(){
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE_CATALOG, "readonly");
-    const req = tx.objectStore(DB_STORE_CATALOG).getAll();
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
@@ -2054,7 +1713,7 @@ function refreshCatalogDatalist(){
   for (const r of rows){
     const opt = document.createElement("option");
     opt.value = String(r.item || "").trim();
-    opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}${(r.unidad||'').trim() ? ' ['+(r.unidad||'').trim()+']' : ''}` : String(r.item || "");
+    opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}` : String(r.item || "");
     dl.appendChild(opt);
   }
 }
@@ -2128,10 +1787,9 @@ async function importItemsFile(file){
   const header = rows[0].map(normalizeHeader);
   const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
   const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
-  const idxUnit = header.findIndex(h => h === "unidad" || h === "und" || h === "unit" || h === "unidad_item");
 
-  if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
-    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM, DESCRIPCION y UNIDAD.");
+  if (idxItem === -1 || idxDesc === -1){
+    alert("Ese archivo no tiene el formato correcto. Debe tener columnas: ITEM y DESCRIPCION.");
     return { added:0, skipped:0, total:0 };
   }
 
@@ -2149,7 +1807,6 @@ async function importItemsFile(file){
     const r = rows[i] || [];
     const item = String(r[idxItem] || "").trim();
     const descripcion = String(r[idxDesc] || "").trim();
-    const unidad = String(r[idxUnit] || "").trim();
 
     if (!item) { skipped++; continue; }
 
@@ -2159,7 +1816,6 @@ async function importItemsFile(file){
       projectId,
       item,
       descripcion,
-      unidad,
       createdAt: Date.now()
     });
     added++;
@@ -2197,9 +1853,9 @@ function downloadTemplateItems(){
       try{
         if (!window.XLSX) throw new Error("XLSX no cargó.");
         const wb = XLSX.utils.book_new();
-        const data = [["ITEM","DESCRIPCION","UNIDAD"],["","",""]];
+        const data = [["ITEM","DESCRIPCION"],["",""]];
         const ws = XLSX.utils.aoa_to_sheet(data);
-        ws["!cols"] = [{ wch: 18 }, { wch: 60 }, { wch: 12 }];
+        ws["!cols"] = [{ wch: 18 }, { wch: 60 }];
         XLSX.utils.book_append_sheet(wb, ws, "ITEMS");
         const out = XLSX.write(wb, { bookType:"xlsx", type:"array" });
         const blob = new Blob([out], { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -3739,48 +3395,6 @@ async function buildRegistroFotograficoDocxBuffer(
 
   const projText = (tituloProyecto || "").trim();
 
-  // Proyecto en encabezado (máx 2 líneas, con "…" si recorta)
-  function wrapProjectHeaderText(text, maxCharsPerLine=30, maxLines=2){
-    const s = String(text || "").replace(/\s+/g, " ").trim();
-    if (!s) return "";
-    const words = s.split(" ").filter(Boolean);
-    const lines = [];
-    let line = "";
-
-    for (const w of words){
-      const test = line ? (line + " " + w) : w;
-      if (test.length <= maxCharsPerLine){
-        line = test;
-      } else {
-        if (line) lines.push(line);
-        line = w;
-        if (maxLines && lines.length >= maxLines) break;
-      }
-    }
-    if ((!maxLines || lines.length < maxLines) && line) lines.push(line);
-
-    // Si recortó, agrega "…" al final de la última línea
-    if (maxLines && lines.length === maxLines && words.length){
-      const joined = lines.join(" ");
-      if (joined.length < s.length){
-        let last = lines[lines.length - 1];
-        if (!last.endsWith("…")){
-          // intenta agregar sin pasarse del máximo
-          if ((last + "…").length <= maxCharsPerLine) lines[lines.length - 1] = last + "…";
-          else {
-            // recorta un poco y pone elipsis
-            const cut = Math.max(0, maxCharsPerLine - 1);
-            lines[lines.length - 1] = last.slice(0, cut) + "…";
-          }
-        }
-      }
-    }
-
-    return lines.slice(0, maxLines).join("\n");
-  }
-
-  const projHeaderText = wrapProjectHeaderText(projText, 30, 2);
-
   // Logo (opcional)
   const logoAb = await loadLogiLogoArrayBuffer();
   const logoRun = logoAb ? new ImageRun({ data: logoAb, transformation: { width: 38, height: 38 } }) : null;
@@ -3812,50 +3426,24 @@ async function buildRegistroFotograficoDocxBuffer(
             verticalAlign: VerticalAlign.CENTER,
             margins: { top: 140, bottom: 140, left: 120, right: 220 },
             children: [
-              // Fila superior: Proyecto (izquierda) + Logi (derecha)
-              new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                borders: noneBorders,
-                rows: [
-                  new TableRow({
-                    children: [
-                      new TableCell({
-                        width: { size: 70, type: WidthType.PERCENTAGE },
-                        borders: noneBorders,
-                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
-                        children: [
-                          new Paragraph({
-                            children: projHeaderText
-                              ? [new TextRun({ text: projHeaderText, bold: true, color: "FFFFFF", size: 36 })]
-                              : [new TextRun({ text: "", color: "FFFFFF" })],
-                            alignment: AlignmentType.LEFT,
-                            spacing: { before: 0, after: 0 }
-                          })
-                        ]
-                      }),
-                      new TableCell({
-                        width: { size: 30, type: WidthType.PERCENTAGE },
-                        borders: noneBorders,
-                        margins: { top: 0, bottom: 0, left: 0, right: 0 },
-                        children: [
-                          new Paragraph({
-                            children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
-                            alignment: AlignmentType.RIGHT,
-                            spacing: { before: 0, after: 0 }
-                          })
-                        ]
-                      })
-                    ]
-                  })
-                ]
+              new Paragraph({
+                children: [new TextRun({ text: "Logi", bold: true, color: "FFFFFF", size: 44 })],
+                alignment: AlignmentType.RIGHT,
+                spacing: { before: 0, after: 40 }
               }),
-
-              // Segunda fila: rango/fecha del reporte
               new Paragraph({
                 children: [new TextRun({ text: titleLine, bold: true, color: "E5E7EB" })],
                 alignment: AlignmentType.RIGHT,
-                spacing: { before: 40, after: 0 }
-              })
+                spacing: { before: 0, after: projText ? 30 : 0 }
+              }),
+              ...(projText ? [new Paragraph({
+                children: [
+                  new TextRun({ text: "Proyecto: ", bold: true, color: "CBD5E1" }),
+                  new TextRun({ text: projText, color: "CBD5E1" }),
+                ],
+                alignment: AlignmentType.RIGHT,
+                spacing: { before: 0, after: 0 }
+              })] : [])
             ]
           })
         ]
@@ -4159,8 +3747,7 @@ async function exportZipByMode(modo, desde, hasta){
   const { imgWcm: IMG_W_CM, imgHcm: IMG_H_CM, pairsPerPage: PAIRS_PER_PAGE } = docxDimsForLayout(layoutKey);
 
   const { start, end } = computeRangeForTitle(modo, desde, hasta);
-  const activeP = (typeof getActiveProject === "function") ? getActiveProject() : null;
-  const tituloProyecto = ((activeP && activeP.name) ? activeP.name : (proyectoInput.value || "")).trim();
+  const tituloProyecto = (proyectoInput.value || "").trim();
 
   const zi = zipInfo;
   const totalDocx = selected.length;
@@ -4507,28 +4094,12 @@ async function buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, 
     }
 
     // Textos a la derecha (alineados a la derecha)
-    // Proyecto (visible, a la izquierda del bloque derecho)
-    if (projText){
-      const projSize = 16;
-      const padL = 24;
-      const reserveRight = 220; // deja espacio para "Logi" + márgenes a la derecha
-      const maxW = Math.max(120, rightW - padL - reserveRight);
-      const lines = wrapRestLines(projText, fontB, projSize, maxW, 2);
-      let yProj = pageH - 26;
-      for (let i=0; i<lines.length; i++){
-        page.drawText(lines[i], {
-          x: leftW + padL,
-          y: yProj - i * (projSize + 2),
-          size: projSize,
-          font: fontB,
-          color: rgb(1,1,1)
-        });
-      }
-    }
-
-    // Textos a la derecha (alineados a la derecha)
     drawRightText(page, "Logi", pageH - 30, 22, true, rgb(1,1,1));
     drawRightText(page, titleLine, pageH - 50, 10.5, true, rgb(0xE5/255,0xE7/255,0xEB/255));
+    if (projText){
+      const projLine = `Proyecto: ${projText}`;
+      drawRightText(page, projLine, pageH - 65, 10, false, rgb(0xCB/255,0xD5/255,0xE1/255));
+    }
 
     // ===== Grid =====
     for (let row = 0; row < rows; row++){
@@ -4669,8 +4240,7 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
     const start = (modo === "mes") ? desde.slice(0,7) : desde;
     const end   = (modo === "rango") ? hasta : ((modo === "mes") ? desde.slice(0,7) : desde);
 
-    const activeP = (typeof getActiveProject === "function") ? getActiveProject() : null;
-    const tituloProyecto = ((activeP && activeP.name) ? activeP.name : (proyectoInput.value || "")).trim();
+    const tituloProyecto = (proyectoInput.value || "").trim();
 
     if (fmt === "docx") {
       if (!window.docx) {
