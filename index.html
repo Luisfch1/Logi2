@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.6.5</title>
+    <title>Logi2 v0.8.6.6</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.6.5</div>
+          <div class="appVersion" id="appVersion">v0.8.6.6</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -4370,12 +4370,18 @@ async function parseUserTemplateMetaFromArrayBuffer(ab){
 }
 
 function _findPrev(doc, idx, needle){
-  const j = doc.lastIndexOf(needle, idx);
-  return j;
+  // OJO: "<w:p" también matchea "<w:pPr" (propiedades de párrafo) y eso rompe el slicing.
+  // Para párrafos, buscamos SOLO inicios reales: "<w:p>" o "<w:p ...>".
+  if (needle === "<w:p"){
+    let j = doc.lastIndexOf("<w:p ", idx);
+    const k = doc.lastIndexOf("<w:p>", idx);
+    if (k > j) j = k;
+    return j;
+  }
+  return doc.lastIndexOf(needle, idx);
 }
 function _findNext(doc, idx, needle){
-  const j = doc.indexOf(needle, idx);
-  return j;
+  return doc.indexOf(needle, idx);
 }
 
 function sanitizeFullDocXml(docXml){
