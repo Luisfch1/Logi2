@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.6.8</title>
+    <title>Logi2 v0.8.6.9</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.6.8</div>
+          <div class="appVersion" id="appVersion">v0.8.6.9</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -3852,6 +3852,29 @@ async function normalizeToFixedFrameJpg(blob, frameW=1600, frameH=1000, quality=
   return out || blob;
 }
 
+
+async function makeBlankJpegBlob(w=20,h=20,quality=0.85){
+  // Crea una imagen blanca pequeña (se estira al tamaño del frame en el DOCX)
+  // para reemplazar placeholders cuando NO hay foto para un slot.
+  try{
+    if (typeof OffscreenCanvas !== 'undefined'){
+      const c = new OffscreenCanvas(w,h);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,w,h);
+      return await c.convertToBlob({ type: 'image/jpeg', quality });
+    }
+  }catch(e){}
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,w,h);
+  const out = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+  return out;
+}
+
 async function loadLogiLogoArrayBuffer(){
   // Cache-first + timeout para que NUNCA cuelgue el export (PWA/Android)
   // 1) intenta cache del SW (offline)
@@ -4542,6 +4565,16 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
     relXml = relXml.replace(/<\/Relationships>\s*$/i, relTag + "</Relationships>");
   };
 
+  // Relación e imagen en blanco (para slots sin foto; evita que se cuele la foto placeholder del formato)
+  const _blankBlob = await makeBlankJpegBlob();
+  const blankRid = `rId${++maxRid}`;
+  const blankExt = 'jpeg';
+  const blankImgName = `image${++maxImg}.${blankExt}`;
+  const blankTarget = `media/${blankImgName}`;
+  insertRel(blankRid, blankTarget);
+  zip.file(`word/${blankTarget}`, new Uint8Array(await _blankBlob.arrayBuffer()));
+
+
   // Detectar en el bloque los slots y su rId base (por cada foto)
   function extractSlotRidMap(xml){
     const map = {};
@@ -4599,14 +4632,27 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
 
       for (let s = 1; s <= slots; s++){
         const it = chunk[s-1];
-        const desc = it ? String(it.descripcion || "").trim() : "";
+
+        // Si NO hay foto para este slot, no debe quedar el placeholder del formato,
+        // ni debe imprimir numeracion/descripcion.
+        if (!it){
+          bx = bx.replaceAll(`[[LOGI:FOTO_${s}_DESC]]`, "");
+          bx = bx.replaceAll(`[[LOGI:FOTO_${s}_NO]]`, "");
+          const baseRid = baseSlotRid[s];
+          if (baseRid){
+            bx = bx.replaceAll(baseRid, blankRid);
+          }
+          continue;
+        }
+
+        const desc = String(it.descripcion || "").trim();
         bx = bx.replaceAll(`[[LOGI:FOTO_${s}_DESC]]`, xmlEscape(desc));
         bx = bx.replaceAll(`[[LOGI:FOTO_${s}_NO]]`, xmlEscape(String(photoNo)));
 
         // Imagen
-        if (it && it.blob){
-          const baseRid = baseSlotRid[s];
-          if (baseRid){
+        const baseRid = baseSlotRid[s];
+        if (baseRid){
+          if (it.blob){
             const newRid = `rId${++maxRid}`;
             const ext = "jpeg";
             const newImgName = `image${++maxImg}.${ext}`;
@@ -4618,12 +4664,16 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
             const u8 = new Uint8Array(await normalized.arrayBuffer());
             zip.file(`word/${target}`, u8);
 
-            // reemplazar rId en este bloque
+            // reemplazar rId SOLO para este slot en este bloque
             bx = bx.replaceAll(baseRid, newRid);
+          } else {
+            // Si por alguna razón no hay blob, dejamos el slot en blanco
+            bx = bx.replaceAll(baseRid, blankRid);
           }
         }
-        if (it) photoNo++;
-        if (it) globalDone++;
+
+        photoNo++;
+        globalDone++;
         if (onProgress) await onProgress(globalDone, globalTot);
       }
       xmlForItemBlocks.push(bx);
