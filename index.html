@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.6.7</title>
+    <title>Logi2 v0.8.6.8</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.6.7</div>
+          <div class="appVersion" id="appVersion">v0.8.6.8</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -2053,6 +2053,9 @@ async function refreshUserTemplateStatus(){
   const p = getActiveProject();
   if (!p){
     if ($("userTplStatus")) $("userTplStatus").textContent = "—";
+    // Sin proyecto activo: no permitir usar plantilla de usuario en export
+    const cb = $("useUserTpl");
+    if (cb){ cb.checked = false; cb.disabled = true; }
     return;
   }
   try{
@@ -2061,6 +2064,9 @@ async function refreshUserTemplateStatus(){
       $("userTplStatus").textContent = "Sin formato personalizado (usa Logi 4/6/8).";
       $("btnUserTplDelete").disabled = true;
     if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
+      // Este proyecto NO tiene formato: forzar export con Logi
+      const cb = $("useUserTpl");
+      if (cb){ cb.checked = false; cb.disabled = true; }
       return;
     }
     const slots = Number(tpl.slots || 0);
@@ -2068,10 +2074,15 @@ async function refreshUserTemplateStatus(){
     $("userTplStatus").textContent = `Formato activo: ${name} · ${slots||"?"} foto(s) por bloque`;
     $("btnUserTplDelete").disabled = false;
     if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = false;
+    // Este proyecto SÍ tiene formato: permitir que el usuario decida si lo usa en export
+    const cb = $("useUserTpl");
+    if (cb){ cb.disabled = false; }
   }catch{
     $("userTplStatus").textContent = "—";
     $("btnUserTplDelete").disabled = true;
     if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
+    const cb = $("useUserTpl");
+    if (cb){ cb.checked = false; cb.disabled = true; }
   }
 }
 
@@ -2752,6 +2763,7 @@ function attachProjectHandlers(){
         setActiveProjectId(id);
         refreshProjectUI();
         await loadCacheForActiveProject();
+        await refreshUserTemplateStatus();
         render();
         updateStorageUI();
         closeProjModal();
@@ -2915,10 +2927,12 @@ function buildDocxCaption(n, meta, templateId){
   if (code && descItem) itemLabel = `${code} - ${descItem}`;
   else if (code) itemLabel = code;
   else if (descItem) itemLabel = descItem;
-  else itemLabel = "SIN ASIGNAR";
 
   const photoDesc = String(meta.desc || "—").trim() || "—";
 
+  // Si no hay ítem asignado, NO mostrar "SIN ASIGNAR"; dejar el campo vacío.
+  // Para el caption estándar, simplemente omitimos el segmento de ítem.
+  if (!itemLabel) return `Foto No. ${n}. ${photoDesc}`;
   return `Foto No. ${n}, ítem: ${itemLabel}. ${photoDesc}`;
 }
 
@@ -4425,7 +4439,8 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   const groups = {};
   const order = [];
   for (const it of photos){
-    const code = String(it.itemCode || "SIN ASIGNAR").trim() || "SIN ASIGNAR";
+    // Si no hay ítem asignado, lo agrupamos como cadena vacía y NO mostramos "SIN ASIGNAR" en el export.
+    const code = String(it.itemCode || "").trim();
     if (!groups[code]){ groups[code] = []; order.push(code); }
     groups[code].push(it);
   }
@@ -4548,8 +4563,8 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
 
   for (const code of order){
     const arr = groups[code] || [];
-    const actividad = (code !== "SIN ASIGNAR") ? (catalogMap[code] || "") : "";
-    const unidad = (code !== "SIN ASIGNAR") ? (catalogUnitMap[code] || "") : "";
+    const actividad = code ? (catalogMap[code] || "") : "";
+    const unidad = code ? (catalogUnitMap[code] || "") : "";
 
     // chunks de tamaño slots
     let idx = 0;
@@ -4577,7 +4592,8 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
 		        attrs = attrs.replace(/name=\"Picture\s+\d+\"/g, `name=\"Picture ${newId}\"`);
 		        return `<pic:cNvPr${attrs}/>`;
 		      });
-      bx = bx.replaceAll("[[LOGI:ITEM]]", xmlEscape(code));
+      // Si no hay ítem asignado, dejamos el campo vacío.
+      bx = bx.replaceAll("[[LOGI:ITEM]]", xmlEscape(code || ""));
       bx = bx.replaceAll("[[LOGI:ACTIVIDAD]]", xmlEscape(actividad));
       bx = bx.replaceAll("[[LOGI:UNIDAD]]", xmlEscape(unidad));
 
