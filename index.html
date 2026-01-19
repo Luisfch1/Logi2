@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.6.9</title>
+    <title>Logi2 v0.8.7.1</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.6.9</div>
+          <div class="appVersion" id="appVersion">v0.8.7.1</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1208,34 +1208,87 @@ function initTheme(){
 
 
 /* ===========================
-   Service Worker (PWA) — Auto update (modo seguro)
-   - Descarga updates sola
-   - Se aplica al reiniciar (sin recargar en caliente)
+   Service Worker (PWA) — Update control
+   - El boton "Actualizar app" SI instala la nueva version
+   - Evita quedarnos pegados a un cache viejo
 =========================== */
+
+const APP_VERSION = "v0.8.7.1";
+let swReg = null;
+let waitingSW = null;
+let _swReloaded = false;
+
+async function registerSW(){
+  try{
+    swReg = await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(APP_VERSION)}`);
+
+    // Si ya hay una esperando, avisamos
+    if (swReg.waiting) waitingSW = swReg.waiting;
+
+    swReg.addEventListener("updatefound", () => {
+      const nw = swReg.installing;
+      if (!nw) return;
+      nw.addEventListener("statechange", () => {
+        if (nw.state === "installed" && navigator.serviceWorker.controller){
+          waitingSW = swReg.waiting || nw;
+          try{ syncUpdateLabel(); }catch(e){}
+        }
+      });
+    });
+
+    // Cuando el SW nuevo toma control, recargamos una vez
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (_swReloaded) return;
+      _swReloaded = true;
+      location.reload();
+    });
+
+  }catch(e){
+    // silencioso
+  }
+}
 
 async function checkForSWUpdate(){
   try{
-    const reg = await navigator.serviceWorker.getRegistration();
+    const reg = swReg || await navigator.serviceWorker.getRegistration();
     if (reg) await reg.update();
-  }catch{}
+  }catch(e){}
+}
+
+async function triggerSWUpdate(){
+  try{
+    const reg = swReg || await navigator.serviceWorker.getRegistration();
+    if (!reg) return;
+    swReg = reg;
+
+    await swReg.update();
+
+    if (swReg.waiting) waitingSW = swReg.waiting;
+
+    // Instalar update ya (skip waiting)
+    if (waitingSW && waitingSW.postMessage){
+      waitingSW.postMessage({ type: "SKIP_WAITING" });
+    }
+
+    // fallback: si no hay waitingSW, igual intentamos informar
+    try{ syncUpdateLabel(); }catch(e){}
+  }catch(e){
+    // silencioso
+  }
 }
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
-    try{
-      await navigator.serviceWorker.register("./sw.js");
-      // Revisión inmediata
-      await checkForSWUpdate();
-      // Revisión periódica (cada 60 min) mientras la app esté abierta
-      setInterval(checkForSWUpdate, 60 * 60 * 1000);
-    }catch(e){}
+    await registerSW();
+    await checkForSWUpdate();
+    setInterval(checkForSWUpdate, 60 * 60 * 1000);
   });
 }
 
-// Si existe el botón (por compatibilidad), lo dejamos como “revisar update”, sin forzar recarga.
+// Boton opcional (si existe) para instalar update
 (() => {
-  const btn = $("btnUpdateNow");
-  if (btn) btn.onclick = checkForSWUpdate;
+  const btn = document.getElementById("btnUpdateNow");
+  if (btn) btn.onclick = triggerSWUpdate;
 })();
 
 /* ===========================
@@ -2844,12 +2897,150 @@ function formatDateLongES(iso){
   }
 }
 
+// =========================
+// 🗓️ Formatos auxiliares (plantillas de usuario)
+// =========================
+function _isoToYMD(iso){
+  try{
+    const [y,m,d] = String(iso || "").split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return { y, m, d };
+  }catch{ return null; }
+}
+
+function _monthUpperES(y, m){
+  try{
+    const dt = new Date(y, (m||1)-1, 1);
+    return new Intl.DateTimeFormat("es-CO", { month:"long" }).format(dt).toUpperCase();
+  }catch{ return ""; }
+}
+
+function formatDateLongUpperES(iso){
+  const s = formatDateLongES(iso);
+  return String(s || "").toUpperCase();
+}
+
+// Ejemplos:
+// - 01 DE DICIEMBRE DE 2025
+// - 01 DE DICIEMBRE AL 31 DE DICIEMBRE DE 2025
+// - 28 DE DICIEMBRE DE 2025 AL 03 DE ENERO DE 2026
+function formatPeriodoUpperES(startISO, endISO){
+  const A = _isoToYMD(startISO);
+  const B = _isoToYMD(endISO);
+  if (!A || !B){
+    if (String(startISO||"") && String(endISO||"") && String(startISO) !== String(endISO)){
+      return `${startISO} AL ${endISO}`;
+    }
+    return String(startISO || endISO || "");
+  }
+
+  const d1 = pad2(A.d);
+  const d2 = pad2(B.d);
+  const m1 = _monthUpperES(A.y, A.m);
+  const m2 = _monthUpperES(B.y, B.m);
+
+  // mismo día
+  if (A.y === B.y && A.m === B.m && A.d === B.d){
+    return `${d1} DE ${m1} DE ${A.y}`;
+  }
+
+  // mismo año
+  if (A.y === B.y){
+    return `${d1} DE ${m1} AL ${d2} DE ${m2} DE ${A.y}`;
+  }
+
+  // años distintos
+  return `${d1} DE ${m1} DE ${A.y} AL ${d2} DE ${m2} DE ${B.y}`;
+}
+
 function formatStampDateTime(it){
   const baseDate = it.fecha || "";
   const dt = new Date(it.createdAt || Date.now());
   const hh = pad2(dt.getHours());
   const mm = pad2(dt.getMinutes());
   return baseDate ? `${baseDate} ${hh}:${mm}` : `${hh}:${mm}`;
+}
+
+// =========================
+// 🔢 Ordenamiento por ítem (para export)
+// - Ítems numéricos primero (2.1, 10.3, ...)
+// - Luego ítems no numéricos (A-01, 3.1A, ...)
+// - Al final: sin ítem
+// Dentro de cada ítem: por createdAt ascendente
+// =========================
+function _itemCodeKey(code){
+  const s = String(code || "").trim();
+  if (!s) return { kind: 2, raw: "" };
+
+  // numérico puro (p. ej. 3, 3.1, 10.2.5)
+  if (/^\d+(?:\.\d+)*$/.test(s)){
+    const parts = s.split(".").map(x => parseInt(x,10)).filter(n => Number.isFinite(n));
+    return { kind: 0, parts, raw: s };
+  }
+
+  // mixto que comienza con numérico (p. ej. 3.1A)
+  const m = s.match(/^(\d+(?:\.\d+)*)(.*)$/);
+  if (m){
+    const parts = m[1].split(".").map(x => parseInt(x,10)).filter(n => Number.isFinite(n));
+    const suf = String(m[2] || "").trim().toUpperCase();
+    return { kind: 1, parts, suf, raw: s.toUpperCase() };
+  }
+
+  return { kind: 1, raw: s.toUpperCase() };
+}
+
+function compareItemCodes(a, b){
+  const A = _itemCodeKey(a);
+  const B = _itemCodeKey(b);
+  if (A.kind !== B.kind) return A.kind - B.kind;
+
+  // numéricos
+  if (A.kind === 0){
+    const la = A.parts.length, lb = B.parts.length;
+    const L = Math.max(la, lb);
+    for (let i=0; i<L; i++){
+      const av = (A.parts[i] ?? -1);
+      const bv = (B.parts[i] ?? -1);
+      if (av !== bv) return av - bv;
+    }
+    return 0;
+  }
+
+  // no numéricos
+  if (A.kind === 1){
+    // si ambos tienen prefijo numérico, compara primero esas partes
+    if (A.parts && B.parts){
+      const la = A.parts.length, lb = B.parts.length;
+      const L = Math.max(la, lb);
+      for (let i=0; i<L; i++){
+        const av = (A.parts[i] ?? -1);
+        const bv = (B.parts[i] ?? -1);
+        if (av !== bv) return av - bv;
+      }
+      const sa = String(A.suf || A.raw);
+      const sb = String(B.suf || B.raw);
+      return sa.localeCompare(sb, "es", { numeric: true, sensitivity: "base" });
+    }
+    return String(A.raw).localeCompare(String(B.raw), "es", { numeric: true, sensitivity: "base" });
+  }
+
+  return 0;
+}
+
+function sortPhotosByItemThenTime(list){
+  const arr = (list || []).slice();
+  arr.sort((x,y) => {
+    const c = compareItemCodes(String(x?.itemCode||""), String(y?.itemCode||""));
+    if (c) return c;
+    const ta = (x?.createdAt || 0);
+    const tb = (y?.createdAt || 0);
+    if (ta !== tb) return ta - tb;
+    // fallback estable
+    const ia = (x?.id || "");
+    const ib = (y?.id || "");
+    return String(ia).localeCompare(String(ib));
+  });
+  return arr;
 }
 
 /* ===========================
@@ -4457,8 +4648,9 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   if (!window.JSZip) throw new Error("JSZip no cargó.");
   const onProgress = opts.onProgress || null;
 
-  // Agrupar por ítem (código) respetando orden por fecha/creación
-  const photos = (selected || []).slice().sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  // Agrupar por ítem (código) ordenando: ítems ascendente, y al final las fotos sin ítem.
+  // Dentro de cada ítem: createdAt ascendente.
+  const photos = sortPhotosByItemThenTime(selected || []);
   const groups = {};
   const order = [];
   for (const it of photos){
@@ -4488,6 +4680,12 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   // Fechas (por si el usuario las usa)
   docXml = docXml.replaceAll("[[LOGI:FECHA_DESDE]]", xmlEscape(startISO || ""));
   docXml = docXml.replaceAll("[[LOGI:FECHA_HASTA]]", xmlEscape(endISO || ""));
+  // Periodo en texto (para formatos tipo: "01 DE DICIEMBRE AL 31 DE DICIEMBRE DE 2025")
+  const _periodo = formatPeriodoUpperES(startISO || "", endISO || "");
+  docXml = docXml.replaceAll("[[LOGI:PERIODO]]", xmlEscape(_periodo));
+  // Fechas largas (si el usuario quiere armar su propia frase)
+  docXml = docXml.replaceAll("[[LOGI:FECHA_INICIO]]", xmlEscape(formatDateLongUpperES(startISO || "")));
+  docXml = docXml.replaceAll("[[LOGI:FECHA_FIN]]", xmlEscape(formatDateLongUpperES(endISO || "")));
 
   // Extraer bloque repetible.
   // Caso A (ideal): los marcadores están fuera de la tabla del bloque.
@@ -5357,6 +5555,10 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
   if (itemFilter) selected = selected.filter(x => String(x.itemCode || "").trim() === itemFilter);
 
   if (onlyDone) selected = selected.filter(x => !!x.done);
+
+    // Orden para export: por ítem ascendente y al final las fotos sin ítem
+    // (Dentro de cada ítem: por createdAt asc)
+    selected = sortPhotosByItemThenTime(selected);
 
     if (!selected.length) {
       alert("No hay fotos en ese rango / filtro.");

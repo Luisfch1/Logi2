@@ -1,6 +1,6 @@
 // sw.js
 // Incrementa la versión en cada deploy para invalidar caché
-const CACHE_VERSION = "logi2-v0.8.6.9";
+const CACHE_VERSION = "logi2-v0.8.7.1";
 const CACHE = `logi2-cache-${CACHE_VERSION}`;
 
 const ASSETS = [
@@ -23,9 +23,8 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    // Modo seguro: NO hacemos skipWaiting automático.
-    // El update se aplicará cuando el usuario cierre y reabra la app.
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS))
+    // Aplicar update sin friccion.
+    (async()=>{const cache=await caches.open(CACHE); await cache.addAll(ASSETS); await self.skipWaiting();})()
   );
 });
 
