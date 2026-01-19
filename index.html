@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.6.6</title>
+    <title>Logi2 v0.8.6.7</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.6.6</div>
+          <div class="appVersion" id="appVersion">v0.8.6.7</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -634,6 +634,11 @@
         <label style="display:flex;align-items:center;gap:10px;margin:0">
           <input type="checkbox" id="exportStampDT" />
           <span class="muted">En exportación: escribir fecha y hora sobre la foto</span>
+        </label>
+
+        <label style="display:flex;align-items:center;gap:10px;margin:0">
+          <input type="checkbox" id="useUserTpl" checked />
+          <span class="muted">En exportación Word: usar formato del proyecto (si existe)</span>
         </label>
 </div>
 
@@ -4446,7 +4451,10 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   docXml = docXml.replaceAll("[[LOGI:FECHA_DESDE]]", xmlEscape(startISO || ""));
   docXml = docXml.replaceAll("[[LOGI:FECHA_HASTA]]", xmlEscape(endISO || ""));
 
-  // Extraer bloque repetible (entre párrafos marcadores)
+  // Extraer bloque repetible.
+  // Caso A (ideal): los marcadores están fuera de la tabla del bloque.
+  // Caso B (común en plantillas hechas por usuarios): los marcadores quedaron DENTRO de la tabla;
+  // en ese caso, si repetimos el XML crudo, Word termina "pegando" todo dentro de una sola tabla.
   const sIdx = docXml.indexOf("[[LOGI:ITEMS_START]]");
   const eIdx = docXml.indexOf("[[LOGI:ITEMS_END]]");
   if (sIdx < 0 || eIdx < 0 || eIdx <= sIdx) throw new Error("No encontré [[LOGI:ITEMS_START]]/[[LOGI:ITEMS_END]] en la plantilla.");
@@ -4457,9 +4465,32 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   const eP1 = _findNext(docXml, eIdx, "</w:p>");
   if (sP0 < 0 || sP1 < 0 || eP0 < 0 || eP1 < 0) throw new Error("La plantilla tiene marcadores pero la estructura no es la esperada.");
 
-  const prefix = docXml.slice(0, sP0);
-	  const blockXml = docXml.slice(sP1 + "</w:p>".length, eP0);
-  const suffix = docXml.slice(eP1 + "</w:p>".length);
+  let prefix = "", blockXml = "", suffix = "";
+
+  // ¿Los marcadores están dentro de una misma tabla?
+  const tblStart = docXml.lastIndexOf("<w:tbl", sIdx);
+  const tblEnd = (tblStart >= 0) ? docXml.indexOf("</w:tbl>", tblStart) : -1;
+  const markersInsideSameTbl = (tblStart >= 0 && tblEnd >= 0 && sIdx < tblEnd && eIdx < tblEnd);
+
+  if (markersInsideSameTbl){
+    const tblXmlRaw = docXml.slice(tblStart, tblEnd + "</w:tbl>".length);
+    // Eliminar filas que contengan los marcadores, para que el bloque sea "la tabla limpia".
+    // (si el usuario puso los marcadores como texto en una celda)
+    let tblXml = tblXmlRaw
+      .replace(/<w:tr[\s\S]*?\[\[LOGI:ITEMS_START\]\][\s\S]*?<\/w:tr>/g, "")
+      .replace(/<w:tr[\s\S]*?\[\[LOGI:ITEMS_END\]\][\s\S]*?<\/w:tr>/g, "")
+      .replaceAll("[[LOGI:ITEMS_START]]", "")
+      .replaceAll("[[LOGI:ITEMS_END]]", "");
+
+    prefix = docXml.slice(0, tblStart);
+    blockXml = tblXml;
+    suffix = docXml.slice(tblEnd + "</w:tbl>".length);
+  } else {
+    // Caso A: marcadores fuera de la tabla (lo recomendado)
+    prefix = docXml.slice(0, sP0);
+    blockXml = docXml.slice(sP1 + "</w:p>".length, eP0);
+    suffix = docXml.slice(eP1 + "</w:p>".length);
+  }
 
 	  // Evitar corrupción por IDs duplicados al repetir el bloque:
 	  // - Quitar bookmarks (Word se queja si se repite w:id)
@@ -4584,7 +4615,9 @@ async function buildRegistroFotograficoDocxFromUserTemplateBuffer(selected, titu
   }
 
   // Ensamblar doc final
-  let newDocXml = prefix + xmlForItemBlocks.join("") + suffix;
+  // Separador mínimo entre bloques para evitar que Word intente "pegar" tablas consecutivas.
+  const _blockSep = "<w:p><w:r/></w:p>";
+  let newDocXml = prefix + xmlForItemBlocks.join(_blockSep) + suffix;
   newDocXml = sanitizeFullDocXml(newDocXml);
   zip.file(docPath, newDocXml);
   zip.file(relPath, relXml);
@@ -5241,6 +5274,7 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
 
     const exportLogo = !!$("exportLogo")?.checked;
     const exportStampDT = !!$("exportStampDT")?.checked;
+    const useUserTpl = !!$("useUserTpl")?.checked;
     const exportTemplate = !!$("exportTemplate")?.checked;
     const templateId = getTemplateId();
 
@@ -5270,9 +5304,9 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
     const tituloProyecto = ((activeP && activeP.name) ? activeP.name : (proyectoInput.value || "")).trim();
 
     if (fmt === "docx") {
-      // Si hay formato personalizado (plantilla DOCX) para este proyecto, úsalo
+      // Si hay formato personalizado (plantilla DOCX) para este proyecto, úsalo SOLO si el usuario lo pidió
       const activeId = getActiveProjectId() || ensureProjects().activeId;
-      const tplRec = await tplGet(activeId);
+      const tplRec = useUserTpl ? await tplGet(activeId) : null;
       if (tplRec && tplRec.ab){
         const zi = $("zipInfo");
         const total = selected.length;
