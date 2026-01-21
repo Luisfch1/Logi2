@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.1</title>
+    <title>Logi2 v0.8.7.2</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -403,13 +403,13 @@
         <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
         <input id="backupAllInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
         <input id="itemsInput" class="hiddenFileInput" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-        <input id="userTemplateInput" class="hiddenFileInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+        <input id="userTemplateInput" class="hiddenFileInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,application/pdf" />
 
     <div class="appbar">
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.1</div>
+          <div class="appVersion" id="appVersion">v0.8.7.2</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1213,7 +1213,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.1";
+const APP_VERSION = "v0.8.7.2";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -2106,28 +2106,40 @@ async function refreshUserTemplateStatus(){
   const p = getActiveProject();
   if (!p){
     if ($("userTplStatus")) $("userTplStatus").textContent = "—";
-    // Sin proyecto activo: no permitir usar plantilla de usuario en export
     const cb = $("useUserTpl");
     if (cb){ cb.checked = false; cb.disabled = true; }
     return;
   }
   try{
     const tpl = await tplGet(p.id);
-    if (!tpl){
+    const hasDocx = !!(tpl && tpl.ab);
+    const hasPdf  = !!(tpl && tpl.pdfAb);
+
+    if (!tpl || (!hasDocx && !hasPdf)){
       $("userTplStatus").textContent = "Sin formato personalizado (usa Logi 4/6/8).";
       $("btnUserTplDelete").disabled = true;
-    if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
-      // Este proyecto NO tiene formato: forzar export con Logi
+      if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
       const cb = $("useUserTpl");
       if (cb){ cb.checked = false; cb.disabled = true; }
       return;
     }
-    const slots = Number(tpl.slots || 0);
-    const name = tpl.name || "Plantilla.docx";
-    $("userTplStatus").textContent = `Formato activo: ${name} · ${slots||"?"} foto(s) por bloque`;
+
+    const parts = [];
+    if (hasDocx){
+      const slots = Number(tpl.slots || 0);
+      const name = tpl.name || "Plantilla.docx";
+      parts.push(`Word: ${name} · ${slots||"?"} foto(s) por bloque`);
+    }
+    if (hasPdf){
+      const pslots = Number(tpl.pdfSlots || 0);
+      const pname = tpl.pdfName || "Plantilla.pdf";
+      parts.push(`PDF: ${pname} · ${pslots||"?"} slot(s)`);
+    }
+
+    $("userTplStatus").textContent = `Formato activo: ${parts.join(" · ")}`;
     $("btnUserTplDelete").disabled = false;
     if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = false;
-    // Este proyecto SÍ tiene formato: permitir que el usuario decida si lo usa en export
+
     const cb = $("useUserTpl");
     if (cb){ cb.disabled = false; }
   }catch{
@@ -2152,22 +2164,44 @@ $('btnUserTplPreview').onclick = async () => {
   try{
     const tpl = await tplGet(p.id);
     if (!tpl){ alert('Este proyecto no tiene formato cargado.'); return; }
-    // Previsualizacion simple: validar tags y mostrar info clave
-    const meta = await parseUserTemplateMetaFromArrayBuffer(tpl.ab);
-    const msg = [
-      `Proyecto: ${p.name}`,
-      `Plantilla: ${tpl.name || 'Plantilla.docx'}`,
-      `Bloque repetible: ${meta.hasStart && meta.hasEnd ? 'OK' : 'FALTA'}`,
-      `Foto(s) por bloque detectadas: ${meta.slots || 0}`,
-      '',
-      'Tip: Si el export Word falla, revisa que las imagenes tengan ALT TEXT en Word con:',
-      '  [[LOGI:FOTO_1]], [[LOGI:FOTO_2]] ...',
-      'y que existan [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].'
-    ].join('\n');
-    alert(msg);
+
+    const lines = [`Proyecto: ${p.name}`];
+
+    if (tpl.ab){
+      const meta = await parseUserTemplateMetaFromArrayBuffer(tpl.ab);
+      lines.push(`Word: ${tpl.name || 'Plantilla.docx'}`);
+      lines.push(`  Bloque repetible: ${meta.hasStart && meta.hasEnd ? 'OK' : 'FALTA'}`);
+      lines.push(`  Foto(s) por bloque detectadas: ${meta.slots || 0}`);
+    } else {
+      lines.push('Word: (no cargado)');
+    }
+
+    if (tpl.pdfAb){
+      const pmeta = await parseUserPdfTemplateMetaFromArrayBuffer(tpl.pdfAb);
+      lines.push(`PDF: ${tpl.pdfName || 'Plantilla.pdf'}`);
+      lines.push(`  Campos detectados: ${pmeta.fieldCount || 0}`);
+      lines.push(`  Slots de foto detectados: ${pmeta.slots || 0}`);
+      lines.push('');
+      lines.push('Convención recomendada (PDF):');
+      lines.push('  LOGI_PROYECTO, LOGI_PERIODO, LOGI_FECHA_DESDE, LOGI_FECHA_HASTA (opcionales)');
+      lines.push('  LOGI_ITEM, LOGI_ITEM_DESC, LOGI_ITEM_UNIDAD (opcionales)');
+      lines.push('  LOGI_FOTO_1..N  y opcional LOGI_FOTO_1_DESC..N_DESC');
+    } else {
+      lines.push('PDF: (no cargado)');
+    }
+
+    lines.push('');
+    lines.push('Tip: en Word, los slots de fotos van en ALT TEXT de cada imagen con:');
+    lines.push('  [[LOGI:FOTO_1]], [[LOGI:FOTO_2]] ...');
+    lines.push('y debe existir [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].');
+
+    alert(lines.join('
+'));
   }catch(e){
     console.error(e);
-    alert('No pude previsualizar/validar la plantilla.\n\nDetalle: ' + (e?.message || String(e)));
+    alert('No pude previsualizar/validar la plantilla.
+
+Detalle: ' + (e?.message || String(e)));
   }
 };
 
@@ -2194,15 +2228,28 @@ $("userTemplateInput").onchange = async () => {
   $("userTplStatus").textContent = "Leyendo plantilla…";
   try{
     const ab = await file.arrayBuffer();
-    const meta = await parseUserTemplateMetaFromArrayBuffer(ab);
-    if (!meta.hasStart || !meta.hasEnd){
-      throw new Error("La plantilla no trae los marcadores [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].");
-    }
-    if (!meta.slots) throw new Error("La plantilla no tiene slots [[LOGI:FOTO_n]].");
+    const nameLower = String(file.name || "").toLowerCase();
+    const isPdf = nameLower.endsWith(".pdf") || (String(file.type||"").includes("pdf"));
 
-    await tplPut(p.id, { name: file.name, ab, slots: meta.slots });
-    await refreshUserTemplateStatus();
-    alert("Formato cargado ✅\n\nTip: cuando exportes Word, Logi usará esta plantilla automáticamente.");
+    const prev = (await tplGet(p.id)) || {};
+
+    if (isPdf){
+      const meta = await parseUserPdfTemplateMetaFromArrayBuffer(ab);
+      if (!meta.slots) throw new Error("La plantilla PDF no tiene slots (campos) LOGI_FOTO_1..N.");
+      await tplPut(p.id, { ...prev, pdfName: file.name, pdfAb: ab, pdfSlots: meta.slots });
+      await refreshUserTemplateStatus();
+      alert("Formato PDF cargado ✅\n\nTip: crea campos en el PDF (AcroForm) con nombres LOGI_FOTO_1..N para ubicar las fotos.\nOpcional: LOGI_FOTO_1_DESC..N_DESC para la descripción.");
+    } else {
+      const meta = await parseUserTemplateMetaFromArrayBuffer(ab);
+      if (!meta.hasStart || !meta.hasEnd){
+        throw new Error("La plantilla no trae los marcadores [[LOGI:ITEMS_START]] y [[LOGI:ITEMS_END]].");
+      }
+      if (!meta.slots) throw new Error("La plantilla no tiene slots [[LOGI:FOTO_n]].");
+
+      await tplPut(p.id, { ...prev, name: file.name, ab, slots: meta.slots });
+      await refreshUserTemplateStatus();
+      alert("Formato Word cargado ✅\n\nTip: cuando exportes Word, Logi usará esta plantilla automáticamente.");
+    }
   }catch(e){
     console.error(e);
     alert("No pude cargar esa plantilla.\n\nDetalle: " + (e?.message || String(e)));
@@ -4602,6 +4649,230 @@ async function parseUserTemplateMetaFromArrayBuffer(ab){
   return { hasStart, hasEnd, slots };
 }
 
+
+/* ===========================
+   PDF desde plantilla del usuario (AcroForm)
+   Convención de campos (recomendado):
+   - Texto global: LOGI_PROYECTO, LOGI_PERIODO, LOGI_FECHA_DESDE, LOGI_FECHA_HASTA, LOGI_FECHA_INICIO, LOGI_FECHA_FIN
+   - Texto por ítem: LOGI_ITEM, LOGI_ITEM_DESC, LOGI_ITEM_UNIDAD, LOGI_ITEM_CANT (opcional)
+   - Slots de fotos: LOGI_FOTO_1 .. LOGI_FOTO_N
+     y opcional captions: LOGI_FOTO_1_DESC .. LOGI_FOTO_N_DESC
+   Nota: también aceptamos nombres con el tag visible: [[LOGI:FOTO_1]] etc.
+=========================== */
+function _pdfNormName(n){
+  return String(n||"").trim();
+}
+function _pdfMatchSlotName(name){
+  const n = _pdfNormName(name);
+  let m = n.match(/^LOGI_FOTO_(\d+)$/i);
+  if (m) return parseInt(m[1],10);
+  m = n.match(/^\[\[LOGI:FOTO_(\d+)\]\]$/i);
+  if (m) return parseInt(m[1],10);
+  return null;
+}
+function _pdfMatchSlotDescName(name){
+  const n = _pdfNormName(name);
+  let m = n.match(/^LOGI_FOTO_(\d+)_DESC$/i);
+  if (m) return parseInt(m[1],10);
+  m = n.match(/^\[\[LOGI:FOTO_(\d+)_DESC\]\]$/i);
+  if (m) return parseInt(m[1],10);
+  return null;
+}
+function _pdfFieldGetAny(form, names){
+  for (const nm of names){
+    try{
+      const tf = form.getTextField(nm);
+      if (tf) return tf;
+    }catch{}
+  }
+  return null;
+}
+function _pdfFieldHasAny(form, names){
+  for (const nm of names){
+    try{ form.getField(nm); return nm; }catch{}
+  }
+  return null;
+}
+
+async function parseUserPdfTemplateMetaFromArrayBuffer(ab){
+  if (!window.PDFLib) throw new Error("PDFLib no está disponible.");
+  const { PDFDocument } = PDFLib;
+  const pdf = await PDFDocument.load(ab);
+  let fields = [];
+  try{
+    const form = pdf.getForm();
+    fields = form.getFields().map(f => f.getName());
+  }catch{
+    fields = [];
+  }
+  const slotNums = [];
+  for (const n of fields){
+    const k = _pdfMatchSlotName(n);
+    if (k != null) slotNums.push(k);
+  }
+  const slots = slotNums.length ? Math.max(...slotNums) : 0;
+  return { slots, fieldCount: fields.length, fields };
+}
+
+async function buildRegistroFotograficoPdfFromUserTemplateBlob(selected, tituloProyecto, startISO, endISO, tplRec, opts={}){
+  if (!window.PDFLib) throw new Error("PDFLib no está disponible.");
+  const { PDFDocument } = PDFLib;
+
+  const onProgress = opts.onProgress || null;
+
+  // Orden y agrupación: ítems ascendente, y al final sin ítem. Dentro del ítem: createdAt asc.
+  const photos = sortPhotosByItemThenTime(selected || []);
+  const groups = {};
+  const order = [];
+  for (const it of photos){
+    const code = String(it.itemCode || "").trim();
+    if (!groups[code]){ groups[code] = []; order.push(code); }
+    groups[code].push(it);
+  }
+
+  // Slots
+  let slots = Number(tplRec.pdfSlots || 0);
+  if (!slots){
+    const meta = await parseUserPdfTemplateMetaFromArrayBuffer(tplRec.pdfAb);
+    slots = meta.slots;
+  }
+  if (!slots) throw new Error("La plantilla PDF no tiene campos LOGI_FOTO_n (slots de fotos).");
+
+  // Total páginas (por chunks de slots)
+  let totalPages = 0;
+  for (const code of order){
+    totalPages += Math.ceil((groups[code].length || 0) / slots);
+  }
+
+  const out = await PDFDocument.create();
+
+  const periodo = formatPeriodoUpperES(startISO || "", endISO || "");
+  const fechaInicioL = formatDateLongUpperES(startISO || "");
+  const fechaFinL = formatDateLongUpperES(endISO || "");
+
+  let donePages = 0;
+
+  for (const code of order){
+    const arr = groups[code] || [];
+    const itemDesc = (code && (catalogMap[code] || arr[0]?.itemDesc)) ? String(catalogMap[code] || arr[0]?.itemDesc || "").trim() : "";
+    const itemUnit = (code && catalogUnitMap[code]) ? String(catalogUnitMap[code] || "").trim() : "";
+
+    for (let off = 0; off < arr.length; off += slots){
+      const chunk = arr.slice(off, off + slots);
+
+      // Cargar PDF base por página (evita colisiones de nombres de campos al duplicar)
+      const basePdf = await PDFDocument.load(tplRec.pdfAb);
+      let form = null;
+      try{ form = basePdf.getForm(); }catch{ form = null; }
+
+      // Fill textos (si existen)
+      if (form){
+        const tfProj = _pdfFieldGetAny(form, ["LOGI_PROYECTO", "[[LOGI:PROYECTO]]"]);
+        if (tfProj) try{ tfProj.setText(tituloProyecto || ""); }catch{}
+
+        const tfPer = _pdfFieldGetAny(form, ["LOGI_PERIODO", "[[LOGI:PERIODO]]"]);
+        if (tfPer) try{ tfPer.setText(periodo || ""); }catch{}
+
+        const tfFD = _pdfFieldGetAny(form, ["LOGI_FECHA_DESDE", "[[LOGI:FECHA_DESDE]]"]);
+        if (tfFD) try{ tfFD.setText(startISO || ""); }catch{}
+
+        const tfFH = _pdfFieldGetAny(form, ["LOGI_FECHA_HASTA", "[[LOGI:FECHA_HASTA]]"]);
+        if (tfFH) try{ tfFH.setText(endISO || ""); }catch{}
+
+        const tfFI = _pdfFieldGetAny(form, ["LOGI_FECHA_INICIO", "[[LOGI:FECHA_INICIO]]"]);
+        if (tfFI) try{ tfFI.setText(fechaInicioL || ""); }catch{}
+
+        const tfFF = _pdfFieldGetAny(form, ["LOGI_FECHA_FIN", "[[LOGI:FECHA_FIN]]"]);
+        if (tfFF) try{ tfFF.setText(fechaFinL || ""); }catch{}
+
+        const tfItem = _pdfFieldGetAny(form, ["LOGI_ITEM", "[[LOGI:ITEM]]"]);
+        if (tfItem) try{ tfItem.setText(code || ""); }catch{}
+
+        const tfItemD = _pdfFieldGetAny(form, ["LOGI_ITEM_DESC", "LOGI_DESC", "[[LOGI:DESC]]", "[[LOGI:ITEM_DESC]]"]);
+        if (tfItemD) try{ tfItemD.setText(itemDesc || ""); }catch{}
+
+        const tfUnit = _pdfFieldGetAny(form, ["LOGI_ITEM_UNIDAD", "LOGI_UNIDAD", "[[LOGI:UNIDAD]]", "[[LOGI:ITEM_UNIDAD]]"]);
+        if (tfUnit) try{ tfUnit.setText(itemUnit || ""); }catch{}
+
+        const tfCant = _pdfFieldGetAny(form, ["LOGI_ITEM_CANT", "LOGI_CANT", "[[LOGI:CANT]]", "[[LOGI:ITEM_CANT]]"]);
+        if (tfCant) try{ tfCant.setText(""); }catch{}
+      }
+
+      // Render fotos sobre los rectángulos de los campos
+      const page = basePdf.getPages()[0];
+      const pad = 2;
+
+      for (let i = 0; i < slots; i++){
+        const n = i + 1;
+        const rec = chunk[i] || null;
+
+        const nameA = `LOGI_FOTO_${n}`;
+        const nameB = `[[LOGI:FOTO_${n}]]`;
+        let fieldName = null;
+        if (form){
+          fieldName = _pdfFieldHasAny(form, [nameA, nameB]);
+        }
+
+        if (rec && fieldName && form){
+          try{
+            const f = form.getField(fieldName);
+            const widgets = (typeof f.getWidgets === "function") ? f.getWidgets() : [];
+            const w0 = widgets && widgets[0] ? widgets[0] : null;
+            if (w0 && typeof w0.getRectangle === "function"){
+              const r = w0.getRectangle();
+              const boxX = r.x + pad;
+              const boxY = r.y + pad;
+              const boxW = r.width - pad*2;
+              const boxH = r.height - pad*2;
+
+              let imgBlob = rec.blob;
+              try{ imgBlob = await normalizeToFixedFrameJpg(imgBlob, boxW, boxH, 0.9, "contain"); }catch{}
+              const abImg = await imgBlob.arrayBuffer();
+              const u8 = new Uint8Array(abImg);
+              const isPng = (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47);
+              const img = isPng ? await basePdf.embedPng(u8) : await basePdf.embedJpg(u8);
+
+              const scale = Math.min(boxW / img.width, boxH / img.height);
+              const drawW = img.width * scale;
+              const drawH = img.height * scale;
+              const xImg = boxX + (boxW - drawW)/2;
+              const yImg = boxY + (boxH - drawH)/2;
+
+              page.drawImage(img, { x: xImg, y: yImg, width: drawW, height: drawH });
+            }
+          }catch(e){
+            console.warn("Slot foto no pude dibujar:", n, e);
+          }
+        }
+
+        if (rec && form){
+          const dn = `LOGI_FOTO_${n}_DESC`;
+          const dn2 = `[[LOGI:FOTO_${n}_DESC]]`;
+          const capField = _pdfFieldGetAny(form, [dn, dn2]);
+          if (capField){
+            try{ capField.setText(String(rec.descripcion || "").trim()); }catch{}
+          }
+        }
+      }
+
+      if (form){
+        try{ form.flatten(); }catch{}
+      }
+
+      const [copied] = await out.copyPages(basePdf, [0]);
+      out.addPage(copied);
+
+      donePages++;
+      if (onProgress) await onProgress(donePages, totalPages);
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  const bytes = await out.save();
+  return new Blob([bytes], { type: "application/pdf" });
+}
+
+
 function _findPrev(doc, idx, needle){
   // OJO: "<w:p" también matchea "<w:pPr" (propiedades de párrafo) y eso rompe el slicing.
   // Para párrafos, buscamos SOLO inicios reales: "<w:p>" o "<w:p ...>".
@@ -5670,10 +5941,35 @@ async function exportExpressByMode(modo, desde, hasta, fmt) {
       setTimeout(()=> $("zipInfo").textContent = "", 1800);
       return;
     }
+// PDF
+const activeIdPdf = getActiveProjectId() || ensureProjects().activeId;
+const tplRecPdf = useUserTpl ? await tplGet(activeIdPdf) : null;
+if (tplRecPdf && tplRecPdf.pdfAb){
+  const zi = $("zipInfo");
+  const nextPaint = () => new Promise(res => requestAnimationFrame(() => setTimeout(res, 0)));
+  if (zi){ zi.textContent = `Generando PDF (formato del usuario)... 0/?`; await nextPaint(); }
 
-    // PDF
-    $("zipInfo").textContent = "Generando PDF...";
-    const pdfBlob = await buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, end, {
+  const onProgress = async (done, tot) => {
+    if (!zi) return;
+    zi.textContent = `Generando PDF (formato del usuario)... ${done}/${tot}`;
+    await nextPaint();
+  };
+
+  const pdfBlobUser = await buildRegistroFotograficoPdfFromUserTemplateBlob(
+    selected, tituloProyecto, start, end, tplRecPdf,
+    { onProgress }
+  );
+  if (!pdfBlobUser) return;
+
+  const itemTag = itemFilter ? `_ITEM_${sanitizeName(itemFilter)}` : "";
+  await shareBlobAsFile(pdfBlobUser, `Logi_Reporte_${start}_a_${end}${itemTag}.pdf`, "application/pdf", "Logi - PDF");
+  $("zipInfo").textContent = "PDF listo ✅";
+  setTimeout(()=> $("zipInfo").textContent = "", 1800);
+  return;
+}
+
+$("zipInfo").textContent = "Generando PDF...";
+const pdfBlob = await buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, end, {
       applyLogo: exportLogo && !!logoBitmap,
       applyStamp: exportStampDT,
       applyTemplate: exportTemplate,
