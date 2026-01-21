@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.3</title>
+    <title>Logi2 v0.8.7.4</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.3</div>
+          <div class="appVersion" id="appVersion">v0.8.7.4</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -638,8 +638,10 @@
 
         <label style="display:flex;align-items:center;gap:10px;margin:0">
           <input type="checkbox" id="useUserTpl" checked />
-          <span class="muted">En exportación Word: usar formato del proyecto (si existe)</span>
+          <span class="muted">En exportación: usar formato del proyecto (si existe)</span>
         </label>
+
+        <div id="userTplExportHint" class="muted" style="flex-basis:100%;margin-top:-2px"></div>
 </div>
 
       <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
@@ -1213,7 +1215,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.3";
+const APP_VERSION = "v0.8.7.4";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -2107,7 +2109,8 @@ async function refreshUserTemplateStatus(){
   if (!p){
     if ($("userTplStatus")) $("userTplStatus").textContent = "—";
     const cb = $("useUserTpl");
-    if (cb){ cb.checked = false; cb.disabled = true; }
+    if (cb){ cb.disabled = true; }
+    if ($("userTplExportHint")) $("userTplExportHint").textContent = "";
     return;
   }
   try{
@@ -2120,7 +2123,8 @@ async function refreshUserTemplateStatus(){
       $("btnUserTplDelete").disabled = true;
       if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
       const cb = $("useUserTpl");
-      if (cb){ cb.checked = false; cb.disabled = true; }
+      if (cb){ cb.disabled = false; }
+      await refreshExportTemplateHint();
       return;
     }
 
@@ -2142,13 +2146,64 @@ async function refreshUserTemplateStatus(){
 
     const cb = $("useUserTpl");
     if (cb){ cb.disabled = false; }
+    await refreshExportTemplateHint();
   }catch{
     $("userTplStatus").textContent = "—";
     $("btnUserTplDelete").disabled = true;
     if ($("btnUserTplPreview")) $("btnUserTplPreview").disabled = true;
     const cb = $("useUserTpl");
-    if (cb){ cb.checked = false; cb.disabled = true; }
+    if (cb){ cb.disabled = false; }
+    await refreshExportTemplateHint();
   }
+}
+
+// Hint contextual: explica cuándo aplica el formato del usuario según el formato (PDF/Word)
+async function refreshExportTemplateHint(){
+  const hint = $("userTplExportHint");
+  if (!hint) return;
+  const p = getActiveProject();
+  if (!p){ hint.textContent = ""; return; }
+
+  const fmt = $("expressFormat")?.value || "pdf";
+  const wants = !!$("useUserTpl")?.checked;
+
+  let tpl = null;
+  try{ tpl = await tplGet(p.id); }catch{}
+  const hasDocx = !!tpl?.ab;
+  const hasPdf  = !!tpl?.pdfAb;
+
+  if (!wants){
+    hint.textContent = (fmt === "pdf")
+      ? "PDF: usando formato Logi (4/6/8)."
+      : (fmt === "docx")
+        ? "Word: usando formato Logi (4/6/8)."
+        : "";
+    return;
+  }
+
+  if (fmt === "pdf"){
+    if (hasPdf){
+      hint.textContent = "PDF: se usará la plantilla PDF del proyecto.";
+    } else if (hasDocx){
+      hint.textContent = "Este proyecto tiene plantilla Word, pero para exportar PDF con formato del usuario necesitas subir una plantilla PDF (con campos LOGI_FOTO_1..N). Si no, el PDF sale en formato Logi.";
+    } else {
+      hint.textContent = "No hay plantilla PDF cargada para este proyecto. El PDF saldrá en formato Logi.";
+    }
+    return;
+  }
+
+  if (fmt === "docx"){
+    if (hasDocx){
+      hint.textContent = "Word: se usará la plantilla DOCX del proyecto.";
+    } else if (hasPdf){
+      hint.textContent = "Este proyecto tiene plantilla PDF, pero para exportar Word con formato del usuario necesitas subir una plantilla DOCX. Si no, el Word sale en formato Logi.";
+    } else {
+      hint.textContent = "No hay plantilla DOCX cargada para este proyecto. El Word saldrá en formato Logi.";
+    }
+    return;
+  }
+
+  hint.textContent = "";
 }
 
 $("btnUserTplUpload").onclick = () => {
@@ -5965,6 +6020,14 @@ if (tplRecPdf && tplRecPdf.pdfAb){
   return;
 }
 
+// Si el usuario pidió formato del proyecto pero NO hay plantilla PDF cargada, avisar y continuar con Logi
+if (useUserTpl && !(tplRecPdf && tplRecPdf.pdfAb)){
+  const ziWarn = $("zipInfo");
+  if (ziWarn){
+    ziWarn.textContent = "No hay plantilla PDF del proyecto. Exportando en formato Logi (4/6/8)...";
+  }
+}
+
 $("zipInfo").textContent = "Generando PDF...";
 const pdfBlob = await buildRegistroFotograficoPdfBlob(selected, tituloProyecto, start, end, {
       applyLogo: exportLogo && !!logoBitmap,
@@ -6046,9 +6109,16 @@ function updateExportUI(){
     const ym = String($("desde").value || hoyISO()).slice(0,7);
     $("hasta").value = `${ym}-01`;
   }
+
+  // Hint contextual (PDF/Word) sobre plantilla del usuario
+  try{ refreshExportTemplateHint(); }catch{}
 }
 
 $("modoExport").addEventListener("change", updateExportUI);
+
+// Cambios en formato de salida / uso de plantilla del usuario
+$("expressFormat")?.addEventListener("change", () => { try{ refreshExportTemplateHint(); }catch{} });
+$("useUserTpl")?.addEventListener("change", () => { try{ refreshExportTemplateHint(); }catch{} });
 $("desde").addEventListener("change", () => {
   const modo = $("modoExport").value;
   if (modo !== "rango") {
