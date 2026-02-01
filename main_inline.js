@@ -461,11 +461,22 @@ async function createBackupZip(){
     logoCorner: localStorage.getItem("logi_logo_corner") || "br",
   };
 
+  const catRows = await catGetByProject(activeId);
+
   const backup = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    type: "project",
     app: "Logi",
     createdAt: new Date().toISOString(),
     settings,
+    projectId: activeId,
+    projectName: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
+    catalog: (catRows || []).map(r => ({
+      item: r.item || "",
+      descripcion: r.descripcion || "",
+      unidad: r.unidad || "",
+      createdAt: r.createdAt || Date.now()
+    })),
     items: items.map(it => ({
       id: it.id,
       fecha: it.fecha || "",
@@ -474,7 +485,9 @@ async function createBackupZip(){
       done: !!it.done,
       mime: it.mime || "image/jpeg",
       createdAt: it.createdAt || Date.now(),
-      hasLogo: !!it.hasLogo
+      hasLogo: !!it.hasLogo,
+      itemCode: it.itemCode || "",
+      itemDesc: it.itemDesc || ""
     }))
   };
 
@@ -619,6 +632,8 @@ async function restoreBackupZip(file){
       mime: meta.mime || blob.type || "image/jpeg",
       createdAt: meta.createdAt || Date.now(),
       hasLogo: !!meta.hasLogo,
+      itemCode: meta.itemCode || "",
+      itemDesc: meta.itemDesc || "",
       projectId: activeP ? activeP.id : null
     };
 
@@ -628,6 +643,26 @@ async function restoreBackupZip(file){
     added++;
   }
 
+
+  // restore catálogo (si viene en el ZIP)
+  try{
+    if (Array.isArray(backup.catalog) && backup.catalog.length){
+      const pid = getActiveProjectId() || ensureProjects().activeId;
+      const rows = backup.catalog.map(r => {
+        const item = String(r.item || "").trim();
+        return {
+          key: `${pid}::${item}`,
+          projectId: pid,
+          item,
+          descripcion: r.descripcion || "",
+          unidad: r.unidad || "",
+          createdAt: r.createdAt || Date.now()
+        };
+      }).filter(x => x.item);
+      if (rows.length) await catPutMany(rows);
+      await loadCatalogForActiveProject();
+    }
+  }catch{}
   // settings (si se pidió)
   if (importSettings && backup.settings){
     try{
@@ -686,7 +721,7 @@ async function createBackupZipAll(){
   };
 
   const backup = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "all",
     app: "Logi",
     createdAt: new Date().toISOString(),
@@ -712,6 +747,8 @@ async function createBackupZipAll(){
         mime: it.mime || "image/jpeg",
         createdAt: it.createdAt || Date.now(),
         hasLogo: !!it.hasLogo,
+        itemCode: it.itemCode || "",
+        itemDesc: it.itemDesc || "",
         projectId: pid,
         projectName: pName
       };
@@ -898,6 +935,8 @@ async function restoreBackupZipAll(file){
       mime: meta.mime || blob.type || "image/jpeg",
       createdAt: meta.createdAt || Date.now(),
       hasLogo: !!meta.hasLogo,
+      itemCode: meta.itemCode || "",
+      itemDesc: meta.itemDesc || "",
       blob,
       projectId: targetPid
     };
