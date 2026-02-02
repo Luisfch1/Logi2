@@ -594,6 +594,22 @@ async function restoreBackupZip(file){
     const id = meta.id;
 
     if (existing.has(id)){
+      // Ya existe: actualizamos metadatos (ítem/desc) para permitir "reparar" restores anteriores.
+      const obj = cache.find(x => x.id === id);
+      if (obj){
+        const newCode = (meta.itemCode || "").trim();
+        if (newCode && (!obj.itemCode || obj.itemCode !== newCode)){
+          obj.itemCode = newCode;
+        }
+        // Si el backup trae descripción la usamos; si no, intentamos deducirla del catálogo importado.
+        const newDesc = (meta.itemDesc || "").trim() || (newCode ? (getCatalogDesc(newCode) || "") : "");
+        if (newDesc && (!obj.itemDesc || obj.itemDesc !== newDesc)){
+          obj.itemDesc = newDesc;
+        }
+        await dbPut(obj);
+        const h = document.querySelector(`[data-ithint="${id}"]`);
+        if (h) h.textContent = obj.itemCode ? (getCatalogDesc(obj.itemCode) || obj.itemDesc || "") : "";
+      }
       skipped++;
       continue;
     }
@@ -833,7 +849,10 @@ async function restoreBackupZipAll(file){
 
   const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/logo)?");
 
-  const existingAll = new Set((await dbGetAll()).map(x => x.id));
+  const existingList = await dbGetAll();
+  const existingAll = new Set(existingList.map(x => x.id));
+  const existingById = {};
+  for (const x of existingList) existingById[x.id] = x;
 
   // map projects by name
   let { projects, activeId } = ensureProjects();
@@ -903,7 +922,23 @@ async function restoreBackupZipAll(file){
     const meta = backup.items[idx];
     const id = meta.id;
     if (!id){ skipped++; continue; }
-    if (existingAll.has(id)){ skipped++; continue; }
+    if (existingAll.has(id)){
+      // Ya existe: actualizamos metadatos (ítem/desc) si vienen en el backup
+      const obj = existingById[id];
+      if (obj){
+        const newCode = (meta.itemCode || "").trim();
+        if (newCode && (!obj.itemCode || obj.itemCode !== newCode)){
+          obj.itemCode = newCode;
+        }
+        const newDesc = (meta.itemDesc || "").trim() || (newCode ? (getCatalogDesc(newCode) || "") : "");
+        if (newDesc && (!obj.itemDesc || obj.itemDesc !== newDesc)){
+          obj.itemDesc = newDesc;
+        }
+        await dbPut(obj);
+      }
+      skipped++;
+      continue;
+    }
 
     const bpid = meta.projectId || backup.projects?.[0]?.id;
     const targetPid = mapPid[bpid] || activeId;
@@ -1187,6 +1222,42 @@ async function dbClear(){
 let catalog = [];          // rows: {key, projectId, item, descripcion, unidad, createdAt}
 let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
 
+// iOS (Safari) suele portar mal <datalist>. Para asignación de ítems, usamos un picker.
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+function normItemCode(s){
+  const raw = String(s || "").trim();
+  if (!raw) return { raw:"", variants:[] };
+  const variants = new Set();
+  variants.add(raw);
+  // normaliza espacios
+  variants.add(raw.replace(/\s+/g, ""));
+  // normaliza segmentos con ceros a la izquierda (ej: 01.02.003 -> 1.2.3)
+  const seg = raw.split(".");
+  if (seg.length > 1){
+    const seg2 = seg.map(x => {
+      const y = String(x||"").trim();
+      if (!y) return y;
+      const z = y.replace(/^0+(?=\d)/, "");
+      return z;
+    }).join(".");
+    variants.add(seg2);
+    variants.add(seg2.replace(/\s+/g, ""));
+  }
+  // ceros a la izquierda global (ej: 0007 -> 7)
+  variants.add(raw.replace(/^0+(?=\d)/, ""));
+
+  return { raw, variants: Array.from(variants).filter(Boolean) };
+}
+
+function getCatalogDesc(code){
+  const { variants } = normItemCode(code);
+  for (const v of variants){
+    if (catalogMap[v]) return catalogMap[v];
+  }
+  return "";
+}
+
 async function catGetByProject(projectId){
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -1238,7 +1309,14 @@ async function catClearProject(projectId){
 function rebuildCatalogMap(){
   catalogMap = {};
   for (const r of catalog){
-    if (r?.item) catalogMap[String(r.item).trim()] = (r.descripcion || "").trim();
+    const itemRaw = String(r?.item || "").trim();
+    const desc = (r?.descripcion || "").trim();
+    if (!itemRaw) continue;
+    // Guardar varias llaves equivalentes para evitar problemas de formato entre Android/iOS
+    const { variants } = normItemCode(itemRaw);
+    for (const v of variants){
+      catalogMap[v] = desc;
+    }
   }
 }
 
@@ -1282,7 +1360,7 @@ function updateExportItemHint(){
   const hintEl = $("exportItemHint");
   if (!hintEl) return;
   const code = getExportItemCode();
-  hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
+  hintEl.textContent = code ? (getCatalogDesc(code) || "—") : "—";
 }
 
 function getGalleryItemCode(){
@@ -1293,7 +1371,7 @@ function updateGalleryItemHint(){
   const hintEl = $("galleryItemHint");
   if (!hintEl) return;
   const code = getGalleryItemCode();
-  hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
+  hintEl.textContent = code ? (getCatalogDesc(code) || "—") : "—";
 }
 
 function normalizeHeader(s){
@@ -1731,7 +1809,7 @@ function getTemplateMeta(it){
   const time = `${hh}:${mm}`;
   const stamp = fecha ? `${fecha} ${time}` : time;
   const itemCode = String(it.itemCode || "").trim();
-  const itemDesc = String(it.itemDesc || (itemCode && catalogMap[itemCode]) || "").trim();
+  const itemDesc = String(it.itemDesc || (itemCode && getCatalogDesc(itemCode)) || "").trim();
   return { proj, desc, fecha, longDate, time, stamp, itemCode, itemDesc };
 }
 
@@ -2276,7 +2354,7 @@ function renderCaptura(){
 
           <label style="margin-top:6px">Ítem (opcional)</label>
           <input data-id="${item.id}" class="itSel" type="text" list="datalistItems" placeholder="Código o busca en el listado…" ${item.done ? "disabled" : ""} value="${escAttr(item.itemCode || "")}"/>
-          <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (catalogMap[item.itemCode] ? catalogMap[item.itemCode] : "") : ""}</div>
+          <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (getCatalogDesc(item.itemCode) || "") : ""}</div>
 
           <label style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px">
   <span>Descripción</span>
@@ -2329,13 +2407,14 @@ function wireEventsCaptura(){
     };
   });
   document.querySelectorAll("input.itSel").forEach(inp => {
+    inp.onfocus = () => { if (IS_IOS) { const id = Number(inp.dataset.id); openItemPicker(id); } };
     inp.oninput = async () => {
       const id = Number(inp.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj || obj.done) return;
       const code = (inp.value || "").trim();
       obj.itemCode = code;
-      obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
+      obj.itemDesc = code ? (getCatalogDesc(code) || "") : "";
       await dbPut(obj);
       const h = document.querySelector(`[data-ithint="${id}"]`);
       if (h) h.textContent = obj.itemDesc || "";
@@ -2442,6 +2521,77 @@ if (!groups.length){
 =========================== */
 let modalId = null;
 
+// ===========================
+// Item Picker (fallback para iOS)
+// ===========================
+let pickerTarget = null;
+
+function openItemPicker(target){
+  if (!Array.isArray(catalog) || !catalog.length){
+    alert("No hay ítems cargados para este proyecto.");
+    return;
+  }
+  pickerTarget = target;
+  const el = $("picker");
+  if (!el) return;
+  el.classList.add("open");
+  $("pickerSearch").value = "";
+  renderPickerList("");
+  setTimeout(()=> $("pickerSearch").focus(), 50);
+}
+
+function closeItemPicker(){
+  const el = $("picker");
+  if (!el) return;
+  el.classList.remove("open");
+  pickerTarget = null;
+}
+
+function renderPickerList(q){
+  const list = $("pickerList");
+  if (!list) return;
+  const query = String(q||"").trim().toLowerCase();
+  const rows = (catalog || []).slice().sort((a,b)=> String(a.item).localeCompare(String(b.item)));
+  const filtered = query ? rows.filter(r => {
+    const code = String(r.item||"").toLowerCase();
+    const desc = String(r.descripcion||"").toLowerCase();
+    return code.includes(query) || desc.includes(query);
+  }) : rows;
+  const top = filtered.slice(0, 200);
+  list.innerHTML = top.map(r => {
+    const code = String(r.item||"").trim();
+    const desc = String(r.descripcion||"").trim();
+    const unit = String(r.unidad||"").trim();
+    const sub = (desc ? desc : "—") + (unit ? ` [${unit}]` : "");
+    return `<button class="pickerRow" data-code="${escAttr(code)}"><div class="pickerCode">${esc(code)}</div><div class="pickerDesc">${esc(sub)}</div></button>`;
+  }).join("") || `<div class="muted">Sin resultados.</div>`;
+
+  list.querySelectorAll("button.pickerRow").forEach(b=>{
+    b.onclick = () => {
+      const code = String(b.dataset.code || "").trim();
+      if (!code) return;
+      if (pickerTarget === "modal"){
+        $("modalItem").value = code;
+        // dispara lógica normal
+        $("modalItem").dispatchEvent(new Event("input", { bubbles:true }));
+      } else if (typeof pickerTarget === "number"){
+        // pickerTarget = id de foto en captura
+        const inp = document.querySelector(`input.itSel[data-id="${pickerTarget}"]`);
+        if (inp){
+          inp.value = code;
+          inp.dispatchEvent(new Event("input", { bubbles:true }));
+        }
+      }
+      closeItemPicker();
+    };
+  });
+}
+
+$("btnPickerClose")?.addEventListener("click", closeItemPicker);
+$("picker")?.addEventListener("click", (e)=>{ if (e.target.id === "picker") closeItemPicker(); });
+$("pickerSearch")?.addEventListener("input", (e)=> renderPickerList(e.target.value));
+// ===========================
+
 function openModal(id){
   const it = cache.find(x => x.id === id);
   if (!it) return;
@@ -2457,7 +2607,8 @@ function openModal(id){
 
   $("modalItem").value = it.itemCode || "";
   $("modalItem").disabled = !!it.done;
-  $("modalItemHint").textContent = (it.itemCode && catalogMap[it.itemCode]) ? catalogMap[it.itemCode] : "—";
+  $("modalItemHint").textContent = it.itemCode ? (getCatalogDesc(it.itemCode) || "—") : "—";
+  if (IS_IOS){ $("modalItem").addEventListener("focus", ()=> openItemPicker("modal"), { once:true }); }
 
   $("modalDesc").value = it.descripcion || "";
   $("modalDesc").disabled = !!it.done;
@@ -2487,7 +2638,7 @@ $("modalItem").oninput = async () => {
   if (!it || it.done) return;
   const code = ($("modalItem").value || "").trim();
   it.itemCode = code;
-  it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
+  it.itemDesc = code ? (getCatalogDesc(code) || "") : "";
   $("modalItemHint").textContent = it.itemDesc || "—";
   await dbPut(it);
   // refrescar hints en captura
