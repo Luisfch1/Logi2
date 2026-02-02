@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.15</title>
+    <title>Logi2 v0.8.7.17</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.13">
-  <link rel="icon" href="favicon.png?v=0.8.7.13">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.13">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.17">
+  <link rel="icon" href="favicon.png?v=0.8.7.17">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.17">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.15</div>
+          <div class="appVersion" id="appVersion">v0.8.7.17</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -434,6 +434,7 @@
           <select id="projectSelect" class="projectSelect"></select>
           <button class="btn btn-secondary smallBtn" id="btnProjectRename" title="Renombrar proyecto">✏️</button>
           <button class="btn btn-primary smallBtn" id="btnProjectNew" title="Nuevo proyecto">➕</button>
+          <button class="btn btn-danger smallBtn" id="btnProjectDelete" title="Eliminar proyecto">🗑️</button>
         </div>
       </div>
 
@@ -859,6 +860,52 @@
       </div>
     </div>
   </div>
+  <!-- Modal: Eliminar proyecto -->
+  <div class="modal" id="projDeleteModal" aria-hidden="true">
+    <div class="modalCard projModalCard">
+      <div class="modalBody" style="grid-template-columns:1fr">
+        <div class="modalSide">
+          <div class="modalCloseRow">
+            <div>
+              <div class="modalTitle">Eliminar proyecto</div>
+              <div class="muted" id="projDeleteMeta">—</div>
+            </div>
+            <button class="btn btn-secondary smallBtn" id="btnProjDeleteClose">✖</button>
+          </div>
+
+          <div id="projDeleteStep1">
+            <div style="margin-top:8px">
+              <div class="muted" style="line-height:1.35">
+                Vas a eliminar este proyecto y <b>todas sus fotos</b>. Esta acción no se puede deshacer.
+              </div>
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap">
+              <button class="btn btn-secondary" id="btnProjDeleteCancel1">Cancelar</button>
+              <button class="btn btn-danger" id="btnProjDeleteNext">Sí, eliminar…</button>
+            </div>
+          </div>
+
+          <div id="projDeleteStep2" style="display:none">
+            <div style="margin-top:8px">
+              <div class="muted" style="line-height:1.35">
+                Antes de eliminar, ¿quieres hacer un <b>backup de este proyecto</b>?
+              </div>
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap">
+              <button class="btn btn-secondary" id="btnProjDeleteCancel2">Cancelar</button>
+              <button class="btn btn-danger" id="btnProjDeleteNoBackup">Eliminar sin backup</button>
+              <button class="btn btn-primary glowBtn" id="btnProjDeleteWithBackup">📦 Backup y eliminar</button>
+            </div>
+
+            <div class="muted" id="projDeleteStatus" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Datalist: Ítems del proyecto -->
   <datalist id="datalistItems"></datalist>
@@ -1222,7 +1269,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.15";
+const APP_VERSION = "v0.8.7.17";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -2520,7 +2567,7 @@ $("itemsInput").onchange = async () => {
    IndexedDB
 =========================== */
 const DB_NAME = "logi2_db_v1";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
@@ -2539,12 +2586,14 @@ function openDB(){
         const store = db.createObjectStore(DB_STORE, { keyPath: "id" });
         store.createIndex("byDate", "fecha");
         store.createIndex("byCreated", "createdAt");
+        store.createIndex("byProjectId", "projectId");
       } else {
         // Asegurar índices (por si el usuario viene de una versión rara)
         const tx = req.transaction;
         const store = tx.objectStore(DB_STORE);
         if (!store.indexNames.contains("byDate")) store.createIndex("byDate", "fecha");
         if (!store.indexNames.contains("byCreated")) store.createIndex("byCreated", "createdAt");
+        if (!store.indexNames.contains("byProjectId")) store.createIndex("byProjectId", "projectId");
       }
 
       // Store catálogo ítems (nuevo)
@@ -3223,6 +3272,7 @@ function attachProjectHandlers(){
   const sel = $("projectSelect");
   const btnNew = $("btnProjectNew");
   const btnRen = $("btnProjectRename");
+  const btnDel = $("btnProjectDelete");
   const btnClose = $("btnProjModalClose");
   const btnCancel = $("btnProjCancel");
   const btnSave = $("btnProjSave");
@@ -3236,6 +3286,7 @@ function attachProjectHandlers(){
   }
   if (btnNew) btnNew.onclick = () => openProjModal("new");
   if (btnRen) btnRen.onclick = () => openProjModal("rename");
+  if (btnDel) btnDel.onclick = () => openProjDeleteModal();
   if (btnClose) btnClose.onclick = closeProjModal;
   if (btnCancel) btnCancel.onclick = closeProjModal;
 
@@ -3244,6 +3295,7 @@ function attachProjectHandlers(){
       if (e.target === modal) closeProjModal();
     });
   }
+  attachProjectDeleteHandlers();
 
   if (btnSave){
     btnSave.onclick = async () => {
@@ -3322,6 +3374,218 @@ function fmtBytes(bytes){
   if (kb < 1024) return kb.toFixed(1) + " KB";
   const mb = kb/1024;
   return mb.toFixed(1) + " MB";
+}
+
+
+let projDeleteTargetId = "";
+let projDeleteHandlersAttached = false;
+
+function openProjDeleteModal(){
+  const { projects, activeId } = ensureProjects();
+  const sel = $("projectSelect");
+  const targetId = (sel && sel.value) ? sel.value : activeId;
+  if (!targetId) return;
+
+  if (projects.length <= 1){
+    alert("No puedes eliminar el último proyecto.");
+    return;
+  }
+
+  const p = projects.find(x => x.id === targetId);
+  projDeleteTargetId = targetId;
+
+  const meta = $("projDeleteMeta");
+  if (meta) meta.textContent = p ? `Proyecto: ${p.name}` : "Proyecto";
+
+  const st = $("projDeleteStatus");
+  if (st) st.textContent = "";
+
+  $("projDeleteStep1").style.display = "";
+  $("projDeleteStep2").style.display = "none";
+
+  const modal = $("projDeleteModal");
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden","false");
+}
+
+function closeProjDeleteModal(){
+  const modal = $("projDeleteModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden","true");
+}
+
+function attachProjectDeleteHandlers(){
+  if (projDeleteHandlersAttached) return;
+  const modal = $("projDeleteModal");
+  if (!modal) return;
+  projDeleteHandlersAttached = true;
+
+  const btnClose = $("btnProjDeleteClose");
+  const btnCancel1 = $("btnProjDeleteCancel1");
+  const btnCancel2 = $("btnProjDeleteCancel2");
+  const btnNext = $("btnProjDeleteNext");
+  const btnNoBk = $("btnProjDeleteNoBackup");
+  const btnWithBk = $("btnProjDeleteWithBackup");
+
+  if (btnClose) btnClose.onclick = closeProjDeleteModal;
+  if (btnCancel1) btnCancel1.onclick = closeProjDeleteModal;
+  if (btnCancel2) btnCancel2.onclick = closeProjDeleteModal;
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeProjDeleteModal();
+  });
+
+  if (btnNext){
+    btnNext.onclick = () => {
+      $("projDeleteStep1").style.display = "none";
+      $("projDeleteStep2").style.display = "";
+    };
+  }
+
+  if (btnNoBk) btnNoBk.onclick = async () => { await runDeleteProjectFlow(false); };
+  if (btnWithBk) btnWithBk.onclick = async () => { await runDeleteProjectFlow(true); };
+}
+
+async function runDeleteProjectFlow(withBackup){
+  const st = $("projDeleteStatus");
+  const targetId = projDeleteTargetId;
+  if (!targetId) return;
+
+  try{
+    if (st) st.textContent = withBackup ? "Generando backup del proyecto…" : "Eliminando proyecto…";
+
+    // Asegurar que el proyecto a eliminar sea el activo (backup por proyecto usa activo)
+    const sel = $("projectSelect");
+    if (sel && sel.value !== targetId){
+      sel.value = targetId;
+      setActiveProjectId(targetId);
+      onProjectChanged();
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    if (withBackup){
+      await createBackupZip();
+      if (st) st.textContent = "Backup listo ✅ Ahora eliminando…";
+    }
+
+    await deleteProjectById(targetId);
+
+    if (st) st.textContent = "Proyecto eliminado ✅";
+    setTimeout(() => closeProjDeleteModal(), 350);
+  }catch(e){
+    diagPush("error","project_delete_failed",{ err: String(e?.message||e) });
+    if (st) st.textContent = "Error eliminando proyecto: " + String(e?.message||e);
+    alert("Error eliminando proyecto. Mira DIAG si necesitas detalle.");
+  }
+}
+
+async function deleteProjectById(projectId){
+  const { projects, activeId } = ensureProjects();
+  const firstId = projects[0]?.id || activeId;
+
+  if (projects.length <= 1){
+    alert("No puedes eliminar el último proyecto.");
+    return;
+  }
+
+  const p = projects.find(x => x.id === projectId);
+  diagPush("info","project_delete_start",{ projectId, name: p?.name || "" });
+
+  await deleteItemsByProject(projectId, firstId);
+  await catDeleteByProject(projectId);
+  try{ await tplDelete(projectId); }catch{}
+  try{ await safeItemFileDelete(projectId); }catch{}
+
+  let newProjects = loadProjects().filter(x => x.id !== projectId);
+  if (!newProjects.length){
+    const nid = genPid();
+    newProjects = [{ id: nid, name: "Proyecto 1", createdAt: Date.now() }];
+  }
+  saveProjects(newProjects);
+
+  const currentActive = getActiveProjectId();
+  if (!currentActive || currentActive === projectId){
+    setActiveProjectId(newProjects[0].id);
+  }
+
+  refreshProjectUI();
+  onProjectChanged();
+
+  diagPush("info","project_delete_done",{ projectId, remaining: newProjects.length });
+}
+
+async function deleteItemsByProject(projectId, firstId){
+  const db = await openDB();
+  const mustScanAll = (projectId === firstId);
+
+  let hasIndex = false;
+  try{
+    const txTest = db.transaction(DB_STORE, "readonly");
+    const storeTest = txTest.objectStore(DB_STORE);
+    hasIndex = storeTest.indexNames.contains("byProjectId");
+  }catch{ hasIndex = false; }
+
+  if (hasIndex && !mustScanAll){
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      const store = tx.objectStore(DB_STORE);
+      const idx = store.index("byProjectId");
+      const range = IDBKeyRange.only(projectId);
+      let count = 0;
+      idx.openCursor(range).onsuccess = (ev) => {
+        const cur = ev.target.result;
+        if (cur){
+          cur.delete();
+          count++;
+          cur.continue();
+        }
+      };
+      tx.oncomplete = () => { diagPush("info","project_delete_items",{ projectId, count }); resolve(true); };
+      tx.onerror = () => reject(tx.error);
+    });
+    return;
+  }
+
+  const all = await dbGetAll();
+  const toDel = [];
+  for (const it of (all||[])){
+    const pid = it.projectId || firstId;
+    if (pid === projectId) toDel.push(it.id);
+  }
+  let deleted = 0;
+  for (const id of toDel){
+    try{ await dbDelete(id); deleted++; }catch{}
+    if (deleted % 50 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+  diagPush("info","project_delete_items_scan",{ projectId, deleted, scanned: (all||[]).length });
+}
+
+async function catDeleteByProject(projectId){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_CATALOG, "readwrite");
+    const store = tx.objectStore(DB_STORE_CATALOG);
+    const idx = store.index("byProject");
+    const range = IDBKeyRange.only(projectId);
+    let count = 0;
+    idx.openCursor(range).onsuccess = (ev) => {
+      const cur = ev.target.result;
+      if (cur){
+        cur.delete();
+        count++;
+        cur.continue();
+      }
+    };
+    tx.oncomplete = () => { diagPush("info","project_delete_catalog",{ projectId, count }); resolve(true); };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function safeItemFileDelete(projectId){
+  const db = await openDB();
+  if (!db.objectStoreNames.contains(DB_STORE_ITEMFILES)) return false;
+  return await itemFileDelete(projectId);
 }
 
 function filenameForItem(it, idxWithinDay, useTime){
