@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.13</title>
+    <title>Logi2 v0.8.7.15</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.13">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.13</div>
+          <div class="appVersion" id="appVersion">v0.8.7.15</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1222,7 +1222,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.13";
+const APP_VERSION = "v0.8.7.15";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -1567,6 +1567,13 @@ async function createBackupZip(){
     app: "Logi",
     createdAt: new Date().toISOString(),
     settings,
+    catalog: (catalog || []).map(r => ({
+      projectId: activeId,
+      item: r.item || "",
+      descripcion: r.descripcion || "",
+      unidad: r.unidad || "",
+      createdAt: r.createdAt || Date.now()
+    })),
     items: items.map(it => ({
       id: it.id,
       fecha: it.fecha || "",
@@ -1698,25 +1705,68 @@ async function restoreBackupZip(file){
   }
 
   // restaurar archivo de ítems (si viene en el ZIP) y reconstruir catálogo
-  try{
-    const keys = Object.keys(zip.files || {});
-    const prefix = "item_files/";
-    const k = keys.find(x => x.startsWith(prefix) && !zip.files[x].dir);
-    if (k){
-      const f = zip.file(k);
-      if (f){
-        const blob = await f.async("blob");
-        const name = k.split("/").slice(-1)[0] || "items.xlsx";
+// Orden: (1) guardar archivo fuente de verdad (2) intentar parsear Excel si XLSX está disponible
+// Si XLSX no está disponible o falla el parseo, usamos backup.catalog como fallback (para que el selector funcione offline).
+let __catalogRestored = false;
+try{
+  const keys = Object.keys(zip.files || {});
+  const prefix = "item_files/";
+  const k = keys.find(x => x.startsWith(prefix) && !zip.files[x].dir);
+  if (k){
+    const f = zip.file(k);
+    if (f){
+      const blob = await f.async("blob");
+      const name = k.split("/").slice(-1)[0] || "items.xlsx";
+
+      // Guardar el archivo original
+      try{
         const ab = await blob.arrayBuffer();
         await itemFilePut(targetPid, { name, mime: blob.type||"", ab });
-        await catClearProject(targetPid);
-        await importItemsFile(new File([blob], name, { type: blob.type||"" }), targetPid);
-        diagPush("info","restore_project_itemfile_ok",{ projectId: targetPid, name });
+      }catch(e){
+        diagPush("warn","restore_project_itemfile_save_failed",{ err:String(e?.message||e) });
+      }
+
+      // Intentar reconstruir catálogo si XLSX está cargado
+      if (window.XLSX){
+        try{
+          await catClearProject(targetPid);
+          const res = await importItemsFile(new File([blob], name, { type: blob.type||"" }), targetPid);
+          __catalogRestored = !!(res && res.added > 0);
+          diagPush("info","restore_project_itemfile_ok",{ projectId: targetPid, name, added: res?.added||0 });
+        }catch(e){
+          diagPush("warn","restore_project_itemfile_parse_failed",{ err:String(e?.message||e) });
+        }
+      } else {
+        diagPush("warn","restore_project_xlsx_missing",{ projectId: targetPid, name });
       }
     }
-  }catch(e){
-    diagPush("warn","restore_project_itemfile_failed",{ err:String(e?.message||e) });
   }
+}catch(e){
+  diagPush("warn","restore_project_itemfile_failed",{ err:String(e?.message||e) });
+}
+
+// Fallback: si no pudimos reconstruir el catálogo, usar el catálogo embebido del backup
+try{
+  if (!__catalogRestored && Array.isArray(backup.catalog) && backup.catalog.length){
+    await catClearProject(targetPid);
+    const rows = backup.catalog.map(r => {
+      const item = String(r.item || "").trim();
+      return item ? ({
+        key: `${targetPid}::${item}`,
+        projectId: targetPid,
+        item,
+        descripcion: r.descripcion || "",
+        unidad: r.unidad || "",
+        createdAt: r.createdAt || Date.now()
+      }) : null;
+    }).filter(Boolean);
+    if (rows.length) await catPutMany(rows);
+    await loadCatalogForActiveProject();
+    diagPush("info","restore_project_catalog_fallback_ok",{ projectId: targetPid, rows: rows.length });
+  }
+}catch(e){
+  diagPush("warn","restore_project_catalog_fallback_failed",{ err:String(e?.message||e) });
+}
 
 const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/proyecto/logo)?\n\nSi dices Cancelar, solo importo las fotos.");
 
@@ -2079,14 +2129,25 @@ async function restoreBackupZipAll(file){
       }
 
       // reconstruir catálogo desde el archivo (limpiando antes)
+      // Si XLSX no está disponible (offline sin primera carga), NO intentamos parsear:
+      // dejamos que el fallback backup.catalog repueble el catálogo.
       try{
-        if (!restoredItemProjects.has(targetPid)){
-          await catClearProject(targetPid);
-          restoredItemProjects.add(targetPid);
+        if (!window.XLSX){
+          diagPush("warn","restore_all_xlsx_missing",{ projectId: targetPid, name });
+        } else {
+          if (!restoredItemProjects.has(targetPid)){
+            await catClearProject(targetPid);
+          }
+          const fileObj = new File([blob], name, { type: blob.type || "" });
+          const res = await importItemsFile(fileObj, targetPid);
+          const ok = !!(res && res.added > 0);
+          if (ok){
+            restoredItemProjects.add(targetPid);
+            diagPush("info","restore_all_catalog_rebuilt",{ projectId: targetPid, name, added: res?.added||0 });
+          } else {
+            diagPush("warn","restore_all_catalog_rebuild_empty",{ projectId: targetPid, name });
+          }
         }
-        const fileObj = new File([blob], name, { type: blob.type || "" });
-        await importItemsFile(fileObj, targetPid);
-        diagPush("info","restore_all_catalog_rebuilt",{ projectId: targetPid, name });
       }catch(e){
         diagPush("warn","restore_all_catalog_rebuild_failed",{ projectId: targetPid, err: String(e?.message||e) });
       }
@@ -2705,6 +2766,151 @@ function refreshCatalogDatalist(){
     opt.textContent = r.descripcion ? `${r.item} — ${r.descripcion}${(r.unidad||'').trim() ? ' ['+(r.unidad||'').trim()+']' : ''}` : String(r.item || "");
     dl.appendChild(opt);
   }
+}
+
+// ✅ Selector de ítems compatible con iOS (fallback a datalist)
+let __itemPicker = null;
+let __itemPickerInput = null;
+let __itemPickerHideT = null;
+
+function __ensureItemPicker(){
+  if (__itemPicker) return __itemPicker;
+  const el = document.createElement('div');
+  el.id = 'itemPicker';
+  el.style.position = 'fixed';
+  el.style.zIndex = '9999';
+  el.style.display = 'none';
+  el.style.maxHeight = '240px';
+  el.style.overflow = 'auto';
+  el.style.borderRadius = '14px';
+  el.style.padding = '8px';
+  el.style.border = '1px solid rgba(148,163,184,.25)';
+  el.style.background = 'rgba(2,6,23,.98)';
+  el.style.boxShadow = '0 12px 40px rgba(0,0,0,.55)';
+  el.style.backdropFilter = 'blur(10px)';
+  el.addEventListener('mousedown', (e)=>{ e.preventDefault(); }); // evita perder foco antes del click
+  document.body.appendChild(el);
+  __itemPicker = el;
+
+  // cerrar al tocar fuera
+  document.addEventListener('mousedown', (e)=>{
+    if (!__itemPicker || __itemPicker.style.display==='none') return;
+    if (__itemPicker.contains(e.target)) return;
+    if (__itemPickerInput && (e.target===__itemPickerInput)) return;
+    __hideItemPicker();
+  });
+  window.addEventListener('scroll', ()=>{ if (__itemPicker && __itemPicker.style.display!=='none') __hideItemPicker(); }, true);
+  window.addEventListener('resize', ()=>{ if (__itemPicker && __itemPicker.style.display!=='none') __hideItemPicker(); });
+
+  return el;
+}
+
+function __hideItemPicker(){
+  if (__itemPickerHideT) clearTimeout(__itemPickerHideT);
+  if (__itemPicker){ __itemPicker.style.display='none'; __itemPicker.innerHTML=''; }
+  __itemPickerInput = null;
+}
+
+function __positionPickerNearInput(inp){
+  const r = inp.getBoundingClientRect();
+  const el = __ensureItemPicker();
+  const pad = 8;
+  const top = Math.min(window.innerHeight - pad - 260, r.bottom + 6);
+  const left = Math.max(pad, Math.min(window.innerWidth - pad - 360, r.left));
+  const width = Math.min(360, Math.max(240, r.width));
+  el.style.top = top + 'px';
+  el.style.left = left + 'px';
+  el.style.width = width + 'px';
+}
+
+function __catalogMatches(q){
+  const s = String(q||'').trim().toLowerCase();
+  const rows = (catalog || []);
+  if (!rows.length) return [];
+  if (!s) return rows.slice(0, 80);
+  const out = [];
+  for (const r of rows){
+    const code = String(r.item||'').trim();
+    const desc = String(r.descripcion||'').toLowerCase();
+    const unit = String(r.unidad||'').toLowerCase();
+    if (code.toLowerCase().includes(s) || desc.includes(s) || unit.includes(s)) out.push(r);
+    if (out.length>=80) break;
+  }
+  return out;
+}
+
+function __renderItemPicker(inp){
+  if (!inp || inp.disabled) return;
+  const el = __ensureItemPicker();
+  __itemPickerInput = inp;
+
+  if (!(catalog && catalog.length)){
+    // si no hay catálogo, no mostrar (evita confusión)
+    __hideItemPicker();
+    return;
+  }
+
+  __positionPickerNearInput(inp);
+
+  const q = inp.value || '';
+  const rows = __catalogMatches(q);
+  el.innerHTML = '';
+
+  if (!rows.length){
+    const empty = document.createElement('div');
+    empty.style.padding='10px 10px';
+    empty.style.color='rgba(148,163,184,.95)';
+    empty.style.fontSize='.9rem';
+    empty.textContent = q ? 'Sin coincidencias. Prueba con otro código o palabra.' : 'No hay ítems para mostrar.';
+    el.appendChild(empty);
+  } else {
+    for (const r of rows){
+      const code = String(r.item||'').trim();
+      const line = document.createElement('div');
+      line.style.padding='10px 10px';
+      line.style.borderRadius='10px';
+      line.style.cursor='pointer';
+      line.style.userSelect='none';
+      line.style.display='flex';
+      line.style.flexDirection='column';
+      line.style.gap='4px';
+      line.addEventListener('mouseenter', ()=>{ line.style.background='rgba(59,130,246,.14)'; });
+      line.addEventListener('mouseleave', ()=>{ line.style.background='transparent'; });
+      line.addEventListener('click', ()=>{
+        inp.value = code;
+        inp.dispatchEvent(new Event('input', { bubbles:true }));
+        inp.dispatchEvent(new Event('change', { bubbles:true }));
+        __hideItemPicker();
+      });
+
+      const t1 = document.createElement('div');
+      t1.style.fontWeight='900';
+      t1.style.color='rgba(226,232,240,.98)';
+      t1.textContent = code + (r.unidad ? `  [${String(r.unidad).trim()}]` : '');
+
+      const t2 = document.createElement('div');
+      t2.style.fontSize='.86rem';
+      t2.style.color='rgba(148,163,184,.95)';
+      t2.textContent = String(r.descripcion||'').trim() || '—';
+
+      line.appendChild(t1);
+      line.appendChild(t2);
+      el.appendChild(line);
+    }
+  }
+
+  el.style.display='block';
+}
+
+function attachItemPicker(inp){
+  if (!inp || inp.dataset.picker==='1') return;
+  inp.dataset.picker='1';
+
+  inp.addEventListener('focus', ()=>{ __renderItemPicker(inp); });
+  inp.addEventListener('input', ()=>{ __renderItemPicker(inp); });
+  inp.addEventListener('click', ()=>{ __renderItemPicker(inp); });
+  inp.addEventListener('blur', ()=>{ __itemPickerHideT=setTimeout(__hideItemPicker, 160); });
+  inp.addEventListener('keydown', (e)=>{ if (e.key==='Escape'){ __hideItemPicker(); inp.blur(); }});
 }
 
 function refreshCatalogStatus(){
@@ -4110,6 +4316,7 @@ function wireEventsCaptura(){
     };
   });
   document.querySelectorAll("input.itSel").forEach(inp => {
+    try{ attachItemPicker(inp); }catch{}
     inp.oninput = async () => {
       const id = Number(inp.dataset.id);
       const obj = cache.find(x => x.id === id);
@@ -6585,6 +6792,11 @@ function renderExport(){
   updateExportUI();
 
   initLayoutUI();
+
+  // Picker de ítems (fallback para iOS si datalist no sugiere)
+  try{ if ($("modalItem")) attachItemPicker($("modalItem")); }catch{}
+  try{ if ($("exportItem")) attachItemPicker($("exportItem")); }catch{}
+  try{ if ($("galleryItem")) attachItemPicker($("galleryItem")); }catch{}
 
   // Export: filtro por ítem (opcional)
   if ($("exportItem")) {
