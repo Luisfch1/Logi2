@@ -451,6 +451,14 @@ async function createBackupZip(){
   const firstId = projects[0]?.id || activeId;
   const items = allItems.filter(it => (it.projectId ? it.projectId === activeId : activeId === firstId));
 
+  // Catálogo y archivo fuente (xlsx/csv) del proyecto activo
+  const catRows = await catGetByProject(activeId);
+  const srcRec = await srcGet(activeId);
+
+  // Catálogo y archivo fuente (xlsx/csv) del proyecto activo
+  const catRows = await catGetByProject(activeId);
+  const srcRec = await srcGet(activeId);
+
   const settings = {
     theme: localStorage.getItem(THEME_KEY) || "dark",
     accent: localStorage.getItem(ACCENT_KEY) || "blue",
@@ -461,22 +469,17 @@ async function createBackupZip(){
     logoCorner: localStorage.getItem("logi_logo_corner") || "br",
   };
 
-  const catRows = await catGetByProject(activeId);
-
   const backup = {
-    schemaVersion: 2,
-    type: "project",
+    schemaVersion: 3,
     app: "Logi",
     createdAt: new Date().toISOString(),
     settings,
     projectId: activeId,
-    projectName: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
-    catalog: (catRows || []).map(r => ({
-      item: r.item || "",
-      descripcion: r.descripcion || "",
-      unidad: r.unidad || "",
-      createdAt: r.createdAt || Date.now()
-    })),
+    projectName: (projects.find(p => p.id === activeId)?.name) || "",
+    // Catálogo parseado (fallback). La fuente real es itemsSource.
+    catalog: (catRows || []).map(r => ({ item: r.item||"", descripcion: r.descripcion||"", unidad: r.unidad||"", createdAt: r.createdAt||Date.now() })),
+    // Archivo fuente EXACTO (xlsx/csv) que el usuario cargó para este proyecto
+    itemsSource: srcRec ? ({ filename: srcRec.filename||"items.xlsx", mime: srcRec.mime||"application/octet-stream", updatedAt: srcRec.updatedAt||Date.now() }) : null,
     items: items.map(it => ({
       id: it.id,
       fecha: it.fecha || "",
@@ -486,13 +489,20 @@ async function createBackupZip(){
       mime: it.mime || "image/jpeg",
       createdAt: it.createdAt || Date.now(),
       hasLogo: !!it.hasLogo,
-      itemCode: it.itemCode || "",
-      itemDesc: it.itemDesc || ""
+      itemCode: String(it.itemCode || "").trim()
     }))
   };
 
   const zip = new JSZip();
   zip.file("backup.json", JSON.stringify(backup, null, 2));
+
+  // archivo fuente de ítems (si existe)
+  if (srcRec && srcRec.blob){
+    try{
+      const f = zip.folder("items_source");
+      f.file(srcRec.filename || "items.xlsx", srcRec.blob);
+    }catch{}
+  }
 
   // fotos
   const photos = zip.folder("photos");
@@ -560,6 +570,55 @@ async function restoreBackupZip(file){
 
   const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/proyecto/logo)?\n\nSi dices Cancelar, solo importo las fotos.");
 
+  
+  // 1) Restaurar catálogo desde el ARCHIVO fuente (xlsx/csv), si viene en el ZIP
+  const activePid = getActiveProjectId() || ensureProjects().activeId;
+  try{
+    const srcFolder = zip.folder("items_source");
+    let srcFileEntry = null;
+    if (srcFolder){
+      const candidates = Object.keys(srcFolder.files || {}).filter(p => p.startsWith("items_source/") && !srcFolder.files[p].dir);
+      if (candidates.length) srcFileEntry = candidates[0];
+    }
+    if (srcFileEntry){
+      const blob = await zip.file(srcFileEntry).async("blob");
+      const filename = (backup.itemsSource && backup.itemsSource.filename) ? backup.itemsSource.filename : (srcFileEntry.split("/").pop() || "items.xlsx");
+      const fileObj = new File([blob], filename, { type: (backup.itemsSource && backup.itemsSource.mime) ? backup.itemsSource.mime : blob.type });
+      // Guardar archivo fuente en DB y reconstruir catálogo leyendo ese archivo
+      await srcPut(activePid, fileObj);
+      await catClearProject(activePid);
+      const resCat = await importItemsFileToProject(fileObj, activePid);
+      if (resCat && resCat.noXlsx){
+        // Si no hay XLSX disponible, usamos fallback del backup (si existe)
+        if (Array.isArray(backup.catalog) && backup.catalog.length){
+          const rows = backup.catalog.map(r => ({
+            key: `${activePid}::${String(r.item||"").trim()}`,
+            projectId: activePid,
+            item: String(r.item||"").trim(),
+            descripcion: r.descripcion || "",
+            unidad: r.unidad || "",
+            createdAt: r.createdAt || Date.now()
+          })).filter(x => x.item);
+          if (rows.length) await catPutMany(rows);
+        }
+      }
+    }else{
+      // Fallback: catálogo parseado si venía (para backups antiguos)
+      if (Array.isArray(backup.catalog) && backup.catalog.length){
+        await catClearProject(activePid);
+        const rows = backup.catalog.map(r => ({
+          key: `${activePid}::${String(r.item||"").trim()}`,
+          projectId: activePid,
+          item: String(r.item||"").trim(),
+          descripcion: r.descripcion || "",
+          unidad: r.unidad || "",
+          createdAt: r.createdAt || Date.now()
+        })).filter(x => x.item);
+        if (rows.length) await catPutMany(rows);
+      }
+    }
+  }catch(e){ console.warn("restore catalog source failed", e); }
+
   // mapa de existentes (mezclar)
   const existing = new Set(cache.map(x => x.id));
   let added = 0;
@@ -588,48 +647,12 @@ async function restoreBackupZip(file){
     }catch{}
   }
 
-// restore catálogo (si viene en el ZIP)
-  try{
-    if (Array.isArray(backup.catalog) && backup.catalog.length){
-      const pid = getActiveProjectId() || ensureProjects().activeId;
-      const rows = backup.catalog.map(r => {
-        const item = String(r.item || "").trim();
-        return {
-          key: `${pid}::${item}`,
-          projectId: pid,
-          item,
-          descripcion: r.descripcion || "",
-          unidad: r.unidad || "",
-          createdAt: r.createdAt || Date.now()
-        };
-      }).filter(x => x.item);
-      if (rows.length) await catPutMany(rows);
-      await loadCatalogForActiveProject();
-    }
-  }catch{}
-  
-    const total = backup.items.length;
+  const total = backup.items.length;
   for (let idx=0; idx<total; idx++){
     const meta = backup.items[idx];
     const id = meta.id;
 
     if (existing.has(id)){
-      // Ya existe: actualizamos metadatos (ítem/desc) para permitir "reparar" restores anteriores.
-      const obj = cache.find(x => x.id === id);
-      if (obj){
-        const newCode = (meta.itemCode || "").trim();
-        if (newCode && (!obj.itemCode || obj.itemCode !== newCode)){
-          obj.itemCode = newCode;
-        }
-        // Si el backup trae descripción la usamos; si no, intentamos deducirla del catálogo importado.
-        const newDesc = (meta.itemDesc || "").trim() || (newCode ? (getCatalogDesc(newCode) || "") : "");
-        if (newDesc && (!obj.itemDesc || obj.itemDesc !== newDesc)){
-          obj.itemDesc = newDesc;
-        }
-        await dbPut(obj);
-        const h = document.querySelector(`[data-ithint="${id}"]`);
-        if (h) h.textContent = obj.itemCode ? (getCatalogDesc(obj.itemCode) || obj.itemDesc || "") : "";
-      }
       skipped++;
       continue;
     }
@@ -668,8 +691,6 @@ async function restoreBackupZip(file){
       mime: meta.mime || blob.type || "image/jpeg",
       createdAt: meta.createdAt || Date.now(),
       hasLogo: !!meta.hasLogo,
-      itemCode: meta.itemCode || "",
-      itemDesc: (meta.itemDesc || "") || (meta.itemCode ? (getCatalogDesc(meta.itemCode) || "") : ""),
       projectId: activeP ? activeP.id : null
     };
 
@@ -678,7 +699,6 @@ async function restoreBackupZip(file){
     existing.add(id);
     added++;
   }
-
 
   // settings (si se pidió)
   if (importSettings && backup.settings){
@@ -702,6 +722,7 @@ async function restoreBackupZip(file){
   }
 
   // re-render
+  try{ await loadCatalogForActiveProject(); }catch{}
   render();
   $("backupStatus").textContent = `Restauración completa ✅ (agregadas: ${added}, ya existían/omitidas: ${skipped})`;
   setTimeout(() => { $("backupStatus").textContent = "Consejo: haz backup al final del día o antes de actualizar."; }, 3500);
@@ -724,6 +745,7 @@ async function createBackupZipAll(){
   const { projects, activeId } = ensureProjects();
   const allItems = await dbGetAll();
   const allCatalog = await catGetAll();
+  const allSources = await srcGetAll();
 
   const firstId = projects[0]?.id || activeId;
 
@@ -738,13 +760,15 @@ async function createBackupZipAll(){
   };
 
   const backup = {
-    schemaVersion: 3,
+    schemaVersion: 2,
     type: "all",
     app: "Logi",
     createdAt: new Date().toISOString(),
     settings,
     projects,
     activeProjectId: activeId,
+    // Archivos fuente EXACTOS (xlsx/csv) por proyecto
+    itemsSources: (allSources || []).map(s => ({ projectId: s.projectId||s.key||"", filename: s.filename||"items.xlsx", mime: s.mime||"application/octet-stream", updatedAt: s.updatedAt||Date.now() })).filter(x=>x.projectId),
     catalog: (allCatalog || []).map(r => ({
       projectId: r.projectId || firstId,
       item: r.item || "",
@@ -764,16 +788,26 @@ async function createBackupZipAll(){
         mime: it.mime || "image/jpeg",
         createdAt: it.createdAt || Date.now(),
         hasLogo: !!it.hasLogo,
-        itemCode: it.itemCode || "",
-        itemDesc: it.itemDesc || "",
         projectId: pid,
-        projectName: pName
+        projectName: pName,
+        itemCode: String(it.itemCode || "").trim()
       };
     })
   };
 
   const zip = new JSZip();
   zip.file("backup.json", JSON.stringify(backup, null, 2));
+
+  // archivos fuente de ítems
+  try{
+    const srcFolder = zip.folder("items_source");
+    for (const s of (allSources || [])){
+      if (!s || !(s.projectId||s.key) || !s.blob) continue;
+      const pid = String(s.projectId||s.key);
+      const pf = srcFolder.folder(pid);
+      pf.file(s.filename || "items.xlsx", s.blob);
+    }
+  }catch{}
 
   const photos = zip.folder("photos");
   let i = 0;
@@ -850,10 +884,7 @@ async function restoreBackupZipAll(file){
 
   const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/logo)?");
 
-  const existingList = await dbGetAll();
-  const existingAll = new Set(existingList.map(x => x.id));
-  const existingById = {};
-  for (const x of existingList) existingById[x.id] = x;
+  const existingAll = new Set((await dbGetAll()).map(x => x.id));
 
   // map projects by name
   let { projects, activeId } = ensureProjects();
@@ -914,26 +945,41 @@ async function restoreBackupZipAll(file){
     }
   }
 
-  // restore catalog
-  if (Array.isArray(backup.catalog) && backup.catalog.length){
-    const rows = backup.catalog.map(r => {
-      const pid = mapPid[r.projectId] || activeId;
-      const item = String(r.item || "").trim();
-      return {
-        key: `${pid}::${item}`,
-        projectId: pid,
-        item,
-        descripcion: r.descripcion || "",
-        unidad: r.unidad || "",
-        createdAt: r.createdAt || Date.now()
-      };
-    }).filter(x => x.item);
-    if (rows.length) await catPutMany(rows);
-  
-    await loadCatalogForActiveProject();
-}
 
-  
+  // 1) Restaurar catálogos desde ARCHIVOS fuente (items_source) si vienen en el ZIP
+  try{
+    const srcFolder = zip.folder("items_source");
+    const srcKeys = Object.keys(zip.files || {});
+    // Si vienen archivos fuente por proyecto, reconstruimos el catálogo leyendo esos archivos
+    if (srcFolder){
+      for (const bp of (backup.projects || [])){
+        const bpid = bp.id;
+        const targetPid = mapPid[bpid] || activeId;
+        // buscar cualquier archivo dentro de items_source/<bpid>/
+        const base = `items_source/${bpid}/`;
+        const cand = srcKeys.find(k => k.startsWith(base) && !zip.files[k].dir);
+        if (!cand) continue;
+
+        const blob = await zip.file(cand).async("blob");
+        const filename = (backup.itemsSources || []).find(s => String(s.projectId||"") === String(bpid))?.filename
+          || cand.split("/").pop() || "items.xlsx";
+        const mime = (backup.itemsSources || []).find(s => String(s.projectId||"") === String(bpid))?.mime
+          || blob.type || "application/octet-stream";
+        const fileObj = new File([blob], filename, { type: mime });
+
+        // Guardar el archivo fuente y reconstruir catálogo leyendo el archivo
+        try{ await srcPut(targetPid, fileObj); }catch{}
+        await catClearProject(targetPid);
+        const resCat = await importItemsFileToProject(fileObj, targetPid);
+
+        // Si no se pudo leer (por falta de XLSX), dejamos fallback para el paso siguiente
+        if (resCat && resCat.noXlsx){
+          // no hacemos nada aquí; más abajo puede entrar fallback catalog si existe
+        }
+      }
+    }
+  }catch(e){ console.warn("restore all: catalog source failed", e); }
+
   // Import photos
   let added = 0, skipped = 0;
   const total = backup.items.length;
@@ -943,23 +989,7 @@ async function restoreBackupZipAll(file){
     const meta = backup.items[idx];
     const id = meta.id;
     if (!id){ skipped++; continue; }
-    if (existingAll.has(id)){
-      // Ya existe: actualizamos metadatos (ítem/desc) si vienen en el backup
-      const obj = existingById[id];
-      if (obj){
-        const newCode = (meta.itemCode || "").trim();
-        if (newCode && (!obj.itemCode || obj.itemCode !== newCode)){
-          obj.itemCode = newCode;
-        }
-        const newDesc = (meta.itemDesc || "").trim() || (newCode ? (getCatalogDesc(newCode) || "") : "");
-        if (newDesc && (!obj.itemDesc || obj.itemDesc !== newDesc)){
-          obj.itemDesc = newDesc;
-        }
-        await dbPut(obj);
-      }
-      skipped++;
-      continue;
-    }
+    if (existingAll.has(id)){ skipped++; continue; }
 
     const bpid = meta.projectId || backup.projects?.[0]?.id;
     const targetPid = mapPid[bpid] || activeId;
@@ -991,8 +1021,8 @@ async function restoreBackupZipAll(file){
       mime: meta.mime || blob.type || "image/jpeg",
       createdAt: meta.createdAt || Date.now(),
       hasLogo: !!meta.hasLogo,
-      itemCode: meta.itemCode || "",
-      itemDesc: (meta.itemDesc || "") || (meta.itemCode ? (getCatalogDesc(meta.itemCode) || "") : ""),
+      itemCode: String(meta.itemCode || "").trim(),
+      itemDesc: "",
       blob,
       projectId: targetPid
     };
@@ -1000,6 +1030,25 @@ async function restoreBackupZipAll(file){
     await dbPut(it);
     existingAll.add(id);
     added++;
+  }
+
+  // restore catalog (fallback cuando NO hay archivo fuente)
+  if (Array.isArray(backup.catalog) && backup.catalog.length){
+    const srcSet = new Set((backup.itemsSources || []).map(s => String(s.projectId||"")).filter(Boolean));
+    const rows = backup.catalog.map(r => {
+      if (srcSet.has(String(r.projectId||""))) return null;
+      const pid = mapPid[r.projectId] || activeId;
+      const item = String(r.item || "").trim();
+      return {
+        key: `${pid}::${item}`,
+        projectId: pid,
+        item,
+        descripcion: r.descripcion || "",
+        unidad: r.unidad || "",
+        createdAt: r.createdAt || Date.now()
+      };
+    }).filter(x => x && x.item);
+    if (rows.length) await catPutMany(rows);
   }
 
   // refresh UI
@@ -1081,6 +1130,7 @@ $("btnItemsClear").onclick = async () => {
   if (!ok) return;
   try{
     await catClearProject(p.id);
+    try{ await srcClearProject(p.id); }catch{}
     await loadCatalogForActiveProject();
     render();
   }catch{
@@ -1095,6 +1145,12 @@ $("itemsInput").onchange = async () => {
   $("itemsStatus").textContent = "Importando…";
   try{
     const res = await importItemsFile(file);
+    // Guardar archivo fuente EXACTO por proyecto (para backup/restore)
+    try{
+      const p = getActiveProject();
+      const pid = p ? p.id : (getActiveProjectId() || ensureProjects().activeId);
+      if (pid) await srcPut(pid, file);
+    }catch{}
     $("itemsStatus").textContent = `Importado ✅ (leídos: ${res.total}, cargados: ${res.added}, omitidos: ${res.skipped})`;
     setTimeout(()=> refreshCatalogStatus(), 2200);
   }catch(e){
@@ -1144,10 +1200,11 @@ $("itemsInput").onchange = async () => {
    IndexedDB
 =========================== */
 const DB_NAME = "logi2_db_v1";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
+const DB_STORE_CATALOG_SRC = "catalog_src"; // archivo fuente (xlsx/csv) por proyecto
 
 function openDB(){
   return new Promise((resolve, reject) => {
@@ -1175,6 +1232,13 @@ function openDB(){
         cat.createIndex("byProject", "projectId");
         cat.createIndex("byItem", "item");
       }
+
+      // Store archivo fuente de ítems por proyecto
+      if (!db.objectStoreNames.contains(DB_STORE_CATALOG_SRC)){
+        const src = db.createObjectStore(DB_STORE_CATALOG_SRC, { keyPath: "key" });
+        src.createIndex("byProject", "projectId");
+      }
+
     };
 
     req.onsuccess = () => resolve(req.result);
@@ -1226,42 +1290,6 @@ async function dbClear(){
 let catalog = [];          // rows: {key, projectId, item, descripcion, unidad, createdAt}
 let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
 
-// iOS (Safari) suele portar mal <datalist>. Para asignación de ítems, usamos un picker.
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-function normItemCode(s){
-  const raw = String(s || "").trim();
-  if (!raw) return { raw:"", variants:[] };
-  const variants = new Set();
-  variants.add(raw);
-  // normaliza espacios
-  variants.add(raw.replace(/\s+/g, ""));
-  // normaliza segmentos con ceros a la izquierda (ej: 01.02.003 -> 1.2.3)
-  const seg = raw.split(".");
-  if (seg.length > 1){
-    const seg2 = seg.map(x => {
-      const y = String(x||"").trim();
-      if (!y) return y;
-      const z = y.replace(/^0+(?=\d)/, "");
-      return z;
-    }).join(".");
-    variants.add(seg2);
-    variants.add(seg2.replace(/\s+/g, ""));
-  }
-  // ceros a la izquierda global (ej: 0007 -> 7)
-  variants.add(raw.replace(/^0+(?=\d)/, ""));
-
-  return { raw, variants: Array.from(variants).filter(Boolean) };
-}
-
-function getCatalogDesc(code){
-  const { variants } = normItemCode(code);
-  for (const v of variants){
-    if (catalogMap[v]) return catalogMap[v];
-  }
-  return "";
-}
-
 async function catGetByProject(projectId){
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -1281,6 +1309,123 @@ async function catGetAll(){
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
+}
+
+/* ===========================
+   Archivo fuente de ítems (xlsx/csv) por proyecto
+   - Se guarda el archivo EXACTO que el usuario cargó.
+   - El catálogo (DB_STORE_CATALOG) se reconstruye leyendo este archivo.
+=========================== */
+async function srcPut(projectId, file){
+  if (!projectId || !file) return false;
+  const db = await openDB();
+  const key = String(projectId);
+  const rec = {
+    key,
+    projectId: key,
+    filename: file.name || "items.xlsx",
+    mime: file.type || "application/octet-stream",
+    blob: file,
+    updatedAt: Date.now()
+  };
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_CATALOG_SRC, "readwrite");
+    tx.objectStore(DB_STORE_CATALOG_SRC).put(rec);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function srcGet(projectId){
+  if (!projectId) return null;
+  const db = await openDB();
+  const key = String(projectId);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_CATALOG_SRC, "readonly");
+    const req = tx.objectStore(DB_STORE_CATALOG_SRC).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function srcGetAll(){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_CATALOG_SRC, "readonly");
+    const req = tx.objectStore(DB_STORE_CATALOG_SRC).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function srcClearProject(projectId){
+  if (!projectId) return false;
+  const db = await openDB();
+  const key = String(projectId);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_CATALOG_SRC, "readwrite");
+    tx.objectStore(DB_STORE_CATALOG_SRC).delete(key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* Importa un archivo de ítems hacia un proyecto específico (sin depender del "proyecto activo") */
+async function importItemsFileToProject(file, projectId){
+  if (!file) return { added:0, skipped:0, total:0 };
+  if (!window.XLSX){
+    // Sin XLSX no podemos reconstruir desde el archivo fuente
+    return { added:0, skipped:0, total:0, noXlsx:true };
+  }
+  const ext = (file.name || "").toLowerCase();
+  let wb;
+
+  if (ext.endsWith(".csv")){
+    const text = await file.text();
+    wb = XLSX.read(text, { type:"string" });
+  } else {
+    const ab = await file.arrayBuffer();
+    // Lectura robusta: algunos navegadores fallan con arrayBuffer directo
+    try{
+      wb = XLSX.read(new Uint8Array(ab), { type:"array" });
+    }catch{
+      wb = XLSX.read(ab, { type:"array" });
+    }
+  }
+
+  const sheetName = wb.SheetNames.includes("ITEMS") ? "ITEMS" : wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
+
+  if (!rows.length) return { added:0, skipped:0, total:0 };
+
+  const header = rows[0].map(normalizeHeader);
+  const idxItem = header.findIndex(h => h === "item" || h === "codigo" || h === "codigo_item");
+  const idxDesc = header.findIndex(h => h === "descripcion" || h === "descripción" || h === "descripcion_item");
+  const idxUnit = header.findIndex(h => h === "unidad" || h === "und" || h === "unit" || h === "unidad_item");
+
+  if (idxItem === -1 || idxDesc === -1 || idxUnit === -1){
+    return { added:0, skipped:0, total:0, badFormat:true };
+  }
+
+  if (!projectId) return { added:0, skipped:0, total:0, noProject:true };
+
+  const batch = [];
+  let added = 0, skipped = 0;
+
+  for (let i=1; i<rows.length; i++){
+    const r = rows[i] || [];
+    const item = String(r[idxItem] || "").trim();
+    const descripcion = String(r[idxDesc] || "").trim();
+    const unidad = String(r[idxUnit] || "").trim();
+    if (!item) { skipped++; continue; }
+    const key = `${projectId}::${item}`;
+    batch.push({ key, projectId, item, descripcion, unidad, createdAt: Date.now() });
+    added++;
+  }
+
+  await catPutMany(batch);
+  return { added, skipped, total: rows.length-1 };
 }
 
 async function catPutMany(rows){
@@ -1313,14 +1458,7 @@ async function catClearProject(projectId){
 function rebuildCatalogMap(){
   catalogMap = {};
   for (const r of catalog){
-    const itemRaw = String(r?.item || "").trim();
-    const desc = (r?.descripcion || "").trim();
-    if (!itemRaw) continue;
-    // Guardar varias llaves equivalentes para evitar problemas de formato entre Android/iOS
-    const { variants } = normItemCode(itemRaw);
-    for (const v of variants){
-      catalogMap[v] = desc;
-    }
+    if (r?.item) catalogMap[String(r.item).trim()] = (r.descripcion || "").trim();
   }
 }
 
@@ -1364,7 +1502,7 @@ function updateExportItemHint(){
   const hintEl = $("exportItemHint");
   if (!hintEl) return;
   const code = getExportItemCode();
-  hintEl.textContent = code ? (getCatalogDesc(code) || "—") : "—";
+  hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
 }
 
 function getGalleryItemCode(){
@@ -1375,7 +1513,7 @@ function updateGalleryItemHint(){
   const hintEl = $("galleryItemHint");
   if (!hintEl) return;
   const code = getGalleryItemCode();
-  hintEl.textContent = code ? (getCatalogDesc(code) || "—") : "—";
+  hintEl.textContent = code ? (catalogMap[code] || "—") : "—";
 }
 
 function normalizeHeader(s){
@@ -1813,7 +1951,7 @@ function getTemplateMeta(it){
   const time = `${hh}:${mm}`;
   const stamp = fecha ? `${fecha} ${time}` : time;
   const itemCode = String(it.itemCode || "").trim();
-  const itemDesc = String(it.itemDesc || (itemCode && getCatalogDesc(itemCode)) || "").trim();
+  const itemDesc = String(it.itemDesc || (itemCode && catalogMap[itemCode]) || "").trim();
   return { proj, desc, fecha, longDate, time, stamp, itemCode, itemDesc };
 }
 
@@ -2358,7 +2496,7 @@ function renderCaptura(){
 
           <label style="margin-top:6px">Ítem (opcional)</label>
           <input data-id="${item.id}" class="itSel" type="text" list="datalistItems" placeholder="Código o busca en el listado…" ${item.done ? "disabled" : ""} value="${escAttr(item.itemCode || "")}"/>
-          <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (getCatalogDesc(item.itemCode) || "") : ""}</div>
+          <div class="muted" style="margin-top:4px" data-ithint="${item.id}">${item.itemCode ? (catalogMap[item.itemCode] ? catalogMap[item.itemCode] : "") : ""}</div>
 
           <label style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px">
   <span>Descripción</span>
@@ -2411,14 +2549,13 @@ function wireEventsCaptura(){
     };
   });
   document.querySelectorAll("input.itSel").forEach(inp => {
-    inp.onfocus = () => { if (IS_IOS) { const id = Number(inp.dataset.id); openItemPicker(id); } };
     inp.oninput = async () => {
       const id = Number(inp.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj || obj.done) return;
       const code = (inp.value || "").trim();
       obj.itemCode = code;
-      obj.itemDesc = code ? (getCatalogDesc(code) || "") : "";
+      obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
       await dbPut(obj);
       const h = document.querySelector(`[data-ithint="${id}"]`);
       if (h) h.textContent = obj.itemDesc || "";
@@ -2525,77 +2662,6 @@ if (!groups.length){
 =========================== */
 let modalId = null;
 
-// ===========================
-// Item Picker (fallback para iOS)
-// ===========================
-let pickerTarget = null;
-
-function openItemPicker(target){
-  if (!Array.isArray(catalog) || !catalog.length){
-    alert("No hay ítems cargados para este proyecto.");
-    return;
-  }
-  pickerTarget = target;
-  const el = $("picker");
-  if (!el) return;
-  el.classList.add("open");
-  $("pickerSearch").value = "";
-  renderPickerList("");
-  setTimeout(()=> $("pickerSearch").focus(), 50);
-}
-
-function closeItemPicker(){
-  const el = $("picker");
-  if (!el) return;
-  el.classList.remove("open");
-  pickerTarget = null;
-}
-
-function renderPickerList(q){
-  const list = $("pickerList");
-  if (!list) return;
-  const query = String(q||"").trim().toLowerCase();
-  const rows = (catalog || []).slice().sort((a,b)=> String(a.item).localeCompare(String(b.item)));
-  const filtered = query ? rows.filter(r => {
-    const code = String(r.item||"").toLowerCase();
-    const desc = String(r.descripcion||"").toLowerCase();
-    return code.includes(query) || desc.includes(query);
-  }) : rows;
-  const top = filtered.slice(0, 200);
-  list.innerHTML = top.map(r => {
-    const code = String(r.item||"").trim();
-    const desc = String(r.descripcion||"").trim();
-    const unit = String(r.unidad||"").trim();
-    const sub = (desc ? desc : "—") + (unit ? ` [${unit}]` : "");
-    return `<button class="pickerRow" data-code="${escAttr(code)}"><div class="pickerCode">${esc(code)}</div><div class="pickerDesc">${esc(sub)}</div></button>`;
-  }).join("") || `<div class="muted">Sin resultados.</div>`;
-
-  list.querySelectorAll("button.pickerRow").forEach(b=>{
-    b.onclick = () => {
-      const code = String(b.dataset.code || "").trim();
-      if (!code) return;
-      if (pickerTarget === "modal"){
-        $("modalItem").value = code;
-        // dispara lógica normal
-        $("modalItem").dispatchEvent(new Event("input", { bubbles:true }));
-      } else if (typeof pickerTarget === "number"){
-        // pickerTarget = id de foto en captura
-        const inp = document.querySelector(`input.itSel[data-id="${pickerTarget}"]`);
-        if (inp){
-          inp.value = code;
-          inp.dispatchEvent(new Event("input", { bubbles:true }));
-        }
-      }
-      closeItemPicker();
-    };
-  });
-}
-
-$("btnPickerClose")?.addEventListener("click", closeItemPicker);
-$("picker")?.addEventListener("click", (e)=>{ if (e.target.id === "picker") closeItemPicker(); });
-$("pickerSearch")?.addEventListener("input", (e)=> renderPickerList(e.target.value));
-// ===========================
-
 function openModal(id){
   const it = cache.find(x => x.id === id);
   if (!it) return;
@@ -2611,22 +2677,7 @@ function openModal(id){
 
   $("modalItem").value = it.itemCode || "";
   $("modalItem").disabled = !!it.done;
-  $("modalItemHint").textContent = it.itemCode ? (getCatalogDesc(it.itemCode) || "—") : "—";
-  // Si el backup solo traía el código, intentamos completar la descripción desde el catálogo
-  if (it.itemCode && !it.itemDesc){
-    const d = getCatalogDesc(it.itemCode) || "";
-    if (d){
-      it.itemDesc = d;
-      try{ dbPut(it); }catch{}
-    }
-  }
-  if (IS_IOS){
-    const mi = $("modalItem");
-    if (mi){
-      mi.onfocus = ()=> openItemPicker("modal");
-      mi.onclick = ()=> openItemPicker("modal");
-    }
-  }
+  $("modalItemHint").textContent = (it.itemCode && catalogMap[it.itemCode]) ? catalogMap[it.itemCode] : "—";
 
   $("modalDesc").value = it.descripcion || "";
   $("modalDesc").disabled = !!it.done;
@@ -2656,7 +2707,7 @@ $("modalItem").oninput = async () => {
   if (!it || it.done) return;
   const code = ($("modalItem").value || "").trim();
   it.itemCode = code;
-  it.itemDesc = code ? (getCatalogDesc(code) || "") : "";
+  it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
   $("modalItemHint").textContent = it.itemDesc || "—";
   await dbPut(it);
   // refrescar hints en captura

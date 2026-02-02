@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.10</title>
+    <title>Logi2 v0.8.7.11</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.3.9">
-  <link rel="icon" href="favicon.png?v=0.8.3.9">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.3.9">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.11">
+  <link rel="icon" href="favicon.png?v=0.8.7.11">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.11">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -393,19 +393,7 @@
     .projectSelect{min-width:220px;max-width:420px}
     .projModalCard{width:min(560px, 96vw)}
 
-  
-/* Item picker (iOS fallback) */
-.picker{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:9999;padding:14px;}
-.picker.open{display:flex;}
-.pickerCard{width:min(640px,100%);max-height:80vh;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.4);}
-.pickerHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);}
-#pickerSearch{width:calc(100% - 24px);margin:10px 12px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);}
-.pickerList{padding:6px 8px 12px 8px;overflow:auto;max-height:calc(80vh - 120px);}
-.pickerRow{width:100%;text-align:left;border:1px solid var(--border);background:var(--input);color:var(--text);border-radius:12px;padding:10px 10px;margin:6px 0;display:flex;flex-direction:column;gap:4px;cursor:pointer;}
-.pickerRow:active{transform:scale(.99);}
-.pickerCode{font-weight:700;}
-.pickerDesc{font-size:.92em;opacity:.85;}
-</style>
+  </style>
 </head>
 
 <body>
@@ -421,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.10</div>
+          <div class="appVersion" id="appVersion">v0.8.7.5</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1225,7 +1213,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.10";
+const APP_VERSION = "v0.8.7.5";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -1715,8 +1703,6 @@ async function restoreBackupZip(file){
       fecha: meta.fecha || "",
       proyecto: meta.proyecto || "",
       descripcion: meta.descripcion || "",
-      itemCode: meta.itemCode || "",
-      itemDesc: meta.itemDesc || "",
       done: !!meta.done,
       blob,
       mime: meta.mime || blob.type || "image/jpeg",
@@ -1811,8 +1797,6 @@ async function createBackupZipAll(){
         fecha: it.fecha || "",
         proyecto: it.proyecto || pName || "",
         descripcion: it.descripcion || "",
-        itemCode: it.itemCode || "",
-        itemDesc: it.itemDesc || "",
         done: !!it.done,
         mime: it.mime || "image/jpeg",
         createdAt: it.createdAt || Date.now(),
@@ -1999,8 +1983,6 @@ async function restoreBackupZipAll(file){
       fecha: meta.fecha || "",
       proyecto: meta.proyecto || projName || "",
       descripcion: meta.descripcion || "",
-      itemCode: meta.itemCode || "",
-      itemDesc: meta.itemDesc || "",
       done: !!meta.done,
       mime: meta.mime || blob.type || "image/jpeg",
       createdAt: meta.createdAt || Date.now(),
@@ -5059,20 +5041,7 @@ function buildManifestXlsHtml(registros){
     <tr><th>fecha</th><th>archivo</th><th>item</th><th>item_desc</th><th>descripcion</th><th>proyecto</th><th>listo</th></tr>
     ${rows}
   </table>
-  
-  <!-- Item Picker (fallback para iOS) -->
-  <div id="picker" class="picker">
-    <div class="pickerCard">
-      <div class="pickerHeader">
-        <div>Seleccionar ítem</div>
-        <button class="btn btn-secondary smallBtn" id="btnPickerClose">✖</button>
-      </div>
-      <input id="pickerSearch" type="text" placeholder="Buscar por código o descripción…" />
-      <div id="pickerList" class="pickerList"></div>
-    </div>
-  </div>
-
-</body></html>`;
+  </body></html>`;
 }
 
 const DOCX_IMG_W_CM = 7.6;
@@ -6316,18 +6285,5 @@ function renderExport(){
   fechaInput.onchange = () => render();
 })();
 </script>
-
-  <!-- Item Picker (fallback para iOS) -->
-  <div id="picker" class="picker">
-    <div class="pickerCard">
-      <div class="pickerHeader">
-        <div>Seleccionar ítem</div>
-        <button class="btn btn-secondary smallBtn" id="btnPickerClose">✖</button>
-      </div>
-      <input id="pickerSearch" type="text" placeholder="Buscar por código o descripción…" />
-      <div id="pickerList" class="pickerList"></div>
-    </div>
-  </div>
-
 </body>
 </html>

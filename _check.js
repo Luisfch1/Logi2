@@ -340,8 +340,6 @@ async function createBackupZip(){
   const firstId = projects[0]?.id || activeId;
   const items = allItems.filter(it => (it.projectId ? it.projectId === activeId : activeId === firstId));
 
-  const catRows = await catGetByProject(activeId);
-
   const settings = {
     theme: localStorage.getItem(THEME_KEY) || "dark",
     accent: localStorage.getItem(ACCENT_KEY) || "blue",
@@ -353,18 +351,15 @@ async function createBackupZip(){
   };
 
   const backup = {
-    schemaVersion: 2,
+    schemaVersion: 1,
     app: "Logi",
     createdAt: new Date().toISOString(),
     settings,
-    catalog: (catRows || []).map(r => ({ item: r.item || "", descripcion: r.descripcion || "", unidad: r.unidad || "", createdAt: r.createdAt || Date.now() })),
     items: items.map(it => ({
       id: it.id,
       fecha: it.fecha || "",
       proyecto: it.proyecto || "",
       descripcion: it.descripcion || "",
-      itemCode: it.itemCode || "",
-      itemDesc: it.itemDesc || "",
       done: !!it.done,
       mime: it.mime || "image/jpeg",
       createdAt: it.createdAt || Date.now(),
@@ -441,31 +436,6 @@ async function restoreBackupZip(file){
 
   const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema/acento/plantilla/proyecto/logo)?\n\nSi dices Cancelar, solo importo las fotos.");
 
-  // IMPORTAR catálogo (si viene en el backup). Es por PROYECTO activo.
-  try{
-    if (Array.isArray(backup.catalog) && backup.catalog.length){
-      const p = getActiveProject();
-      const pid = p ? p.id : (getActiveProjectId() || ensureProjects().activeId);
-      const rows = backup.catalog.map(r => {
-        const item = String(r.item || "").trim();
-        return {
-          key: `${pid}::${item}`,
-          projectId: pid,
-          item,
-          descripcion: r.descripcion || "",
-          unidad: r.unidad || "",
-          createdAt: r.createdAt || Date.now()
-        };
-      }).filter(x => x.item);
-      if (rows.length) await catPutMany(rows);
-      // Recargar en memoria para que el datalist funcione ya mismo
-      await loadCatalogForActiveProject();
-    }
-  }catch(e){
-    console.error(e);
-  }
-
-
   // mapa de existentes (mezclar)
   const existing = new Set(cache.map(x => x.id));
   let added = 0;
@@ -533,8 +503,6 @@ async function restoreBackupZip(file){
       fecha: meta.fecha || "",
       proyecto: meta.proyecto || "",
       descripcion: meta.descripcion || "",
-      itemCode: meta.itemCode || "",
-      itemDesc: meta.itemDesc || "",
       done: !!meta.done,
       blob,
       mime: meta.mime || blob.type || "image/jpeg",
