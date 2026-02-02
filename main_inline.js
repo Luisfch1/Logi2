@@ -588,7 +588,27 @@ async function restoreBackupZip(file){
     }catch{}
   }
 
-  const total = backup.items.length;
+// restore catálogo (si viene en el ZIP)
+  try{
+    if (Array.isArray(backup.catalog) && backup.catalog.length){
+      const pid = getActiveProjectId() || ensureProjects().activeId;
+      const rows = backup.catalog.map(r => {
+        const item = String(r.item || "").trim();
+        return {
+          key: `${pid}::${item}`,
+          projectId: pid,
+          item,
+          descripcion: r.descripcion || "",
+          unidad: r.unidad || "",
+          createdAt: r.createdAt || Date.now()
+        };
+      }).filter(x => x.item);
+      if (rows.length) await catPutMany(rows);
+      await loadCatalogForActiveProject();
+    }
+  }catch{}
+  
+    const total = backup.items.length;
   for (let idx=0; idx<total; idx++){
     const meta = backup.items[idx];
     const id = meta.id;
@@ -649,7 +669,7 @@ async function restoreBackupZip(file){
       createdAt: meta.createdAt || Date.now(),
       hasLogo: !!meta.hasLogo,
       itemCode: meta.itemCode || "",
-      itemDesc: meta.itemDesc || "",
+      itemDesc: (meta.itemDesc || "") || (meta.itemCode ? (getCatalogDesc(meta.itemCode) || "") : ""),
       projectId: activeP ? activeP.id : null
     };
 
@@ -660,25 +680,6 @@ async function restoreBackupZip(file){
   }
 
 
-  // restore catálogo (si viene en el ZIP)
-  try{
-    if (Array.isArray(backup.catalog) && backup.catalog.length){
-      const pid = getActiveProjectId() || ensureProjects().activeId;
-      const rows = backup.catalog.map(r => {
-        const item = String(r.item || "").trim();
-        return {
-          key: `${pid}::${item}`,
-          projectId: pid,
-          item,
-          descripcion: r.descripcion || "",
-          unidad: r.unidad || "",
-          createdAt: r.createdAt || Date.now()
-        };
-      }).filter(x => x.item);
-      if (rows.length) await catPutMany(rows);
-      await loadCatalogForActiveProject();
-    }
-  }catch{}
   // settings (si se pidió)
   if (importSettings && backup.settings){
     try{
@@ -913,6 +914,26 @@ async function restoreBackupZipAll(file){
     }
   }
 
+  // restore catalog
+  if (Array.isArray(backup.catalog) && backup.catalog.length){
+    const rows = backup.catalog.map(r => {
+      const pid = mapPid[r.projectId] || activeId;
+      const item = String(r.item || "").trim();
+      return {
+        key: `${pid}::${item}`,
+        projectId: pid,
+        item,
+        descripcion: r.descripcion || "",
+        unidad: r.unidad || "",
+        createdAt: r.createdAt || Date.now()
+      };
+    }).filter(x => x.item);
+    if (rows.length) await catPutMany(rows);
+  
+    await loadCatalogForActiveProject();
+}
+
+  
   // Import photos
   let added = 0, skipped = 0;
   const total = backup.items.length;
@@ -971,7 +992,7 @@ async function restoreBackupZipAll(file){
       createdAt: meta.createdAt || Date.now(),
       hasLogo: !!meta.hasLogo,
       itemCode: meta.itemCode || "",
-      itemDesc: meta.itemDesc || "",
+      itemDesc: (meta.itemDesc || "") || (meta.itemCode ? (getCatalogDesc(meta.itemCode) || "") : ""),
       blob,
       projectId: targetPid
     };
@@ -979,23 +1000,6 @@ async function restoreBackupZipAll(file){
     await dbPut(it);
     existingAll.add(id);
     added++;
-  }
-
-  // restore catalog
-  if (Array.isArray(backup.catalog) && backup.catalog.length){
-    const rows = backup.catalog.map(r => {
-      const pid = mapPid[r.projectId] || activeId;
-      const item = String(r.item || "").trim();
-      return {
-        key: `${pid}::${item}`,
-        projectId: pid,
-        item,
-        descripcion: r.descripcion || "",
-        unidad: r.unidad || "",
-        createdAt: r.createdAt || Date.now()
-      };
-    }).filter(x => x.item);
-    if (rows.length) await catPutMany(rows);
   }
 
   // refresh UI
@@ -2608,7 +2612,21 @@ function openModal(id){
   $("modalItem").value = it.itemCode || "";
   $("modalItem").disabled = !!it.done;
   $("modalItemHint").textContent = it.itemCode ? (getCatalogDesc(it.itemCode) || "—") : "—";
-  if (IS_IOS){ $("modalItem").addEventListener("focus", ()=> openItemPicker("modal"), { once:true }); }
+  // Si el backup solo traía el código, intentamos completar la descripción desde el catálogo
+  if (it.itemCode && !it.itemDesc){
+    const d = getCatalogDesc(it.itemCode) || "";
+    if (d){
+      it.itemDesc = d;
+      try{ dbPut(it); }catch{}
+    }
+  }
+  if (IS_IOS){
+    const mi = $("modalItem");
+    if (mi){
+      mi.onfocus = ()=> openItemPicker("modal");
+      mi.onclick = ()=> openItemPicker("modal");
+    }
+  }
 
   $("modalDesc").value = it.descripcion || "";
   $("modalDesc").disabled = !!it.done;
