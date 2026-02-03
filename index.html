@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.22</title>
+    <title>Logi2 v0.8.7.23</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.17">
-  <link rel="icon" href="favicon.png?v=0.8.7.17">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.17">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.23">
+  <link rel="icon" href="favicon.png?v=0.8.7.23">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.23">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.22</div>
+          <div class="appVersion" id="appVersion">v0.8.7.23</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1269,7 +1269,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.22";
+const APP_VERSION = "v0.8.7.23";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -2817,6 +2817,38 @@ function refreshCatalogDatalist(){
   }
 }
 
+// ===== iOS quirks =====
+// Safari iOS + PWA (Agregar a inicio) tiene comportamientos inconsistentes con <datalist>
+// y el orden de eventos (input/change) al seleccionar opciones. Para evitar que se guarden
+// búsquedas parciales (ej. "M") en vez del código real (ej. "4.2"), en iOS:
+//  - quitamos el atributo list="datalistItems" y usamos nuestro picker flotante
+//  - NO persistimos a DB valores que no sean códigos reales del catálogo
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+
+function isValidItemCode(code){
+  const c = String(code||'').trim();
+  return !!(c && catalogMap && Object.prototype.hasOwnProperty.call(catalogMap, c));
+}
+
+async function commitItemFromText(obj, rawText){
+  const code = String(rawText||'').trim();
+  // Campo opcional: permitir vacío
+  if (!code){
+    obj.itemCode = "";
+    obj.itemDesc = "";
+    await dbPut(obj);
+    return { committed:true, code:"" };
+  }
+  // Solo permitir códigos existentes
+  if (!isValidItemCode(code)){
+    return { committed:false, code };
+  }
+  obj.itemCode = code;
+  obj.itemDesc = catalogMap[code] || "";
+  await dbPut(obj);
+  return { committed:true, code };
+}
+
 // ✅ Selector de ítems compatible con iOS (fallback a datalist)
 let __itemPicker = null;
 let __itemPickerInput = null;
@@ -2954,6 +2986,13 @@ function __renderItemPicker(inp){
 function attachItemPicker(inp){
   if (!inp || inp.dataset.picker==='1') return;
   inp.dataset.picker='1';
+
+  // En iOS, desactivar datalist nativo (es inconsistente y a veces no dispara change)
+  if (IS_IOS){
+    try{ inp.removeAttribute('list'); }catch{}
+    // Evita autocorrección rara en códigos
+    try{ inp.setAttribute('autocapitalize','off'); inp.setAttribute('autocomplete','off'); inp.setAttribute('autocorrect','off'); inp.setAttribute('spellcheck','false'); }catch{}
+  }
 
   inp.addEventListener('focus', ()=>{ __renderItemPicker(inp); });
   inp.addEventListener('input', ()=>{ __renderItemPicker(inp); });
@@ -4581,17 +4620,44 @@ function wireEventsCaptura(){
   });
   document.querySelectorAll("input.itSel").forEach(inp => {
     try{ attachItemPicker(inp); }catch{}
-    inp.oninput = async () => {
+    const _applyHint = (id, code) => {
+      const h = document.querySelector(`[data-ithint="${id}"]`);
+      if (h) h.textContent = (code && catalogMap[code]) ? (catalogMap[code]||"") : "";
+    };
+
+    const _tryCommit = async (mode) => {
       const id = Number(inp.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj || obj.done) return;
-      const code = (inp.value || "").trim();
+      const raw = (inp.value || "");
+      const code = raw.trim();
+
+      // Live hint (aunque no sea válido)
+      _applyHint(id, code);
+
+      // iOS: no persistir búsquedas parciales (ej. "M")
+      if (IS_IOS){
+        if (!code){
+          await commitItemFromText(obj, "");
+          return;
+        }
+        if (!isValidItemCode(code)){
+          // No guardamos nada; solo el usuario está buscando
+          return;
+        }
+        await commitItemFromText(obj, code);
+        return;
+      }
+
+      // Otros navegadores: permitir escribir libre y persistir
       obj.itemCode = code;
       obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
       await dbPut(obj);
-      const h = document.querySelector(`[data-ithint="${id}"]`);
-      if (h) h.textContent = obj.itemDesc || "";
     };
+
+    inp.oninput = () => { _tryCommit('input'); };
+    inp.onchange = () => { _tryCommit('change'); };
+    inp.onblur = () => { _tryCommit('blur'); };
   });
 
   document.querySelectorAll("button.del").forEach(b => {
@@ -4609,6 +4675,28 @@ function wireEventsCaptura(){
       const id = Number(b.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj) return;
+      // iOS: antes de marcar LISTO, asegurarse que el valor escrito sea un código válido
+      if (!obj.done){
+        const inp = document.querySelector(`input.itSel[data-id="${id}"]`);
+        const raw = (inp ? inp.value : (obj.itemCode||""));
+        const code = String(raw||"").trim();
+        if (IS_IOS && code && !isValidItemCode(code)){
+          alert("Selecciona un ítem válido del listado (no solo la letra de búsqueda).\n\nTip: escribe y toca el ítem en la lista flotante.");
+          try{ inp && inp.focus(); }catch{}
+          return;
+        }
+        // Si escribió un código válido y aún no está guardado, comitearlo
+        if (code && code !== (obj.itemCode||"")){
+          if (IS_IOS){
+            await commitItemFromText(obj, code);
+          } else {
+            obj.itemCode = code;
+            obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
+            await dbPut(obj);
+          }
+        }
+      }
+
       obj.done = !obj.done;
       await dbPut(obj);
       render();
@@ -4737,11 +4825,25 @@ $("modalItem").oninput = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
-  const code = ($("modalItem").value || "").trim();
-  it.itemCode = code;
-  it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-  $("modalItemHint").textContent = it.itemDesc || "—";
-  await dbPut(it);
+  const raw = $("modalItem").value || "";
+  const code = raw.trim();
+  // hint siempre se actualiza
+  $("modalItemHint").textContent = (code && catalogMap[code]) ? (catalogMap[code]||"—") : "—";
+
+  // iOS: no persistir búsquedas parciales
+  if (IS_IOS){
+    if (!code){
+      await commitItemFromText(it, "");
+    } else if (isValidItemCode(code)){
+      await commitItemFromText(it, code);
+    } else {
+      return; // solo está buscando
+    }
+  } else {
+    it.itemCode = code;
+    it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
+    await dbPut(it);
+  }
   // refrescar hints en captura
   const h = document.querySelector(`[data-ithint="${it.id}"]`);
   if (h) h.textContent = it.itemDesc || "";
@@ -4759,6 +4861,27 @@ $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
+  // iOS: validar/commit del ítem antes de marcar listo
+  if (!it.done){
+    const raw = $("modalItem")?.value || (it.itemCode||"");
+    const code = String(raw||"").trim();
+    if (IS_IOS && code && !isValidItemCode(code)){
+      alert("Selecciona un ítem válido del listado (no solo la letra de búsqueda).\n\nTip: escribe y toca el ítem en la lista flotante.");
+      try{ $("modalItem")?.focus(); }catch{}
+      return;
+    }
+    if (code && code !== (it.itemCode||"")){
+      if (IS_IOS){
+        const res = await commitItemFromText(it, code);
+        if (!res.committed) return;
+      } else {
+        it.itemCode = code;
+        it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
+        await dbPut(it);
+      }
+    }
+  }
+
   it.done = !it.done;
   await dbPut(it);
   render();
