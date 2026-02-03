@@ -1,5 +1,12 @@
 function $(id){ return document.getElementById(id); }
 
+const IS_IOS = (() => {
+  try {
+    const ua = navigator.userAgent || "";
+    return /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  } catch { return false; }
+})();
+
 function escapeHtml(s){
   return String(s||"")
     .replace(/&/g,"&amp;")
@@ -931,7 +938,7 @@ const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema
       projectId: targetPid
     };
 
-    await dbPut(it);
+    await dbPutQ(it);
     cache.push(it);
     existing.add(id);
     added++;
@@ -1276,7 +1283,7 @@ async function restoreBackupZipAll(file){
       projectId: targetPid
     };
 
-    await dbPut(it);
+    await dbPutQ(it);
     existingAll.add(id);
     added++;
   }
@@ -1667,6 +1674,23 @@ async function dbDelete(id){
     tx.onerror = () => reject(tx.error);
   });
 }
+
+// --- iOS/Safari IndexedDB stabilization: serialize write transactions ---
+let __dbWriteQueue = Promise.resolve();
+function __queueDbWrite(fn){
+  const p = __dbWriteQueue.then(fn, fn);
+  __dbWriteQueue = p.catch(()=>{});
+  return p;
+}
+async function dbPutQ(item){
+  return __queueDbWrite(()=>dbPut(item));
+}
+async function dbDeleteQ(id){
+  return __queueDbWrite(()=>dbDelete(id));
+}
+// ---------------------------------------------------------------
+
+
 async function dbClear(){
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -2210,7 +2234,7 @@ function attachProjectHandlers(){
         // lo hacemos ligero: actualiza solo los del cache actual
         for (const it of cache){
           it.proyecto = name;
-          await dbPut(it);
+          await dbPutQ(it);
         }
       }
       refreshProjectUI();
@@ -3231,7 +3255,7 @@ function wireEventsCaptura(){
       const obj = cache.find(x => x.id === id);
       if (!obj) return;
       obj.descripcion = t.value;
-      await dbPut(obj);
+      await dbPutQ(obj);
     };
   });
 
@@ -3244,6 +3268,8 @@ function wireEventsCaptura(){
     };
   });
   document.querySelectorAll("input.itSel").forEach(inp => {
+    // iOS Safari: datalist emits weird event order; avoid persisting partial queries like "M"
+    let _debTimer = null;
     inp.oninput = async () => {
       const id = Number(inp.dataset.id);
       const obj = cache.find(x => x.id === id);
@@ -3251,9 +3277,17 @@ function wireEventsCaptura(){
       const code = (inp.value || "").trim();
       obj.itemCode = code;
       obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-      await dbPut(obj);
       const h = document.querySelector(`[data-ithint="${id}"]`);
       if (h) h.textContent = obj.itemDesc || "";
+      // Debounce + only persist if empty or exact code exists
+      if (_debTimer) clearTimeout(_debTimer);
+      _debTimer = setTimeout(async () => {
+        try{
+          if (!code || !!catalogMap[code]) {
+            await dbPutQ({ ...obj });
+          }
+        } catch {}
+      }, IS_IOS ? 250 : 0);
     };
   });
 
@@ -3261,7 +3295,7 @@ function wireEventsCaptura(){
     b.onclick = async () => {
       const id = Number(b.dataset.id);
       if (!confirm("¿Eliminar esta foto?")) return;
-      await dbDelete(id);
+      await dbDeleteQ(id);
       cache = cache.filter(x => x.id !== id);
       render();
     };
@@ -3273,7 +3307,7 @@ function wireEventsCaptura(){
       const obj = cache.find(x => x.id === id);
       if (!obj) return;
       obj.done = !obj.done;
-      await dbPut(obj);
+      await dbPutQ(obj);
       render();
     };
   });
@@ -3404,36 +3438,68 @@ $("modalItem").oninput = async () => {
   it.itemCode = code;
   it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
   $("modalItemHint").textContent = it.itemDesc || "—";
-  await dbPut(it);
-  // refrescar hints en captura
-  const h = document.querySelector(`[data-ithint="${it.id}"]`);
-  if (h) h.textContent = it.itemDesc || "";
+  // Solo persistir si el código es exacto (o vacío). Evita guardar letras tipo "M" en iOS.
+  try{
+    if (!code || !!catalogMap[code]) {
+      await dbPutQ({ ...it });
+      // refrescar hints en captura
+      const h = document.querySelector(`[data-ithint="${it.id}"]`);
+      if (h) h.textContent = it.itemDesc || "";
+    }
+  } catch {}
 };
+
 
 $("modalDesc").oninput = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
   it.descripcion = $("modalDesc").value;
-  await dbPut(it);
+  await dbPutQ(it);
 };
 
 $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
+  if (window.__modalSaving) return;
+  const btn = $("btnModalDone");
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
-  it.done = !it.done;
-  await dbPut(it);
-  render();
-  openModal(it.id);
+
+  const nextDone = !it.done;
+
+  // Si va a marcar como LISTA, exige un código exacto (o vacío)
+  const code = String(it.itemCode || "").trim();
+  const isExact = (!code) || !!catalogMap[code];
+  if (nextDone && !isExact){
+    alert("Selecciona un ítem válido del listado antes de marcar como LISTO.");
+    return;
+  }
+
+  try{
+    window.__modalSaving = true;
+    btn.classList.add("btn-disabled");
+    btn.disabled = true;
+
+    it.done = nextDone;
+    await dbPutQ({ ...it });
+    render();
+    openModal(it.id);
+  } catch (e){
+    try{ console.error(e); } catch {}
+  } finally {
+    window.__modalSaving = false;
+    btn.disabled = false;
+    btn.classList.remove("btn-disabled");
+  }
 };
+
 
 $("btnModalDelete").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
   if (!confirm("¿Eliminar esta foto?")) return;
-  await dbDelete(it.id);
+  await dbDeleteQ(it.id);
   cache = cache.filter(x => x.id !== it.id);
   closeModal();
   render();
@@ -3534,7 +3600,7 @@ async function ingestPhotos(fileList){
       projectId: projectId
     };
 
-    await dbPut(item);
+    await dbPutQ(item);
     cache.push(item);
   }
 
@@ -5638,7 +5704,7 @@ function initSwipeTabs(){
 }
 
 function render(){
-  revokeActiveUrls();
+  if (!IS_IOS) revokeActiveUrls();
   setStatus();
   if (viewMode === "captura") renderCaptura();
   else if (viewMode === "galeria") renderGaleria();
@@ -5685,7 +5751,7 @@ function renderExport(){
     if (!ok) return;
 
     for (const it of legacyItems){
-      await dbPut(it);
+      await dbPutQ(it);
       cache.push(it);
     }
 
