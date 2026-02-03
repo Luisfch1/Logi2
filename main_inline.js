@@ -351,13 +351,13 @@ function applyAccent(key){
 }
 
 function syncAccentUI(){
-  const key = localStorage.getItem(ACCENT_KEY) || "blue";
+  const key = localStorage.getItem(ACCENT_KEY) || "orange";
   const dots = document.querySelectorAll(".accentDot");
   dots.forEach(d => d.classList.toggle("active", d.dataset.accent === key));
 }
 
 function initAccent(){
-  const key = localStorage.getItem(ACCENT_KEY) || "blue";
+  const key = localStorage.getItem(ACCENT_KEY) || "orange";
   const pal = $("accentPalette");
   if (pal){
     pal.innerHTML = "";
@@ -461,7 +461,7 @@ async function createBackupZip(){
 
   const settings = {
     theme: localStorage.getItem(THEME_KEY) || "dark",
-    accent: localStorage.getItem(ACCENT_KEY) || "blue",
+    accent: localStorage.getItem(ACCENT_KEY) || "orange",
     project: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
     template: getTemplateId(),
     docxFit: localStorage.getItem("logi_docx_fit") || "stretch",
@@ -751,7 +751,7 @@ async function createBackupZipAll(){
 
   const settings = {
     theme: localStorage.getItem(THEME_KEY) || "dark",
-    accent: localStorage.getItem(ACCENT_KEY) || "blue",
+    accent: localStorage.getItem(ACCENT_KEY) || "orange",
     project: (getActiveProject() ? getActiveProject().name : getProjectDefault()),
     template: getTemplateId(),
     docxFit: localStorage.getItem("logi_docx_fit") || "stretch",

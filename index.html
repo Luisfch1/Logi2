@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.27</title>
+    <title>Logi2 v0.8.7.28</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.25">
-  <link rel="icon" href="favicon.png?v=0.8.7.25">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.25">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.28">
+  <link rel="icon" href="favicon.png?v=0.8.7.28">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.28">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -36,9 +36,9 @@
       --border:#223047;
 
       /* Acento */
-      --accent:#3b82f6;
-      --accent2:#60a5fa;
-      --accent-rgb:59,130,246;
+      --accent:#f97316;
+      --accent2:#fb923c;
+      --accent-rgb:249,115,22;
 
       /* UI */
       --danger:#ef4444;
@@ -52,9 +52,9 @@
       --muted:#475569;
       --border:#d6deea;
 
-      --accent:#2563eb;
-      --accent2:#3b82f6;
-      --accent-rgb:37,99,235;
+      --accent:#ea580c;
+      --accent2:#fb923c;
+      --accent-rgb:234,88,12;
 
       --danger:#ef4444;
       --shadow:0 10px 24px rgba(15,23,42,.10);
@@ -66,12 +66,12 @@
     }
     .wrap{max-width:900px;margin:0 auto;display:grid;gap:12px}
     h1{font-size:1.15rem;margin:4px 0 0;text-align:center}
-    .card{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
+    .card{background:var(--card2);border:1px solid var(--border);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px}
-    input[type="date"], select, textarea{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
+    input[type="date"], select, textarea{width:100%;padding:10px;border-radius:16px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
     textarea{min-height:44px;resize:vertical}
-    input[type="text"]{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
+    input[type="text"]{width:100%;padding:10px;border-radius:16px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
     .btn{
       border:0;border-radius:999px;padding:10px 14px;font-weight:700;cursor:pointer;
       display:inline-flex;align-items:center;gap:8px;font-size:.92rem;
@@ -91,10 +91,10 @@
     .ok{color:#34d399}
 
     .list{display:grid;gap:10px;margin-top:10px}
-    .item{border:1px solid var(--border);border-radius:14px;padding:10px;background:var(--card)}
+    .item{border:1px solid var(--border);border-radius:18px;padding:10px;background:var(--card)}
     .item.done{border-color:#34d39955}
     .itemTop{display:flex;gap:10px;align-items:flex-start}
-    .thumb{width:72px;height:72px;border-radius:12px;object-fit:cover;border:1px solid var(--border);cursor:pointer}
+    .thumb{width:72px;height:72px;border-radius:16px;object-fit:cover;border:1px solid var(--border);cursor:pointer}
     .grow{flex:1}
     .mini{font-size:.78rem;color:#9ca3af;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .right{margin-left:auto;display:flex;gap:8px;align-items:center}
@@ -106,22 +106,22 @@
 
     /* Plantilla de página (4/6/8) */
     .layoutPick{display:flex;gap:10px;flex-wrap:wrap}
-    .layoutBtn{flex:1;min-width:92px;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:14px;padding:10px;cursor:pointer;text-align:center;box-shadow:0 6px 16px rgba(0,0,0,.12)}
+    .layoutBtn{flex:1;min-width:92px;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:18px;padding:10px;cursor:pointer;text-align:center;box-shadow:0 6px 16px rgba(0,0,0,.12)}
     :root[data-theme="light"] .layoutBtn{box-shadow:0 6px 14px rgba(15,23,42,.08)}
     .layoutBtn.active{border-color:rgba(var(--accent-rgb),.45);background:rgba(var(--accent-rgb),.14)}
-    .layoutGrid{display:grid;gap:3px;justify-content:center;align-content:center;margin:0 auto;width:64px;height:44px;padding:6px;border-radius:12px;border:1px solid var(--border);background:rgba(var(--accent-rgb),.06)}
+    .layoutGrid{display:grid;gap:3px;justify-content:center;align-content:center;margin:0 auto;width:64px;height:44px;padding:6px;border-radius:16px;border:1px solid var(--border);background:rgba(var(--accent-rgb),.06)}
     .layoutGrid span{display:block;border-radius:3px;background:rgba(203,213,225,.75)}
     :root[data-theme="light"] .layoutGrid span{background:rgba(15,23,42,.15)}
     .layoutLabel{margin-top:6px;font-weight:900;font-size:.95rem}
 
-    details.adv{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:var(--card);padding:10px}
+    details.adv{margin-top:10px;border:1px solid var(--border);border-radius:18px;background:var(--card);padding:10px}
     details.adv summary{cursor:pointer;font-weight:900;color:var(--text);list-style:none}
     details.adv summary::-webkit-details-marker{display:none}
     details.adv summary:before{content:"▸";display:inline-block;margin-right:8px;color:var(--muted);transform:translateY(-1px)}
     details.adv[open] summary:before{content:"▾"}
 
 
-    .galleryWrap{margin-top:10px;border:1px solid var(--border);border-radius:14px;background:var(--card);overflow:visible}
+    .galleryWrap{margin-top:10px;border:1px solid var(--border);border-radius:18px;background:var(--card);overflow:visible}
     .dayHeader{
   position:sticky; top:0;
   background:var(--card);
@@ -153,7 +153,7 @@
       width:100%;
       aspect-ratio:1/1;
       object-fit:cover;
-      border-radius:12px;
+      border-radius:16px;
       border:1px solid var(--border);
       cursor:pointer;
       display:block;
@@ -219,7 +219,7 @@
       border:1px solid rgba(var(--accent-rgb),.30);
       background:rgba(var(--accent-rgb),.10);
       padding:10px 12px;
-      border-radius:14px;
+      border-radius:18px;
       align-items:center;
       justify-content:space-between;
       gap:10px;
@@ -244,6 +244,7 @@
 .appTitleRow{display:flex;align-items:baseline;gap:10px;min-width:0}
     .appVersion{font-size:.78rem;color:var(--muted);font-weight:800;white-space:nowrap;flex:0 0 auto}
     .appTitle{
+      color:rgb(var(--accent-rgb));
       font-size:1.25rem;
       font-weight:950;
       letter-spacing:.2px;
@@ -254,7 +255,7 @@
     }
     .appSubtitle{font-size:.82rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .iconBtn{
-      width:44px;height:44px;border-radius:14px;
+      width:44px;height:44px;border-radius:18px;
       background:var(--card2);border:1px solid var(--border);
       display:grid;place-items:center;cursor:pointer;
       box-shadow:var(--shadow);
@@ -302,7 +303,7 @@
       background:var(--card2);
       border:1px solid var(--border);
       border-bottom:none;
-      border-radius:18px 18px 0 0;
+      border-radius:22px 22px 0 0;
       box-shadow:0 -18px 60px rgba(0,0,0,.55);
       transform:translateY(110%);
       transition:transform .22s ease;
@@ -329,11 +330,47 @@
       overflow:auto;
       max-height:calc(85vh - 70px);
     }
+
+    /* Config sections */
+    .sheetSection{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.06);
+      border-radius:18px;
+      padding:12px;
+      margin-bottom:10px;
+    }
+    :root[data-theme="light"] .sheetSection{background:rgba(15,23,42,.03);border-color:rgba(15,23,42,.08)}
+    .sheetSectionTitle{
+      font-weight:950;
+      color:rgba(var(--accent-rgb),1);
+      margin-bottom:8px;
+    }
+    details.sheetAdv{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.04);
+      border-radius:18px;
+      padding:10px 12px;
+      margin-top:6px;
+    }
+    details.sheetAdv summary{
+      cursor:pointer;
+      font-weight:900;
+      color:var(--text);
+      list-style:none;
+    }
+    details.sheetAdv summary::-webkit-details-marker{display:none}
+    details.sheetAdv summary::after{
+      content:"▾";
+      float:right;
+      opacity:.65;
+    }
+    details.sheetAdv[open] summary::after{content:"▴"}
+
     .sheetRow{
       display:flex;align-items:center;justify-content:space-between;gap:10px;
       padding:10px 10px;
       border:1px solid var(--border);
-      border-radius:14px;
+      border-radius:18px;
       background:var(--card);
     }
     .sheetRow.dangerRow{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.08)}
@@ -380,7 +417,7 @@
       margin-top:10px;
       border:1px solid rgba(var(--accent-rgb),.26);
       background:rgba(var(--accent-rgb),.08);
-      border-radius:14px;
+      border-radius:18px;
       padding:10px 12px;
       display:flex;
       gap:10px;
@@ -409,7 +446,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.27</div>
+          <div class="appVersion" id="appVersion">v0.8.7.28</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -487,7 +524,10 @@
 
       <div id="galeriaView" style="display:none">
         
-        <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
+          </div>
+      </details>
+
+      <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
           <div style="flex:1;min-width:260px">
             <label for="galleryItem">Filtrar por ítem (opcional)</label>
             <input type="text" id="galleryItem" list="datalistItems" placeholder="Código o busca en el listado…" />
@@ -573,7 +613,10 @@
 
 
 
-      <div class="row" style="margin-top:10px;">
+      <details class="sheetAdv" style="margin-top:10px" id="exportOptions">
+        <summary>Opciones (logo, WhatsApp, DOCX)</summary>
+        <div style="margin-top:10px">
+      <div class="row" style="margin-top:0;">
 <label style="display:flex;align-items:center;gap:10px;margin:0">
           <input type="checkbox" id="onlyDone" />
           <span class="muted">Solo exportar LISTAS</span>
@@ -677,47 +720,27 @@
       </div>
 
       <div class="sheetBody">
-        <div class="sheetRow">
+        <div class="sheetSection">
+          <div class="sheetSectionTitle">Apariencia</div>
+          <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Tema</div>
             <div class="muted" id="themeLabel">—</div>
           </div>
           <button class="btn btn-secondary smallBtn" id="btnThemeToggle" title="Cambiar tema">🌙</button>
         </div>
-
-        <div class="sheetRow">
+          <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Acento</div>
             <div class="muted">Color principal de la app</div>
           </div>
           <div class="accentPalette" id="accentPalette"></div>
         </div>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Actualizar app</div>
-            <div class="muted" id="updateLabel">Buscar / instalar actualización</div>
-          </div>
-          <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet">🔄</button>
         </div>
 
-        <button class="btn btn-secondary" id="btnResetCache" style="width:100%">🧰 Reiniciar caché (si se queda pegada)</button>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Caja negra (iOS)</div>
-            <div class="muted">Exporta los últimos 500 eventos para diagnóstico</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBlackBoxExport" title="Exportar caja negra">🧾⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBlackBoxClear" title="Borrar registros">🧹</button>
-          </div>
-        </div>
-
-        <div class="muted" id="blackBoxStatus" style="margin-top:-2px">Tip: reproduce el fallo y exporta de inmediato.</div>
-
-
-        <div class="sheetRow">
+        <div class="sheetSection">
+          <div class="sheetSectionTitle">Respaldos</div>
+          <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Respaldo (proyecto)</div>
             <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
@@ -728,8 +751,8 @@
           </div>
         </div>
         <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
-
-        <div class="sheetRow">
+          <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
+          <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Respaldo TOTAL</div>
             <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
@@ -740,17 +763,12 @@
           </div>
         </div>
         <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
-
-        <div class="sheetRow dangerRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Borrar todo</div>
-            <div class="muted">Elimina todas las fotos, descripciones y proyectos guardados en este dispositivo</div>
-          </div>
-          <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
+          <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
         </div>
 
-
-        <div class="sheetRow">
+        <div class="sheetSection">
+          <div class="sheetSectionTitle">Ítems y formatos</div>
+          <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Ítems del proyecto</div>
             <div class="muted" id="itemsLabel">Cargar listado (Excel) por proyecto</div>
@@ -762,8 +780,8 @@
           </div>
         </div>
         <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
-
-        <div class="sheetRow">
+          <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
+          <div class="sheetRow">
           <div class="sheetRowMain">
             <div class="sheetRowTitle">Formato del proyecto</div>
             <div class="muted">Plantilla del usuario (DOCX para Word / PDF para PDF)</div>
@@ -798,7 +816,137 @@
           <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
         </div>
         <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
-        <div class="muted" id="storageHint" style="margin-top:-2px">—</div>
+        <div class="muted" id="storageHint" style="margin-top:-2px">—
+          <div class="muted" id="userTplStatus" style="margin-top:-2px">Sin formato personalizado (usa Logi 4/6/8).</div>
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Diagnostico (Word)</div>
+            <div class="muted">Caja negra para detectar por que un DOCX sale danado</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnDiagView" title="Ver bitacora">LOG</button>
+            <button class="btn btn-secondary smallBtn" id="btnDiagDownload" title="Descargar diagnostico">DIAG</button>
+            <button class="btn btn-danger smallBtn" id="btnDiagClear" title="Limpiar bitacora">CLR</button>
+          </div>
+        </div>
+        <div class="muted" id="diagStatus" style="margin-top:-2px">-</div>
+
+
+      
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Almacenamiento</div>
+            <div class="muted" id="storageLabel">—</div>
+          </div>
+          <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
+        </div>
+        <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
+        <div class="muted" id="storageHint" style="margin-top:-2px">—
+        </div>
+
+        <details class="sheetAdv" id="advSettings">
+          <summary>Opciones avanzadas</summary>
+          <div style="margin-top:10px">
+            <div class="sheetSection">
+              <div class="sheetSectionTitle">Sistema</div>
+              <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Actualizar app</div>
+            <div class="muted" id="updateLabel">Buscar / instalar actualización</div>
+          </div>
+          <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet">🔄</button>
+        </div>
+              <div class="muted" id="updateLabel">Buscar / instalar actualización</div>
+          </div>
+          <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet">🔄</button>
+        </div>
+
+        <button class="btn btn-secondary" id="btnResetCache" style="width:100%">🧰 Reiniciar caché (si se queda pegada)</button>
+              <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Caja negra (iOS)</div>
+            <div class="muted">Exporta los últimos 500 eventos para diagnóstico</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnBlackBoxExport" title="Exportar caja negra">🧾⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBlackBoxClear" title="Borrar registros">🧹</button>
+          </div>
+        </div>
+              <div class="muted" id="blackBoxStatus" style="margin-top:-2px">Tip: reproduce el fallo y exporta de inmediato.</div>
+              <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Diagnostico (Word)</div>
+            <div class="muted">Caja negra para detectar por que un DOCX sale danado</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnDiagView" title="Ver bitacora">LOG</button>
+            <button class="btn btn-secondary smallBtn" id="btnDiagDownload" title="Descargar diagnostico">DIAG</button>
+            <button class="btn btn-danger smallBtn" id="btnDiagClear" title="Limpiar bitacora">CLR</button>
+          </div>
+        </div>
+        <div class="muted" id="diagStatus" style="margin-top:-2px">-</div>
+
+
+      
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Almacenamiento</div>
+            <div class="muted" id="storageLabel">—</div>
+          </div>
+          <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
+        </div>
+        <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
+        <div class="muted" id="storageHint" style="margin-top:-2px">—
+              <div class="muted" id="diagStatus" style="margin-top:-2px">-</div>
+
+
+      
+        <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Almacenamiento</div>
+            <div class="muted" id="storageLabel">—</div>
+          </div>
+          <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
+        </div>
+        <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
+        <div class="muted" id="storageHint" style="margin-top:-2px">—
+              <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Almacenamiento</div>
+            <div class="muted" id="storageLabel">—</div>
+          </div>
+          <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
+        </div>
+        <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
+        <div class="muted" id="storageHint" style="margin-top:-2px">—
+              <div class="storageFill" id="storageFill"></div></div>
+        <div class="muted" id="storageHint" style="margin-top:-2px">—
+              <div class="muted" id="storageHint" style="margin-top:-2px">—
+            </div>
+            <div class="sheetSection" style="border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.08)">
+              <div class="sheetSectionTitle" style="color:#fecaca">Peligro</div>
+              <div class="sheetRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Respaldo TOTAL</div>
+            <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total">🌎⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total">🌎⬆️</button>
+          </div>
+        </div>
+        <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
+
+        <div class="sheetRow dangerRow">
+          <div class="sheetRowMain">
+            <div class="sheetRowTitle">Borrar todo</div>
+            <div class="muted">Elimina todas las fotos, descripciones y proyectos guardados en este dispositivo</div>
+          </div>
+          <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
+        </div>
+            </div>
+          </div>
+        </details></div>
 </div>
     </div>
   </div>
