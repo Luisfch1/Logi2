@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.29</title>
+    <title>Logi2 v0.8.7.30</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.25">
@@ -67,6 +67,12 @@
     .wrap{max-width:900px;margin:0 auto;display:grid;gap:12px}
     h1{font-size:1.15rem;margin:4px 0 0;text-align:center}
     .card{background:var(--card2);border:1px solid var(--border);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
+    .sectionHeader{font-weight:900;font-size:.95rem;margin:2px 0 10px;}
+    details.detailsCard{padding:12px;}
+    summary.detailsSummary{cursor:pointer;list-style:none;font-weight:900;font-size:.95rem;}
+    summary.detailsSummary::-webkit-details-marker{display:none;}
+    details.detailsCard[open] summary.detailsSummary{margin-bottom:8px;}
+
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px}
     input[type="date"], select, textarea{width:100%;padding:10px;border-radius:16px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
@@ -409,7 +415,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.29</div>
+          <div class="appVersion" id="appVersion">v0.8.7.30</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -536,7 +542,22 @@
           <input type="text" id="exportItem" list="datalistItems" placeholder="Código o busca en el listado…" />
           <div class="muted" id="exportItemHint" style="margin-top:6px">—</div>
         </div>
-        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro">✖</button>
+        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro">✖
+
+      <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px">
+          <label for="expressFormat">Formato de salida</label>
+          <select id="expressFormat" style="width:100%">
+            <option value="pdf">PDF</option>
+            <option value="docx">Word (.docx)</option>
+            <option value="zip">ZIP (reporte)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btnExpress">⚡ Exportar</button>
+      </div>
+      <div id="zipInfo" class="muted" style="margin-top:6px"></div>
+
+</button>
       </div>
 
       <div class="row" style="margin-top:10px;">
@@ -573,7 +594,10 @@
 
 
 
-      <div class="row" style="margin-top:10px;">
+      
+      <details class="detailsCard" id="exportOptions">
+        <summary class="detailsSummary">Opciones (logo, WhatsApp, DOCX)</summary>
+<div class="row" style="margin-top:10px;">
 <label style="display:flex;align-items:center;gap:10px;margin:0">
           <input type="checkbox" id="onlyDone" />
           <span class="muted">Solo exportar LISTAS</span>
@@ -641,21 +665,9 @@
           <input type="checkbox" id="useUserTpl" checked />
           <span class="muted">En exportación: usar formato del proyecto (si existe)</span>
         </label>
+
+      </details>
 </div>
-
-      <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
-        <div style="flex:1;min-width:220px">
-          <label for="expressFormat">Formato de salida</label>
-          <select id="expressFormat" style="width:100%">
-            <option value="pdf">PDF</option>
-            <option value="docx">Word (.docx)</option>
-            <option value="zip">ZIP (reporte)</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" id="btnExpress">⚡ Exportar</button>
-        <div id="zipInfo" class="muted" style="flex-basis:100%"></div>
-      </div>
-
     </div>
       
   </div>
@@ -677,129 +689,143 @@
       </div>
 
       <div class="sheetBody">
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Tema</div>
-            <div class="muted" id="themeLabel">—</div>
-          </div>
-          <button class="btn btn-secondary smallBtn" id="btnThemeToggle" title="Cambiar tema">🌙</button>
-        </div>
 
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Acento</div>
-            <div class="muted">Color principal de la app</div>
-          </div>
-          <div class="accentPalette" id="accentPalette"></div>
-        </div>
+        <div class="card">
+          <div class="sectionHeader">Apariencia</div>
 
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Actualizar app</div>
-            <div class="muted" id="updateLabel">Buscar / instalar actualización</div>
+          <div class="sheetRow">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Tema</div>
+              <div class="muted" id="themeLabel">—</div>
+            </div>
+            <button class="btn btn-secondary smallBtn" id="btnThemeToggle" title="Cambiar tema">🌙</button>
           </div>
-          <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet">🔄</button>
-        </div>
 
-        <button class="btn btn-secondary" id="btnResetCache" style="width:100%">🧰 Reiniciar caché (si se queda pegada)</button>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Caja negra (iOS)</div>
-            <div class="muted">Exporta los últimos 500 eventos para diagnóstico</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBlackBoxExport" title="Exportar caja negra">🧾⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBlackBoxClear" title="Borrar registros">🧹</button>
+          <div class="sheetRow">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Acento</div>
+              <div class="muted">Color principal de la app</div>
+            </div>
+            <div class="accentPalette" id="accentPalette"></div>
           </div>
         </div>
 
-        <div class="muted" id="blackBoxStatus" style="margin-top:-2px">Tip: reproduce el fallo y exporta de inmediato.</div>
+        <div class="card">
+          <div class="sectionHeader">Respaldos</div>
 
+          <div class="sheetRow">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Respaldo (proyecto)</div>
+              <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:nowrap">
+              <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup del proyecto">⬇️</button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup del proyecto">⬆️</button>
+            </div>
+          </div>
+          <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
 
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Respaldo (proyecto)</div>
-            <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
+          <div class="sheetRow" style="margin-top:8px">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Respaldo TOTAL</div>
+              <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:nowrap">
+              <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total">🌎⬇️</button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total">🌎⬆️</button>
+            </div>
           </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup del proyecto">⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup del proyecto">⬆️</button>
-          </div>
-        </div>
-        <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
-
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Respaldo TOTAL</div>
-            <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total">🌎⬇️</button>
-            <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total">🌎⬆️</button>
-          </div>
-        </div>
-        <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
-
-        <div class="sheetRow dangerRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Borrar todo</div>
-            <div class="muted">Elimina todas las fotos, descripciones y proyectos guardados en este dispositivo</div>
-          </div>
-          <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
+          <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
         </div>
 
+        <div class="card">
+          <div class="sectionHeader">Ítems y formatos</div>
 
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Ítems del proyecto</div>
-            <div class="muted" id="itemsLabel">Cargar listado (Excel) por proyecto</div>
+          <div class="sheetRow">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Ítems del proyecto</div>
+              <div class="muted" id="itemsLabel">Cargar listado (Excel) por proyecto</div>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:nowrap">
+              <button class="btn btn-secondary smallBtn" id="btnItemsTemplate" title="Descargar plantilla">📄</button>
+              <button class="btn btn-secondary smallBtn" id="btnItemsUpload" title="Cargar listado">⬆️</button>
+              <button class="btn btn-danger smallBtn" id="btnItemsClear" title="Borrar ítems del proyecto">🗑️</button>
+            </div>
           </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnItemsTemplate" title="Descargar plantilla">📄</button>
-            <button class="btn btn-secondary smallBtn" id="btnItemsUpload" title="Cargar listado">⬆️</button>
-            <button class="btn btn-danger smallBtn" id="btnItemsClear" title="Borrar ítems del proyecto">🗑️</button>
-          </div>
-        </div>
-        <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
+          <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
 
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Formato del proyecto</div>
-            <div class="muted">Plantilla del usuario (DOCX para Word / PDF para PDF)</div>
+          <div class="sheetRow" style="margin-top:8px">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Formato del proyecto</div>
+              <div class="muted">Plantilla del usuario (DOCX para Word / PDF para PDF)</div>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:nowrap">
+              <button class="btn btn-secondary smallBtn" id="btnUserTplUpload" title="Cargar plantilla (DOCX o PDF)">⬆️</button>
+              <button class="btn btn-secondary smallBtn" id="btnUserTplPreview" title="Previsualizar plantilla">👁️</button>
+              <button class="btn btn-danger smallBtn" id="btnUserTplDelete" title="Eliminar plantilla">🗑️</button>
+            </div>
           </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnUserTplUpload" title="Cargar plantilla (DOCX o PDF)">⬆️</button>
-            <button class="btn btn-secondary smallBtn" id="btnUserTplPreview" title="Previsualizar plantilla">👁️</button>
-            <button class="btn btn-danger smallBtn" id="btnUserTplDelete" title="Eliminar plantilla">🗑️</button>
-          </div>
+          <div class="muted" id="userTplStatus" style="margin-top:-2px">Sin formato personalizado (usa Logi 4/6/8).</div>
         </div>
-        <div class="muted" id="userTplStatus" style="margin-top:-2px">Sin formato personalizado (usa Logi 4/6/8).</div>
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Diagnostico (Word)</div>
-            <div class="muted">Caja negra para detectar por que un DOCX sale danado</div>
-          </div>
-          <div class="row" style="gap:8px;flex-wrap:nowrap">
-            <button class="btn btn-secondary smallBtn" id="btnDiagView" title="Ver bitacora">LOG</button>
-            <button class="btn btn-secondary smallBtn" id="btnDiagDownload" title="Descargar diagnostico">DIAG</button>
-            <button class="btn btn-danger smallBtn" id="btnDiagClear" title="Limpiar bitacora">CLR</button>
-          </div>
-        </div>
-        <div class="muted" id="diagStatus" style="margin-top:-2px">-</div>
 
+        <details class="card detailsCard" id="advancedDetails">
+          <summary class="detailsSummary">Opciones avanzadas</summary>
 
-      
-        <div class="sheetRow">
-          <div class="sheetRowMain">
-            <div class="sheetRowTitle">Almacenamiento</div>
-            <div class="muted" id="storageLabel">—</div>
+          <div class="sheetRow" style="margin-top:10px">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Actualizar app</div>
+              <div class="muted" id="updateLabel">Buscar / instalar actualización</div>
+            </div>
+            <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet">🔄</button>
           </div>
-          <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
-        </div>
-        <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
-        <div class="muted" id="storageHint" style="margin-top:-2px">—</div>
-</div>
+
+          <button class="btn btn-secondary" id="btnResetCache" style="width:100%;margin-top:8px">🧰 Reiniciar caché (si se queda pegada)</button>
+
+          <div class="sheetRow" style="margin-top:10px">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Caja negra (iOS)</div>
+              <div class="muted">Exporta los últimos 500 eventos para diagnóstico</div>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:nowrap">
+              <button class="btn btn-secondary smallBtn" id="btnBlackBoxExport" title="Exportar caja negra">🧾⬇️</button>
+              <button class="btn btn-secondary smallBtn" id="btnBlackBoxClear" title="Borrar registros">🧹</button>
+            </div>
+          </div>
+          <div class="muted" id="blackBoxStatus" style="margin-top:-2px">Tip: reproduce el fallo y exporta de inmediato.</div>
+
+          <div class="sheetRow" style="margin-top:10px">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Diagnostico (Word)</div>
+              <div class="muted">Caja negra para detectar por que un DOCX sale danado</div>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:nowrap">
+              <button class="btn btn-secondary smallBtn" id="btnDiagView" title="Ver bitacora">LOG</button>
+              <button class="btn btn-secondary smallBtn" id="btnDiagDownload" title="Descargar diagnostico">DIAG</button>
+              <button class="btn btn-danger smallBtn" id="btnDiagClear" title="Limpiar bitacora">CLR</button>
+            </div>
+          </div>
+          <div class="muted" id="diagStatus" style="margin-top:-2px">-</div>
+
+          <div class="sheetRow" style="margin-top:10px">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Almacenamiento</div>
+              <div class="muted" id="storageLabel">—</div>
+            </div>
+            <button class="btn btn-secondary smallBtn" id="btnStorageRefresh" title="Actualizar">↻</button>
+          </div>
+          <div class="storageBar" aria-hidden="true"><div class="storageFill" id="storageFill"></div></div>
+          <div class="muted" id="storageHint" style="margin-top:-2px">—</div>
+
+          <div class="sheetRow dangerRow" style="margin-top:10px">
+            <div class="sheetRowMain">
+              <div class="sheetRowTitle">Borrar todo</div>
+              <div class="muted">Elimina todas las fotos, descripciones y proyectos guardados en este dispositivo</div>
+            </div>
+            <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
+          </div>
+        </details>
+
+      </div></div>
     </div>
   </div>
 
@@ -1362,7 +1388,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.29";
+const APP_VERSION = "v0.8.7.30";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
