@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.24</title>
+    <title>Logi2 v0.8.7.25</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.24">
-  <link rel="icon" href="favicon.png?v=0.8.7.24">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.24">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.25">
+  <link rel="icon" href="favicon.png?v=0.8.7.25">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.25">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.24</div>
+          <div class="appVersion" id="appVersion">v0.8.7.25</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1351,7 +1351,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.24";
+const APP_VERSION = "v0.8.7.25";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -2015,7 +2015,7 @@ const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema
       projectId: targetPid
     };
 
-    await dbPut(it);
+    await dbPutQ(it);
     cache.push(it);
     existing.add(id);
     added++;
@@ -2371,7 +2371,7 @@ async function restoreBackupZipAll(file){
       projectId: targetPid
     };
 
-    await dbPut(it);
+    await dbPutQ(it);
     existingAll.add(id);
     added++;
   }
@@ -2753,7 +2753,7 @@ const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema
       projectId: targetPid
     };
 
-    await dbPut(it);
+    await dbPutQ(it);
     cache.push(it);
     existing.add(id);
     added++;
@@ -3109,7 +3109,7 @@ async function restoreBackupZipAll(file){
       projectId: targetPid
     };
 
-    await dbPut(it);
+    await dbPutQ(it);
     existingAll.add(id);
     added++;
   }
@@ -3502,6 +3502,33 @@ async function dbDelete(id){
     tx.onerror = () => reject(tx.error);
   });
 }
+
+// ===========================
+// iOS: Cola serial de escrituras a IndexedDB (evita abortos silenciosos)
+// ===========================
+let __dbWriteQ = Promise.resolve();
+const __savingById = new Map();
+
+function __enqueueWrite(fn){
+  __dbWriteQ = __dbWriteQ.then(fn, fn);
+  return __dbWriteQ;
+}
+
+async function dbPutQ(item){
+  const id = item && item.id != null ? item.id : null;
+  const p = __enqueueWrite(() => dbPut(item));
+  if (id != null) __savingById.set(id, p);
+  return p;
+}
+
+async function dbDeleteQ(id){
+  return __enqueueWrite(() => dbDelete(id));
+}
+
+async function awaitPendingSaves(id){
+  const p = __savingById.get(id);
+  if (p) { try { await p; } catch(e) {} }
+}
 async function dbClear(){
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -3695,7 +3722,7 @@ async function commitItemFromText(obj, rawText){
   if (!code){
     obj.itemCode = "";
     obj.itemDesc = "";
-    await dbPut(obj);
+    await dbPutQ(obj);
     return { committed:true, code:"" };
   }
   // Solo permitir códigos existentes
@@ -3704,7 +3731,7 @@ async function commitItemFromText(obj, rawText){
   }
   obj.itemCode = code;
   obj.itemDesc = catalogMap[code] || "";
-  await dbPut(obj);
+  await dbPutQ(obj);
   return { committed:true, code };
 }
 
@@ -4232,7 +4259,7 @@ function attachProjectHandlers(){
         // lo hacemos ligero: actualiza solo los del cache actual
         for (const it of cache){
           it.proyecto = name;
-          await dbPut(it);
+          await dbPutQ(it);
         }
       }
       refreshProjectUI();
@@ -4453,7 +4480,7 @@ async function deleteItemsByProject(projectId, firstId){
   }
   let deleted = 0;
   for (const id of toDel){
-    try{ await dbDelete(id); deleted++; }catch{}
+    try{ await dbDeleteQ(id); deleted++; }catch{}
     if (deleted % 50 === 0) await new Promise(r => setTimeout(r, 0));
   }
   diagPush("info","project_delete_items_scan",{ projectId, deleted, scanned: (all||[]).length });
@@ -5465,7 +5492,7 @@ function wireEventsCaptura(){
       const obj = cache.find(x => x.id === id);
       if (!obj) return;
       obj.descripcion = t.value;
-      await dbPut(obj);
+      await dbPutQ(obj);
     };
   });
 
@@ -5511,7 +5538,7 @@ function wireEventsCaptura(){
       // Otros navegadores: permitir escribir libre y persistir
       obj.itemCode = code;
       obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-      await dbPut(obj);
+      await dbPutQ(obj);
     };
 
     inp.oninput = () => { _tryCommit('input'); };
@@ -5523,7 +5550,7 @@ function wireEventsCaptura(){
     b.onclick = async () => {
       const id = Number(b.dataset.id);
       if (!confirm("¿Eliminar esta foto?")) return;
-      await dbDelete(id);
+      await dbDeleteQ(id);
       cache = cache.filter(x => x.id !== id);
       render();
     };
@@ -5551,13 +5578,13 @@ function wireEventsCaptura(){
           } else {
             obj.itemCode = code;
             obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-            await dbPut(obj);
+            await dbPutQ(obj);
           }
         }
       }
 
       obj.done = !obj.done;
-      await dbPut(obj);
+      await dbPutQ(obj);
       render();
     };
   });
@@ -5701,7 +5728,7 @@ $("modalItem").oninput = async () => {
   } else {
     it.itemCode = code;
     it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-    await dbPut(it);
+    await dbPutQ(it);
   }
   // refrescar hints en captura
   const h = document.querySelector(`[data-ithint="${it.id}"]`);
@@ -5712,14 +5739,19 @@ $("modalDesc").oninput = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
-  it.descripcion = $("modalDesc").value;
-  await dbPut(it);
+  const updated = { ...it, descripcion: $("modalDesc").value };
+  await dbPutQ(updated);
+  cache = cache.map(x => x.id === updated.id ? updated : x);
 };
 
 $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
-  const it = cache.find(x => x.id === modalId);
+  let it = cache.find(x => x.id === modalId);
   if (!it) return;
+
+  // iOS/Safari: evitar solapes entre guardados del input y el clic de "Listo"
+  await awaitPendingSaves(it.id);
+
   // iOS: validar/commit del ítem antes de marcar listo
   if (!it.done){
     const raw = $("modalItem")?.value || (it.itemCode||"");
@@ -5733,18 +5765,32 @@ $("btnModalDone").onclick = async () => {
       if (IS_IOS){
         const res = await commitItemFromText(it, code);
         if (!res.committed) return;
+        // Releer referencia tras commit
+        it = cache.find(x => x.id === modalId) || it;
       } else {
-        it.itemCode = code;
-        it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-        await dbPut(it);
+        const updatedItem = { ...it, itemCode: code, itemDesc: (catalogMap[code] || "") };
+        await dbPutQ(updatedItem);
+        cache = cache.map(x => x.id === updatedItem.id ? updatedItem : x);
+        it = updatedItem;
       }
     }
   }
 
-  it.done = !it.done;
-  await dbPut(it);
+  const updated = { ...it, done: !it.done };
+  await dbPutQ(updated);
+  cache = cache.map(x => x.id === updated.id ? updated : x);
+
+  // Refrescar UI inmediata (sin reabrir modal)
+  try{
+    $("modalMeta").textContent = `${updated.fecha} · ${updated.done ? "LISTA" : "PENDIENTE"}`;
+    $("btnModalDone").textContent = updated.done ? "✏️ Editar" : "✅ Listo";
+    $("btnModalShare").disabled = !updated.done;
+    $("btnModalShare").classList.toggle("btn-disabled", !updated.done);
+    $("modalItem").disabled = !!updated.done;
+    $("modalDesc").disabled = !!updated.done;
+  }catch(e){}
+
   render();
-  openModal(it.id);
 };
 
 $("btnModalDelete").onclick = async () => {
@@ -5752,7 +5798,7 @@ $("btnModalDelete").onclick = async () => {
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
   if (!confirm("¿Eliminar esta foto?")) return;
-  await dbDelete(it.id);
+  await dbDeleteQ(it.id);
   cache = cache.filter(x => x.id !== it.id);
   closeModal();
   render();
@@ -5853,7 +5899,7 @@ async function ingestPhotos(fileList){
       projectId: projectId
     };
 
-    await dbPut(item);
+    await dbPutQ(item);
     cache.push(item);
   }
 
@@ -7957,7 +8003,7 @@ function initSwipeTabs(){
 }
 
 function render(){
-  revokeActiveUrls();
+  if (!IS_IOS) revokeActiveUrls();
   setStatus();
   if (viewMode === "captura") renderCaptura();
   else if (viewMode === "galeria") renderGaleria();
@@ -8004,7 +8050,7 @@ function renderExport(){
     if (!ok) return;
 
     for (const it of legacyItems){
-      await dbPut(it);
+      await dbPutQ(it);
       cache.push(it);
     }
 
