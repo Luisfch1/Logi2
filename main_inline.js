@@ -1288,7 +1288,8 @@ async function dbClear(){
    Catálogo de ítems (por proyecto)
 =========================== */
 let catalog = [];          // rows: {key, projectId, item, descripcion, unidad, createdAt}
-let catalogMap = {};       // { itemCode: descripcion } para el proyecto activo
+let catalogMap = {};
+let catalogCodes = new Set();       // { itemCode: descripcion } para el proyecto activo
 
 async function catGetByProject(projectId){
   const db = await openDB();
@@ -1457,8 +1458,12 @@ async function catClearProject(projectId){
 
 function rebuildCatalogMap(){
   catalogMap = {};
-  for (const r of catalog){
-    if (r?.item) catalogMap[String(r.item).trim()] = (r.descripcion || "").trim();
+  catalogCodes = new Set();
+  for (const r of (catalog || [])){
+    const code = String(r?.item || "").trim();
+    if (!code) continue;
+    catalogMap[code] = String(r.descripcion || "").trim();
+    catalogCodes.add(code);
   }
 }
 
@@ -1752,6 +1757,7 @@ function onProjectChanged(){
 
   // Limpia de inmediato para que NO se quede mostrando el proyecto anterior
   cache = [];
+  revokeAllThumbUrls();
   render();
   updateStorageUI();
 
@@ -1776,6 +1782,7 @@ async function loadCacheForActiveProject(){
   const firstId = projects[0]?.id || activeId;
 
   // Sin migración pesada: los legacy (sin projectId) se consideran del primer proyecto.
+  revokeAllThumbUrls();
   cache = all.filter(it => (it.projectId ? it.projectId === activeId : activeId === firstId));
   setProyectoInputFromActive();
 }
@@ -2059,6 +2066,9 @@ function initLayoutUI(){
 }
 /* ===========================
    URLs temporales
+   - iOS rompe miniaturas si revocamos blob: URLs mientras aún están en el DOM.
+   - Por eso: thumbnails usan un cache por fotoId y SOLO se revocan al borrar/recargar data.
+   - trackUrl/revokeActiveUrls quedan para URLs "de una sola vez" (descargas/exports).
 =========================== */
 let activeUrls = [];
 function trackUrl(u){ activeUrls.push(u); return u; }
@@ -2069,6 +2079,56 @@ function revokeActiveUrls(){
   activeUrls = [];
 }
 
+// Cache de thumbnails por foto (NO revocar en cada render)
+let thumbUrlMap = new Map(); // id -> objectURL
+
+function getThumbUrlFor(it){
+  try{
+    const id = it?.id;
+    if (!id || !it?.blob) return "";
+    if (thumbUrlMap.has(id)) return thumbUrlMap.get(id);
+    const url = URL.createObjectURL(it.blob);
+    thumbUrlMap.set(id, url);
+    return url;
+  }catch{
+    return "";
+  }
+}
+
+function revokeThumbUrlById(id){
+  try{
+    const url = thumbUrlMap.get(id);
+    if (url) {
+      try { URL.revokeObjectURL(url); } catch {}
+      thumbUrlMap.delete(id);
+    }
+  }catch{}
+}
+
+function revokeAllThumbUrls(){
+  try{
+    for (const url of thumbUrlMap.values()){
+      try { URL.revokeObjectURL(url); } catch {}
+    }
+  }catch{}
+  thumbUrlMap.clear();
+}
+
+// Modal usa su propio URL (se revoca al cerrar / cambiar de foto)
+let modalObjectUrl = null;
+function setModalObjectUrlFromBlob(blob){
+  try{
+    if (modalObjectUrl){
+      try { URL.revokeObjectURL(modalObjectUrl); } catch {}
+      modalObjectUrl = null;
+    }
+    if (!blob) return "";
+    modalObjectUrl = URL.createObjectURL(blob);
+    return modalObjectUrl;
+  }catch{
+    return "";
+  }
+}
 /* ===========================
    Preferencias (DOCX fit)
 =========================== */
@@ -2480,7 +2540,7 @@ function renderCaptura(){
     const div = document.createElement("div");
     div.className = "item" + (item.done ? " done" : "");
 
-    const thumbUrl = trackUrl(URL.createObjectURL(item.blob));
+    const thumbUrl = getThumbUrlFor(item);
     const shareDisabled = !item.done;
 
     div.innerHTML = `
@@ -2529,6 +2589,43 @@ function renderCaptura(){
 }
 
 
+
+function isValidCatalogCode(code){
+  const c = String(code || "").trim();
+  return !!(c && catalogCodes && catalogCodes.has(c));
+}
+
+async function commitItemCodeForPhoto(id, code){
+  const obj = cache.find(x => x.id === id);
+  if (!obj) return false;
+  const c = String(code || "").trim();
+  if (!c){
+    obj.itemCode = "";
+    obj.itemDesc = "";
+    obj._itemDraft = "";
+    await dbPut(obj);
+    return true;
+  }
+  if (!isValidCatalogCode(c)) return false;
+
+  obj.itemCode = c;
+  obj.itemDesc = catalogMap[c] || "";
+  obj._itemDraft = "";
+  await dbPut(obj);
+
+  // refrescar hint (captura)
+  const h = document.querySelector(`[data-ithint="${id}"]`);
+  if (h) h.textContent = obj.itemDesc || "";
+  return true;
+}
+
+function setItemHintText(id, code){
+  const h = document.querySelector(`[data-ithint="${id}"]`);
+  if (!h) return;
+  const c = String(code || "").trim();
+  h.textContent = (c && catalogMap[c]) ? (catalogMap[c] || "") : "";
+}
+
 function wireEventsCaptura(){
   document.querySelectorAll("textarea.desc").forEach(t => {
     t.oninput = async () => {
@@ -2549,17 +2646,38 @@ function wireEventsCaptura(){
     };
   });
   document.querySelectorAll("input.itSel").forEach(inp => {
-    inp.oninput = async () => {
+    // iOS datalist: oninput puede disparar con solo una letra (ej: "M") y NO significa selección.
+    // Guardamos como borrador y solo "comiteamos" si el código es válido o al presionar ✅ Listo.
+    const readVal = () => String(inp.value || "").trim();
+
+    inp.oninput = () => {
       const id = Number(inp.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj || obj.done) return;
-      const code = (inp.value || "").trim();
-      obj.itemCode = code;
-      obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-      await dbPut(obj);
-      const h = document.querySelector(`[data-ithint="${id}"]`);
-      if (h) h.textContent = obj.itemDesc || "";
+      const v = readVal();
+      obj._itemDraft = v;
+      // hint solo si es válido
+      setItemHintText(id, v);
     };
+
+    const commitIfValid = async () => {
+      const id = Number(inp.dataset.id);
+      const obj = cache.find(x => x.id === id);
+      if (!obj || obj.done) return;
+      const v = readVal();
+      // Permitir limpiar
+      if (!v){
+        await commitItemCodeForPhoto(id, "");
+        return;
+      }
+      // Si es válido, commit
+      if (isValidCatalogCode(v)){
+        await commitItemCodeForPhoto(id, v);
+      }
+    };
+
+    inp.onchange = commitIfValid;
+    inp.onblur = commitIfValid;
   });
 
   document.querySelectorAll("button.del").forEach(b => {
@@ -2567,6 +2685,7 @@ function wireEventsCaptura(){
       const id = Number(b.dataset.id);
       if (!confirm("¿Eliminar esta foto?")) return;
       await dbDelete(id);
+      revokeThumbUrlById(id);
       cache = cache.filter(x => x.id !== id);
       render();
     };
@@ -2577,6 +2696,30 @@ function wireEventsCaptura(){
       const id = Number(b.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj) return;
+
+      // Si va a marcar como LISTO, aseguramos que el ítem (si existe) sea válido.
+      if (!obj.done){
+        const inp = document.querySelector(`input.itSel[data-id="${id}"]`);
+        const v = String(inp?.value || obj._itemDraft || obj.itemCode || "").trim();
+
+        if (v){
+          if (!isValidCatalogCode(v)){
+            alert("Selecciona un ítem válido del listado (no solo la letra de búsqueda).");
+            try { inp?.focus(); } catch {}
+            return;
+          }
+          // Commit si cambió o si aún era borrador
+          if (String(obj.itemCode || "").trim() !== v){
+            await commitItemCodeForPhoto(id, v);
+          }
+        }else{
+          // Si está vacío, lo dejamos vacío (commit limpieza por consistencia)
+          if (String(obj.itemCode || "").trim()){
+            await commitItemCodeForPhoto(id, "");
+          }
+        }
+      }
+
       obj.done = !obj.done;
       await dbPut(obj);
       render();
@@ -2639,7 +2782,7 @@ if (!groups.length){
     items.forEach(it => {
       const box = document.createElement("div");
       box.className = "gThumbBox";
-      const url = trackUrl(URL.createObjectURL(it.blob));
+      const url = getThumbUrlFor(it);
       const hasItem = !!String(it.itemCode || "").trim();
       const codeShort = hasItem ? String(it.itemCode || "").trim().slice(0, 14) : "";
       box.innerHTML = `
@@ -2669,7 +2812,7 @@ function openModal(id){
   modalId = id;
   $("modal").classList.add("open");
 
-  const url = trackUrl(URL.createObjectURL(it.blob));
+  const url = getThumbUrlFor(it);
   $("modalImg").src = url;
 
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
@@ -2691,6 +2834,7 @@ function closeModal(){
   if (typeof dictation !== "undefined" && dictation.active) stopDictation();
   $("modal").classList.remove("open");
   $("modalImg").src = "";
+  setModalObjectUrlFromBlob(null);
   modalId = null;
 }
 
@@ -2701,19 +2845,37 @@ $("modal").addEventListener("click", (e) => {
 });
 
 
-$("modalItem").oninput = async () => {
+$("modalItem").oninput = () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
   const code = ($("modalItem").value || "").trim();
-  it.itemCode = code;
-  it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-  $("modalItemHint").textContent = it.itemDesc || "—";
-  await dbPut(it);
-  // refrescar hints en captura
+  it._itemDraft = code;
+  $("modalItemHint").textContent = (code && catalogMap[code]) ? (catalogMap[code] || "") : "—";
+  // refrescar hints en captura (solo si es válido)
   const h = document.querySelector(`[data-ithint="${it.id}"]`);
-  if (h) h.textContent = it.itemDesc || "";
+  if (h) h.textContent = (code && catalogMap[code]) ? (catalogMap[code] || "") : "";
 };
+
+async function commitModalItemIfValid(){
+  if (modalId == null) return;
+  const it = cache.find(x => x.id === modalId);
+  if (!it || it.done) return;
+  const code = ($("modalItem").value || "").trim();
+
+  if (!code){
+    await commitItemCodeForPhoto(it.id, "");
+    $("modalItemHint").textContent = "—";
+    return;
+  }
+  if (isValidCatalogCode(code)){
+    await commitItemCodeForPhoto(it.id, code);
+    $("modalItemHint").textContent = catalogMap[code] || "—";
+  }
+}
+
+$("modalItem").onchange = commitModalItemIfValid;
+$("modalItem").onblur = commitModalItemIfValid;
 
 $("modalDesc").oninput = async () => {
   if (modalId == null) return;
@@ -2727,6 +2889,26 @@ $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
+
+  // Si va a marcar como LISTO, valida/commit del ítem (si hay)
+  if (!it.done){
+    const v = String(($("modalItem")?.value || it._itemDraft || it.itemCode || "")).trim();
+    if (v){
+      if (!isValidCatalogCode(v)){
+        alert("Selecciona un ítem válido del listado (no solo la letra de búsqueda).");
+        try { $("modalItem")?.focus(); } catch {}
+        return;
+      }
+      if (String(it.itemCode || "").trim() !== v){
+        await commitItemCodeForPhoto(it.id, v);
+      }
+    }else{
+      if (String(it.itemCode || "").trim()){
+        await commitItemCodeForPhoto(it.id, "");
+      }
+    }
+  }
+
   it.done = !it.done;
   await dbPut(it);
   render();
@@ -2739,6 +2921,7 @@ $("btnModalDelete").onclick = async () => {
   if (!it) return;
   if (!confirm("¿Eliminar esta foto?")) return;
   await dbDelete(it.id);
+  revokeThumbUrlById(it.id);
   cache = cache.filter(x => x.id !== it.id);
   closeModal();
   render();

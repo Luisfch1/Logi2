@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.19</title>
+    <title>Logi2 v0.8.7.20</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.18">
-  <link rel="icon" href="favicon.png?v=0.8.7.18">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.18">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.20">
+  <link rel="icon" href="favicon.png?v=0.8.7.20">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.20">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.19</div>
+          <div class="appVersion" id="appVersion">v0.8.7.20</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1269,7 +1269,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.19";
+const APP_VERSION = "v0.8.7.20";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -4093,22 +4093,11 @@ function initLayoutUI(){
 =========================== */
 let activeUrls = [];
 function trackUrl(u){ activeUrls.push(u); return u; }
-
-function revokeUrlList(list){
-  for (const u of (list||[])) {
+function revokeActiveUrls(){
+  for (const u of activeUrls) {
     try { URL.revokeObjectURL(u); } catch {}
   }
-}
-
-function scheduleRevokeOldUrls(old){
-  if (!old || !old.length) return;
-  // iOS Safari: si revocamos antes de que el DOM reemplace los <img>, puede verse el ícono azul.
-  const run = () => revokeUrlList(old);
-  if (window.requestAnimationFrame){
-    requestAnimationFrame(() => setTimeout(run, 0));
-  } else {
-    setTimeout(run, 0);
-  }
+  activeUrls = [];
 }
 
 /* ===========================
@@ -4704,7 +4693,6 @@ if (!groups.length){
    Modal
 =========================== */
 let modalId = null;
-let modalUrl = null;
 
 function openModal(id){
   const it = cache.find(x => x.id === id);
@@ -4713,10 +4701,8 @@ function openModal(id){
   modalId = id;
   $("modal").classList.add("open");
 
-  // Modal URL is handled separately (not tracked) to avoid iOS Safari glitches
-  try { if (modalUrl) URL.revokeObjectURL(modalUrl); } catch {}
-  modalUrl = URL.createObjectURL(it.blob);
-  $("modalImg").src = modalUrl;
+  const url = trackUrl(URL.createObjectURL(it.blob));
+  $("modalImg").src = url;
 
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
   $("modalMeta").textContent = `${it.fecha} · ${it.done ? "LISTA" : "PENDIENTE"}`;
@@ -4737,8 +4723,6 @@ function closeModal(){
   if (typeof dictation !== "undefined" && dictation.active) stopDictation();
   $("modal").classList.remove("open");
   $("modalImg").src = "";
-  try { if (modalUrl) URL.revokeObjectURL(modalUrl); } catch {}
-  modalUrl = null;
   modalId = null;
 }
 
@@ -4775,25 +4759,10 @@ $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
-
-  const btn = $("btnModalDone");
-  btn.disabled = true;
-  btn.classList.add("btn-disabled");
-
-  try{
-    const updated = { ...it, done: !it.done };
-    await dbPut(updated);
-
-    // Forzar actualización inmutable en memoria (iOS a veces no refresca bien con mutaciones)
-    const idx = cache.findIndex(x => x.id === updated.id);
-    if (idx >= 0) cache[idx] = updated;
-
-    render();
-    openModal(updated.id);
-  } finally {
-    btn.disabled = false;
-    btn.classList.remove("btn-disabled");
-  }
+  it.done = !it.done;
+  await dbPut(it);
+  render();
+  openModal(it.id);
 };
 
 $("btnModalDelete").onclick = async () => {
@@ -7006,14 +6975,11 @@ function initSwipeTabs(){
 }
 
 function render(){
-  // Guardamos las URLs actuales para revocarlas DESPUÉS de re-render (evita glitch iOS)
-  const oldUrls = activeUrls;
-  activeUrls = [];
+  revokeActiveUrls();
   setStatus();
   if (viewMode === "captura") renderCaptura();
   else if (viewMode === "galeria") renderGaleria();
   else renderExport();
-  scheduleRevokeOldUrls(oldUrls);
 }
 
 function renderExport(){
