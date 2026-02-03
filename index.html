@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.26</title>
+    <title>Logi2 v0.8.7.27</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.25">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.26</div>
+          <div class="appVersion" id="appVersion">v0.8.7.27</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1362,7 +1362,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.26";
+const APP_VERSION = "v0.8.7.27";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -2026,7 +2026,7 @@ const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema
       projectId: targetPid
     };
 
-    await dbPutQ(it);
+    await dbPutFullQ(it);
     cache.push(it);
     existing.add(id);
     added++;
@@ -2764,7 +2764,7 @@ const importSettings = confirm("¿También quieres importar CONFIGURACIÓN (tema
       projectId: targetPid
     };
 
-    await dbPutQ(it);
+    await dbPutFullQ(it);
     cache.push(it);
     existing.add(id);
     added++;
@@ -3437,12 +3437,15 @@ $("itemsInput").onchange = async () => {
    IndexedDB
 =========================== */
 const DB_NAME = "logi2_db_v1";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const DB_STORE = "items";          // fotos (registros)
 const DB_STORE_CATALOG = "catalog"; // listado de ítems por proyecto
 const DB_STORE_TPL = "templates";   // plantilla DOCX por proyecto
 const DB_STORE_ITEMFILES = "itemfiles"; // archivo original de ítems por proyecto
+
+const DB_STORE_META = "items_meta";    // metadatos sin blob
+const DB_STORE_BLOBS = "blobs";        // blobs de fotos por id
 
 function openDB(){
   return new Promise((resolve, reject) => {
@@ -3467,7 +3470,41 @@ function openDB(){
       }
 
       // Store catálogo ítems (nuevo)
-      if (!db.objectStoreNames.contains(DB_STORE_CATALOG)){
+      
+      // Stores nuevos para iOS: separar metadatos y blob (evita reescrituras pesadas)
+      if (!db.objectStoreNames.contains(DB_STORE_META)){
+        const meta = db.createObjectStore(DB_STORE_META, { keyPath: "id" });
+        meta.createIndex("byDate", "fecha");
+        meta.createIndex("byCreated", "createdAt");
+        meta.createIndex("byProjectId", "projectId");
+      }
+      if (!db.objectStoreNames.contains(DB_STORE_BLOBS)){
+        db.createObjectStore(DB_STORE_BLOBS, { keyPath: "id" });
+      }
+
+      // Migración: si venimos de version < 6, copiar items legacy -> meta + blobs
+      try{
+        const oldVer = ev.oldVersion || 0;
+        if (oldVer < 6 && db.objectStoreNames.contains(DB_STORE)){
+          const tx = req.transaction;
+          const legacy = tx.objectStore(DB_STORE);
+          const meta = tx.objectStore(DB_STORE_META);
+          const blobs = tx.objectStore(DB_STORE_BLOBS);
+
+          legacy.openCursor().onsuccess = (e) => {
+            const cur = e.target.result;
+            if (!cur) return;
+            const r = cur.value || {};
+            const b = r.blob || null;
+            const m = Object.assign({}, r);
+            delete m.blob;
+            try{ meta.put(m); }catch(_){}
+            if (b){ try{ blobs.put({ id: r.id, blob: b }); }catch(_){} }
+            cur.continue();
+          };
+        }
+      }catch(_){}
+if (!db.objectStoreNames.contains(DB_STORE_CATALOG)){
         const cat = db.createObjectStore(DB_STORE_CATALOG, { keyPath: "key" });
         cat.createIndex("byProject", "projectId");
         cat.createIndex("byItem", "item");
@@ -3487,54 +3524,88 @@ function openDB(){
 
 
 async function dbPut(item){
+  // Meta-only put (no blob). Evita reescrituras pesadas en iOS.
+  const db = await openDB();
+  const meta = Object.assign({}, item);
+  delete meta.blob;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_META, "readwrite");
+    const req = tx.objectStore(DB_STORE_META).put(meta);
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error || tx.error || new Error("dbPut_meta_failed"));
+  });
+}
+
+async function dbPutBlob(id, blob){
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, "readwrite");
-    tx.objectStore(DB_STORE).put(item);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
+    const tx = db.transaction(DB_STORE_BLOBS, "readwrite");
+    const req = tx.objectStore(DB_STORE_BLOBS).put({ id, blob });
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error || tx.error || new Error("dbPut_blob_failed"));
+  });
+}
+
+async function dbGetBlob(id){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_BLOBS, "readonly");
+    const req = tx.objectStore(DB_STORE_BLOBS).get(id);
+    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+    req.onerror = () => reject(req.error || tx.error || new Error("dbGet_blob_failed"));
   });
 }
 
 async function dbGet(id){
+  // Devuelve meta + blob (si existe)
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, "readonly");
-    const req = tx.objectStore(DB_STORE).get(id);
+  const meta = await new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_META, "readonly");
+    const req = tx.objectStore(DB_STORE_META).get(id);
     req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(req.error || tx.error || new Error("dbGet_meta_failed"));
   });
+  if (!meta) return null;
+  try{
+    const blob = await dbGetBlob(id);
+    if (blob) meta.blob = blob;
+  }catch(_){}
+  return meta;
 }
 
-// Refresca un registro desde DB para mantener UI en sync (iOS)
-async function refreshCacheItem(id){
-  try{
-    const rec = await dbGet(id);
-    if (rec){
-      cache = cache.map(x => x.id === id ? rec : x);
-      return rec;
-    }
-  }catch(e){
-    try{ BB.push("REFRESH_FROM_DB_ERR", { id, err: String(e||"") }); }catch(_){}
-  }
-  return null;
-}
 async function dbGetAll(){
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, "readonly");
-    const req = tx.objectStore(DB_STORE).getAll();
+  const metas = await new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE_META, "readonly");
+    const req = tx.objectStore(DB_STORE_META).getAll();
     req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(req.error || tx.error || new Error("dbGetAll_meta_failed"));
   });
+  // Adjuntar blobs (getAll)
+  try{
+    const blobs = await new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE_BLOBS, "readonly");
+      const req = tx.objectStore(DB_STORE_BLOBS).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error || tx.error || new Error("dbGetAll_blob_failed"));
+    });
+    const map = new Map(blobs.map(x => [x.id, x.blob]));
+    for (const m of metas){
+      const b = map.get(m.id);
+      if (b) m.blob = b;
+    }
+  }catch(_){}
+  return metas;
 }
+
 async function dbDelete(id){
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, "readwrite");
-    tx.objectStore(DB_STORE).delete(id);
+    const tx = db.transaction([DB_STORE_META, DB_STORE_BLOBS], "readwrite");
+    tx.objectStore(DB_STORE_META).delete(id);
+    tx.objectStore(DB_STORE_BLOBS).delete(id);
     tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error || new Error("dbDelete_failed"));
   });
 }
 
@@ -3558,7 +3629,7 @@ async function dbPutQ(item){
       const ok = await dbPut(item);
       return ok;
     }catch(e){
-      try{ BB.push("DB_PUT_ERR", { id, err: String(e||"") }); }catch(_){}
+      try{ BB.push("DB_PUT_ERR", { id, err: (e && (e.name||e.message)) ? (e.name + ":" + (e.message||"")) : String(e||"") }); }catch(_){}
       throw e;
     }
   });
@@ -3567,6 +3638,20 @@ async function dbPutQ(item){
   try{ BB.push("DB_PUTQ_OK", { id, ms: Date.now()-t0 }); }catch(e){}
   return ok;
 }
+
+async function dbPutFullQ(item){
+  // Guarda meta + blob (solo cuando se crea o cambia la foto)
+  const meta = Object.assign({}, item);
+  const blob = meta.blob;
+  delete meta.blob;
+  await dbPutQ(meta);
+  if (blob){
+    // serializar también el blob
+    await __enqueueWrite(() => dbPutBlob(item.id, blob));
+  }
+  return true;
+}
+
 
 async function dbDeleteQ(id){
   try{ BB.push("DB_DELQ_START", { id }); }catch(e){}
@@ -8112,8 +8197,8 @@ function renderExport(){
     if (!ok) return;
 
     for (const it of legacyItems){
-      await dbPutQ(it);
-      cache.push(it);
+      await dbPutFullQ(it);
+    cache.push(it);
     }
 
     // Migrar settings (solo si Logi no tiene nada aún)
