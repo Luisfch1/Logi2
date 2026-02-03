@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.20</title>
+    <title>Logi2 v0.8.7.21</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.20">
-  <link rel="icon" href="favicon.png?v=0.8.7.20">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.20">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.21">
+  <link rel="icon" href="favicon.png?v=0.8.7.21">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.21">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.20</div>
+          <div class="appVersion" id="appVersion">v0.8.7.21</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -705,6 +705,19 @@
 
         <div class="sheetRow">
           <div class="sheetRowMain">
+            <div class="sheetRowTitle">Caja negra (iOS)</div>
+            <div class="muted">Exporta los últimos 500 eventos para diagnóstico</div>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <button class="btn btn-secondary smallBtn" id="btnBlackBoxExport" title="Exportar caja negra">🧾⬇️</button>
+            <button class="btn btn-secondary smallBtn" id="btnBlackBoxClear" title="Borrar registros">🧹</button>
+          </div>
+        </div>
+
+        <div class="muted" id="blackBoxStatus" style="margin-top:-2px">Tip: reproduce el fallo y exporta de inmediato.</div>
+
+        
+          <div class="sheetRowMain">
             <div class="sheetRowTitle">Respaldo (proyecto)</div>
             <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
           </div>
@@ -912,6 +925,108 @@
 
 <script>
 function $(id){ return document.getElementById(id); }
+
+// ===========================
+// Caja negra (últimos 500 eventos)
+// ===========================
+const BB = (() => {
+  const MAX = 500;
+  let buf = [];
+  let seq = 0;
+  let lastFlush = 0;
+  const LS_KEY = "logi_bb_v1";
+  const LS_META = "logi_bb_meta_v1";
+
+  function now(){ return Date.now(); }
+  function push(type, data){
+    const ev = { t: now(), seq: (++seq), type, data: data ?? null };
+    buf.push(ev);
+    if (buf.length > MAX) buf.splice(0, buf.length - MAX);
+    // flush liviano a localStorage cada ~10 eventos o 1.5s
+    const n = buf.length;
+    if (n % 10 === 0 || (now() - lastFlush) > 1500){
+      lastFlush = now();
+      try{
+        localStorage.setItem(LS_KEY, JSON.stringify(buf));
+        localStorage.setItem(LS_META, JSON.stringify({ ver: $("appVersion")?.textContent || "", ua: navigator.userAgent, t:lastFlush }));
+      }catch(e){}
+    }
+  }
+  function load(){
+    try{
+      const s = localStorage.getItem(LS_KEY);
+      if (s){
+        const arr = JSON.parse(s);
+        if (Array.isArray(arr)) buf = arr.slice(-MAX);
+        const last = buf.length ? buf[buf.length-1].seq : 0;
+        seq = Math.max(seq, last);
+      }
+    }catch(e){}
+  }
+  function clear(){
+    buf = [];
+    seq = 0;
+    try{ localStorage.removeItem(LS_KEY); }catch(e){}
+    try{ localStorage.removeItem(LS_META); }catch(e){}
+  }
+  function snapshot(){
+    // evita objetos grandes; solo estado útil
+    const proj = (typeof activeProjectId !== "undefined") ? activeProjectId : null;
+    const projName = (typeof getActiveProjectName === "function") ? getActiveProjectName() : null;
+    return {
+      appVersion: $("appVersion")?.textContent || "",
+      ua: navigator.userAgent,
+      platform: navigator.platform,
+      isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+      isStandalone: (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (navigator.standalone === true),
+      viewMode: (typeof viewMode !== "undefined") ? viewMode : null,
+      activeProjectId: proj,
+      activeProjectName: projName,
+      selectedDate: $("fecha")?.value || null,
+      cacheCount: (typeof cache !== "undefined" && Array.isArray(cache)) ? cache.length : null,
+      catalogCount: (typeof catalog !== "undefined" && Array.isArray(catalog)) ? catalog.length : null,
+      time: new Date().toISOString()
+    };
+  }
+  function getEvents(){ return buf.slice(); }
+
+  return { push, load, clear, snapshot, getEvents };
+})();
+
+// Cargar buffer previo (si la app se cerró)
+try{ BB.load(); }catch(e){}
+
+// Capturar errores globales
+window.addEventListener("error", (e) => {
+  try{ BB.push("ERROR", { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error?.stack || null }); }catch{}
+});
+window.addEventListener("unhandledrejection", (e) => {
+  try{ BB.push("UNHANDLED_REJECTION", { reason: String(e.reason), stack: e.reason?.stack || null }); }catch{}
+});
+
+// Hook de ObjectURL (iOS: clave para el ícono azul)
+(() => {
+  const _create = URL.createObjectURL.bind(URL);
+  const _revoke = URL.revokeObjectURL.bind(URL);
+  const map = new Map(); // url -> {t, hint}
+  URL.createObjectURL = (obj) => {
+    const url = _create(obj);
+    try{
+      const hint = (obj && obj.type) ? obj.type : (obj && obj.constructor ? obj.constructor.name : "unknown");
+      map.set(url, { t: Date.now(), hint });
+      BB.push("OBJURL_CREATE", { url, hint });
+    }catch{}
+    return url;
+  };
+  URL.revokeObjectURL = (url) => {
+    try{
+      const info = map.get(url);
+      BB.push("OBJURL_REVOKE", { url, info: info || null });
+      map.delete(url);
+    }catch{}
+    return _revoke(url);
+  };
+})();
 
 function escapeHtml(s){
   return String(s||"")
@@ -1269,7 +1384,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.20";
+const APP_VERSION = "v0.8.7.17";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -1555,6 +1670,45 @@ async function repairApp(){
   location.replace(base + "?r=" + Date.now());
 }
 $("btnResetCache").onclick = repairApp;
+
+// Caja negra (diagnóstico iOS)
+if ($("btnBlackBoxExport")){
+  $("btnBlackBoxExport").onclick = async () => {
+    try{
+      BB.push("BB_EXPORT_CLICK", {});
+      const zip = new JSZip();
+      const events = BB.getEvents();
+      const jsonl = events.map(e => JSON.stringify(e)).join("\n");
+      zip.file("events.jsonl", jsonl || "");
+      zip.file("app_state.json", JSON.stringify(BB.snapshot(), null, 2));
+      // exporta también el último estado del proyecto activo (sin blobs)
+      try{
+        const safeCache = (typeof cache !== "undefined" && Array.isArray(cache)) ? cache.map(x => ({
+          id:x.id, fecha:x.fecha, hora:x.hora, itemCode:x.itemCode||"", itemDesc:x.itemDesc||"", done:!!x.done, descripcion:(x.descripcion||"").slice(0,2000),
+          hasBlob: !!x.blob
+        })) : [];
+        zip.file("cache_index.json", JSON.stringify({ count: safeCache.length, items: safeCache }, null, 2));
+      }catch(e){}
+      const blob = await zip.generateAsync({ type: "blob" });
+      const fname = `logi_blackbox_${new Date().toISOString().replace(/[:.]/g,"-")}.zip`;
+      await diagDownloadBlob(blob, fname);
+      const st = $("blackBoxStatus"); 
+      if (st) st.textContent = `Exportado: ${fname} · eventos: ${events.length}`;
+    }catch(e){
+      console.error(e);
+      alert("No se pudo exportar la caja negra. Revisa espacio y vuelve a intentar.");
+    }
+  };
+}
+if ($("btnBlackBoxClear")){
+  $("btnBlackBoxClear").onclick = () => {
+    if (!confirm("¿Borrar registros de caja negra?")) return;
+    BB.clear();
+    const st = $("blackBoxStatus");
+    if (st) st.textContent = "Caja negra borrada.";
+  };
+}
+
 /* ===========================
    💾 Backup / Restore (ZIP) — NO requiere extraer manualmente
    - Incluye fotos + metadata + (opcional) logo + settings
@@ -2617,12 +2771,13 @@ function openDB(){
 
 
 async function dbPut(item){
+  try{ BB.push("DB_PUT_START", { id: item?.id ?? null, itemCode: item?.itemCode ?? "", done: !!item?.done }); }catch{}
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORE, "readwrite");
     tx.objectStore(DB_STORE).put(item);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
+    tx.oncomplete = () => { try{ BB.push("DB_PUT_OK", { id: item?.id ?? null }); }catch{}; resolve(true); };
+    tx.onerror = () => { try{ BB.push("DB_PUT_ERR", { id: item?.id ?? null, err: String(tx.error) }); }catch{}; reject(tx.error); };
   });
 }
 async function dbGetAll(){
@@ -2635,12 +2790,13 @@ async function dbGetAll(){
   });
 }
 async function dbDelete(id){
+  try{ BB.push("DB_DEL_START", { id }); }catch{}
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORE, "readwrite");
     tx.objectStore(DB_STORE).delete(id);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
+    tx.oncomplete = () => { try{ BB.push("DB_DEL_OK", { id }); }catch{}; resolve(true); };
+    tx.onerror = () => { try{ BB.push("DB_DEL_ERR", { id, err: String(tx.error) }); }catch{}; reject(tx.error); };
   });
 }
 async function dbClear(){
@@ -4561,6 +4717,30 @@ function renderCaptura(){
 
 
 function wireEventsCaptura(){
+  async function _commitItemFromInput(id, value, origin){
+    try{
+      const obj = cache.find(x => x.id === id);
+      if (!obj || obj.done) return;
+      const code = String(value || "").trim();
+      const isExact = !!(code && catalogMap[code]);
+      BB.push("ITEM_INPUT_EVT", { id, origin, value: code, isExact });
+      // siempre actualiza estado en memoria para que el modal muestre lo que vas a guardar
+      obj.itemCode = code;
+      obj.itemDesc = isExact ? catalogMap[code] : "";
+      const h = document.querySelector(`[data-ithint="${id}"]`);
+      if (h) h.textContent = obj.itemDesc || (code && !isExact ? "⚠️ Selecciona un ítem de la lista" : "");
+      // Solo persistir cuando sea un código válido (o cuando limpias el campo)
+      if (isExact || code === ""){
+        BB.push("ITEM_PERSIST_START", { id, code });
+        await dbPut(obj);
+        BB.push("ITEM_PERSIST_OK", { id, code });
+      }else{
+        BB.push("ITEM_PERSIST_SKIP", { id, code });
+      }
+    }catch(e){
+      try{ BB.push("ITEM_PERSIST_ERR", { id, origin, err: String(e), stack: e?.stack || null }); }catch{}
+    }
+  }
   document.querySelectorAll("textarea.desc").forEach(t => {
     t.oninput = async () => {
       const id = Number(t.dataset.id);
@@ -4583,16 +4763,17 @@ function wireEventsCaptura(){
     try{ attachItemPicker(inp); }catch{}
     inp.oninput = async () => {
       const id = Number(inp.dataset.id);
-      const obj = cache.find(x => x.id === id);
-      if (!obj || obj.done) return;
-      const code = (inp.value || "").trim();
-      obj.itemCode = code;
-      obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-      await dbPut(obj);
-      const h = document.querySelector(`[data-ithint="${id}"]`);
-      if (h) h.textContent = obj.itemDesc || "";
+      // iOS/Safari: datalist puede disparar eventos tarde; no persistimos letras sueltas
+      await _commitItemFromInput(id, inp.value, "input");
     };
-  });
+    inp.onchange = async () => {
+      const id = Number(inp.dataset.id);
+      await _commitItemFromInput(id, inp.value, "change");
+    };
+    inp.onblur = async () => {
+      const id = Number(inp.dataset.id);
+      await _commitItemFromInput(id, inp.value, "blur");
+    };  });
 
   document.querySelectorAll("button.del").forEach(b => {
     b.onclick = async () => {
@@ -4604,17 +4785,34 @@ function wireEventsCaptura(){
     };
   });
 
-  document.querySelectorAll("button.toggleDone").forEach(b => {
+document.querySelectorAll("button.toggleDone").forEach(b => {
     b.onclick = async () => {
       const id = Number(b.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj) return;
-      obj.done = !obj.done;
-      await dbPut(obj);
+      const next = !obj.done;
+
+      // Si va a marcar como LISTO, exige que el ítem sea válido (o vacío)
+      const code = String(obj.itemCode || "").trim();
+      const isExact = !!(code && catalogMap[code]);
+      BB.push("BTN_TOGGLE_DONE", { id, from: obj.done, to: next, code, isExact });
+
+      if (next && code && !isExact){
+        alert("En iOS debes seleccionar un ítem válido de la lista (no solo escribir letras).");
+        return;
+      }
+
+      // actualizar inmutable (iOS a veces no refresca con mutación)
+      const updated = { ...obj, done: next };
+      const idx = cache.findIndex(x => x.id === id);
+      if (idx >= 0) cache[idx] = updated;
+
+      BB.push("DONE_PERSIST_START", { id, done: next, code: updated.itemCode || "" });
+      await dbPut(updated);
+      BB.push("DONE_PERSIST_OK", { id, done: next });
       render();
     };
   });
-
   document.querySelectorAll("button.shareOne").forEach(b => {
     b.onclick = async () => {
       const id = Number(b.dataset.id);
@@ -4699,6 +4897,7 @@ function openModal(id){
   if (!it) return;
 
   modalId = id;
+  try{ BB.push("MODAL_OPEN", { id, itemCode: it.itemCode||"", done:!!it.done }); }catch{}
   $("modal").classList.add("open");
 
   const url = trackUrl(URL.createObjectURL(it.blob));
@@ -4721,6 +4920,7 @@ function openModal(id){
 
 function closeModal(){
   if (typeof dictation !== "undefined" && dictation.active) stopDictation();
+  try{ BB.push("MODAL_CLOSE", { id: modalId }); }catch{}
   $("modal").classList.remove("open");
   $("modalImg").src = "";
   modalId = null;
@@ -4738,15 +4938,40 @@ $("modalItem").oninput = async () => {
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
   const code = ($("modalItem").value || "").trim();
+  const isExact = !!(code && catalogMap[code]);
+  try{ BB.push("MODAL_ITEM_EVT", { id: it.id, origin: "input", value: code, isExact }); }catch{}
   it.itemCode = code;
-  it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-  $("modalItemHint").textContent = it.itemDesc || "—";
-  await dbPut(it);
+  it.itemDesc = isExact ? catalogMap[code] : "";
+  $("modalItemHint").textContent = it.itemDesc || (code && !isExact ? "⚠️ Selecciona un ítem válido" : "—");
   // refrescar hints en captura
   const h = document.querySelector(`[data-ithint="${it.id}"]`);
   if (h) h.textContent = it.itemDesc || "";
-};
 
+  if (isExact || code === ""){
+    await dbPut(it);
+    try{ BB.push("MODAL_ITEM_PERSIST_OK", { id: it.id, code }); }catch{}
+  }else{
+    try{ BB.push("MODAL_ITEM_PERSIST_SKIP", { id: it.id, code }); }catch{}
+  }
+};
+$("modalItem").onchange = async () => {
+  if (modalId == null) return;
+  const it = cache.find(x => x.id === modalId);
+  if (!it || it.done) return;
+  const code = ($("modalItem").value || "").trim();
+  const isExact = !!(code && catalogMap[code]);
+  try{ BB.push("MODAL_ITEM_EVT", { id: it.id, origin: "change", value: code, isExact }); }catch{}
+  if (isExact || code === "") await dbPut(it);
+};
+$("modalItem").onblur = async () => {
+  if (modalId == null) return;
+  const it = cache.find(x => x.id === modalId);
+  if (!it || it.done) return;
+  const code = ($("modalItem").value || "").trim();
+  const isExact = !!(code && catalogMap[code]);
+  try{ BB.push("MODAL_ITEM_EVT", { id: it.id, origin: "blur", value: code, isExact }); }catch{}
+  if (isExact || code === "") await dbPut(it);
+};
 $("modalDesc").oninput = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
@@ -4759,12 +4984,25 @@ $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
-  it.done = !it.done;
-  await dbPut(it);
-  render();
-  openModal(it.id);
-};
 
+  const next = !it.done;
+  const code = String(it.itemCode || "").trim();
+  const isExact = !!(code && catalogMap[code]);
+  try{ BB.push("MODAL_DONE_CLICK", { id: it.id, from: it.done, to: next, code, isExact }); }catch{}
+
+  if (next && code && !isExact){
+    alert("En iOS debes seleccionar un ítem válido de la lista (no solo escribir letras).");
+    return;
+  }
+
+  const updated = { ...it, done: next };
+  const idx = cache.findIndex(x => x.id === updated.id);
+  if (idx >= 0) cache[idx] = updated;
+
+  await dbPut(updated);
+  render();
+  openModal(updated.id);
+};
 $("btnModalDelete").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);

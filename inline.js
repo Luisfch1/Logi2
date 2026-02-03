@@ -356,7 +356,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.20";
+const APP_VERSION = "v0.8.7.5";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
