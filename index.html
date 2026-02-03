@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.25</title>
+    <title>Logi2 v0.8.7.26</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.25">
@@ -409,7 +409,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.25</div>
+          <div class="appVersion" id="appVersion">v0.8.7.26</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -992,7 +992,18 @@ const BB = (() => {
   function getEvents(){ return buf.slice(); }
 
   return { push, load, clear, snapshot, getEvents };
-})();
+})()
+// Restituir buffer si la app fue cerrada por iOS
+try{ BB.load && BB.load(); }catch(e){}
+
+// Captura errores globales (iOS suele dar errores "null")
+window.addEventListener("error", (ev)=>{
+  try{ BB.push("WIN_ERROR", { msg: String(ev.message||""), src: String(ev.filename||""), line: ev.lineno||0, col: ev.colno||0 }); }catch(e){}
+});
+window.addEventListener("unhandledrejection", (ev)=>{
+  try{ BB.push("UNHANDLED_REJECTION", { reason: String(ev.reason||"") }); }catch(e){}
+});
+;
 
 
 function escapeHtml(s){
@@ -1351,7 +1362,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.25";
+const APP_VERSION = "v0.8.7.26";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -3484,6 +3495,30 @@ async function dbPut(item){
     tx.onerror = () => reject(tx.error);
   });
 }
+
+async function dbGet(id){
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readonly");
+    const req = tx.objectStore(DB_STORE).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Refresca un registro desde DB para mantener UI en sync (iOS)
+async function refreshCacheItem(id){
+  try{
+    const rec = await dbGet(id);
+    if (rec){
+      cache = cache.map(x => x.id === id ? rec : x);
+      return rec;
+    }
+  }catch(e){
+    try{ BB.push("REFRESH_FROM_DB_ERR", { id, err: String(e||"") }); }catch(_){}
+  }
+  return null;
+}
 async function dbGetAll(){
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -3516,13 +3551,35 @@ function __enqueueWrite(fn){
 
 async function dbPutQ(item){
   const id = item && item.id != null ? item.id : null;
-  const p = __enqueueWrite(() => dbPut(item));
+  const t0 = Date.now();
+  try{ BB.push("DB_PUTQ_START", { id, done: !!(item&&item.done), code: (item&&item.itemCode)||"" }); }catch(e){}
+  const p = __enqueueWrite(async () => {
+    try{
+      const ok = await dbPut(item);
+      return ok;
+    }catch(e){
+      try{ BB.push("DB_PUT_ERR", { id, err: String(e||"") }); }catch(_){}
+      throw e;
+    }
+  });
   if (id != null) __savingById.set(id, p);
-  return p;
+  const ok = await p;
+  try{ BB.push("DB_PUTQ_OK", { id, ms: Date.now()-t0 }); }catch(e){}
+  return ok;
 }
 
 async function dbDeleteQ(id){
-  return __enqueueWrite(() => dbDelete(id));
+  try{ BB.push("DB_DELQ_START", { id }); }catch(e){}
+  const ok = await __enqueueWrite(async () => {
+    try{
+      return await dbDelete(id);
+    }catch(e){
+      try{ BB.push("DB_DEL_ERR", { id, err: String(e||"") }); }catch(_){}
+      throw e;
+    }
+  });
+  try{ BB.push("DB_DELQ_OK", { id }); }catch(e){}
+  return ok;
 }
 
 async function awaitPendingSaves(id){
@@ -5708,6 +5765,7 @@ $("modal").addEventListener("click", (e) => {
 
 
 $("modalItem").oninput = async () => {
+  try{ BB.push("MODAL_ITEM_INPUT", { id: modalId, v: $("modalItem").value }); }catch(e){}
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
@@ -5736,6 +5794,7 @@ $("modalItem").oninput = async () => {
 };
 
 $("modalDesc").oninput = async () => {
+  try{ BB.push("MODAL_DESC_INPUT", { id: modalId, n: ($("modalDesc").value||"").length }); }catch(e){}
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it || it.done) return;
@@ -5748,6 +5807,7 @@ $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
   let it = cache.find(x => x.id === modalId);
   if (!it) return;
+  try{ BB.push("MODAL_DONE_CLICK", { id: it.id, done: !!it.done, code: it.itemCode||"", raw: $("modalItem")?.value||"" }); }catch(e){}
 
   // iOS/Safari: evitar solapes entre guardados del input y el clic de "Listo"
   await awaitPendingSaves(it.id);
@@ -8003,11 +8063,13 @@ function initSwipeTabs(){
 }
 
 function render(){
+  try{ BB.push("RENDER_START", { mode: viewMode, count: (cache&&cache.length)||0 }); }catch(e){}
   if (!IS_IOS) revokeActiveUrls();
   setStatus();
   if (viewMode === "captura") renderCaptura();
   else if (viewMode === "galeria") renderGaleria();
   else renderExport();
+  try{ BB.push("RENDER_END", { mode: viewMode }); }catch(e){}
 }
 
 function renderExport(){
