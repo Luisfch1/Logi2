@@ -2755,14 +2755,27 @@ function initLayoutUI(){
 /* ===========================
    URLs temporales
 =========================== */
+// URLs temporales usadas SOLO por la galería/captura.
+// En iOS/Safari, revocar un blob:URL antes de que el DOM deje de usarla rompe la miniatura (ícono azul).
 let activeUrls = [];
 function trackUrl(u){ activeUrls.push(u); return u; }
-function revokeActiveUrls(){
-  for (const u of activeUrls) {
+
+function revokeUrls(urls){
+  for (const u of (urls || [])) {
     try { URL.revokeObjectURL(u); } catch {}
   }
-  activeUrls = [];
 }
+
+// Revoca las URLs anteriores DESPUÉS de que el DOM se haya actualizado.
+function revokeActiveUrlsDeferred(oldUrls){
+  const urls = (oldUrls || []).slice();
+  if (!urls.length) return;
+  // RAF + timeout: le da tiempo a iOS a reemplazar <img src>
+  requestAnimationFrame(() => setTimeout(() => revokeUrls(urls), 50));
+}
+
+// Modal usa su propia URL (no se mezcla con activeUrls)
+let modalObjectUrl = null;
 
 /* ===========================
    Preferencias (DOCX fit)
@@ -3244,17 +3257,14 @@ function wireEventsCaptura(){
     };
   });
   document.querySelectorAll("input.itSel").forEach(inp => {
-    inp.oninput = async () => {
-      const id = Number(inp.dataset.id);
-      const obj = cache.find(x => x.id === id);
-      if (!obj || obj.done) return;
-      const code = (inp.value || "").trim();
-      obj.itemCode = code;
-      obj.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-      await dbPut(obj);
-      const h = document.querySelector(`[data-ithint="${id}"]`);
-      if (h) h.textContent = obj.itemDesc || "";
+    const id = Number(inp.dataset.id);
+    const handler = async () => {
+      await persistItemCodeChange(id, inp.value, null);
     };
+    // iOS/Safari: selección desde datalist suele disparar change, no input.
+    inp.oninput = handler;
+    inp.onchange = handler;
+    inp.onblur = handler;
   });
 
   document.querySelectorAll("button.del").forEach(b => {
@@ -3272,6 +3282,14 @@ function wireEventsCaptura(){
       const id = Number(b.dataset.id);
       const obj = cache.find(x => x.id === id);
       if (!obj) return;
+
+      // Asegura que el ítem seleccionado realmente quede aplicado antes de marcar LISTO.
+      // En iOS a veces el change del datalist llega tarde.
+      const inp = document.querySelector(`input.itSel[data-id="${id}"]`);
+      if (inp && !obj.done){
+        await persistItemCodeChange(id, inp.value, null);
+      }
+
       obj.done = !obj.done;
       await dbPut(obj);
       render();
@@ -3364,8 +3382,14 @@ function openModal(id){
   modalId = id;
   $("modal").classList.add("open");
 
-  const url = trackUrl(URL.createObjectURL(it.blob));
-  $("modalImg").src = url;
+  // ⚠️ No usamos trackUrl aquí. Si render() revoca URLs de la galería/captura,
+  // no queremos matar la imagen del modal (iOS lo muestra como ícono azul).
+  if (window.__modalObjectUrl) {
+    try { URL.revokeObjectURL(window.__modalObjectUrl); } catch {}
+    window.__modalObjectUrl = null;
+  }
+  window.__modalObjectUrl = URL.createObjectURL(it.blob);
+  $("modalImg").src = window.__modalObjectUrl;
 
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
   $("modalMeta").textContent = `${it.fecha} · ${it.done ? "LISTA" : "PENDIENTE"}`;
@@ -3386,6 +3410,10 @@ function closeModal(){
   if (typeof dictation !== "undefined" && dictation.active) stopDictation();
   $("modal").classList.remove("open");
   $("modalImg").src = "";
+  if (window.__modalObjectUrl) {
+    try { URL.revokeObjectURL(window.__modalObjectUrl); } catch {}
+    window.__modalObjectUrl = null;
+  }
   modalId = null;
 }
 
@@ -3396,19 +3424,37 @@ $("modal").addEventListener("click", (e) => {
 });
 
 
-$("modalItem").oninput = async () => {
-  if (modalId == null) return;
-  const it = cache.find(x => x.id === modalId);
+async function applyItemCodeToPhoto(photoId, codeRaw){
+  const it = cache.find(x => x.id === photoId);
   if (!it || it.done) return;
-  const code = ($("modalItem").value || "").trim();
+  const code = (codeRaw || "").trim();
   it.itemCode = code;
   it.itemDesc = (code && catalogMap[code]) ? catalogMap[code] : "";
-  $("modalItemHint").textContent = it.itemDesc || "—";
-  await dbPut(it);
+  return it;
+}
+
+async function persistItemCodeChange(photoId, codeRaw, hintEl){
+  const it = await applyItemCodeToPhoto(photoId, codeRaw);
+  if (!it) return;
+  if (hintEl) hintEl.textContent = it.itemDesc || "—";
+  try { await dbPut(it); } catch(e) { console.warn("dbPut itemCode", e); }
   // refrescar hints en captura
   const h = document.querySelector(`[data-ithint="${it.id}"]`);
   if (h) h.textContent = it.itemDesc || "";
-};
+}
+
+// iOS/Safari no siempre dispara oninput al elegir una opción del datalist.
+// Por eso escuchamos input + change + blur.
+const modalItemEl = $("modalItem");
+if (modalItemEl){
+  const handler = async () => {
+    if (modalId == null) return;
+    await persistItemCodeChange(modalId, modalItemEl.value, $("modalItemHint"));
+  };
+  modalItemEl.oninput = handler;
+  modalItemEl.onchange = handler;
+  modalItemEl.onblur = handler;
+}
 
 $("modalDesc").oninput = async () => {
   if (modalId == null) return;
@@ -3422,8 +3468,15 @@ $("btnModalDone").onclick = async () => {
   if (modalId == null) return;
   const it = cache.find(x => x.id === modalId);
   if (!it) return;
+  // Asegura que el valor actual del selector se haya aplicado (iOS puede retrasar el change del datalist)
+  await persistItemCodeChange(modalId, $("modalItem").value, $("modalItemHint"));
+
+  const btn = $("btnModalDone");
+  if (btn) btn.disabled = true;
   it.done = !it.done;
-  await dbPut(it);
+  try { await dbPut(it); } finally {
+    if (btn) btn.disabled = false;
+  }
   render();
   openModal(it.id);
 };
@@ -5638,11 +5691,16 @@ function initSwipeTabs(){
 }
 
 function render(){
-  revokeActiveUrls();
+  // NO revocar antes del render: iOS rompe miniaturas si el DOM aún usa la URL.
+  const oldUrls = activeUrls;
+  activeUrls = [];
+
   setStatus();
   if (viewMode === "captura") renderCaptura();
   else if (viewMode === "galeria") renderGaleria();
   else renderExport();
+
+  revokeActiveUrlsDeferred(oldUrls);
 }
 
 function renderExport(){
