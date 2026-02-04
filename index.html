@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.30</title>
+    <title>Logi2 v0.8.7.31</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.25">
@@ -60,11 +60,24 @@
       --shadow:0 10px 24px rgba(15,23,42,.10);
     }
     html{overflow-x:hidden;}
-    body{margin:0;padding-top:calc(14px + env(safe-area-inset-top));padding-bottom:calc(14px + env(safe-area-inset-bottom));padding-left:calc(14px + env(safe-area-inset-left));padding-right:calc(14px + env(safe-area-inset-right));background:var(--bg);color:var(--text)
-      overflow-x:hidden;
-      max-width:100%;
+    /*
+      iOS (PWA) a veces "recuestra" el layout por un overflow horizontal mínimo.
+      Solución: evitar overflow-x y aplicar el safe-area padding en el contenedor.
+    */
+    body{margin:0;padding:0;background:var(--bg);color:var(--text);overflow-x:hidden}
+    img, video, canvas{max-width:100%; height:auto}
+    .wrap{
+      max-width:900px;
+      margin:0 auto;
+      display:grid;
+      gap:12px;
+      /* padding consistente + safe-area iOS */
+      padding-left:calc(14px + env(safe-area-inset-left));
+      padding-right:calc(14px + env(safe-area-inset-right));
+      padding-top:calc(14px + env(safe-area-inset-top));
+      padding-bottom:calc(14px + env(safe-area-inset-bottom));
+      box-sizing:border-box;
     }
-    .wrap{max-width:900px;margin:0 auto;display:grid;gap:12px}
     h1{font-size:1.15rem;margin:4px 0 0;text-align:center}
     .card{background:var(--card2);border:1px solid var(--border);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
     .sectionHeader{font-weight:900;font-size:.95rem;margin:2px 0 10px;}
@@ -139,8 +152,8 @@
 .dayChip{
   display:inline-flex;align-items:center;gap:8px;
   padding:6px 10px;border-radius:999px;
-  background:rgba(var(--accent-rgb),.14);
-  border:1px solid rgba(var(--accent-rgb),.26);
+  background:rgba(var(--accent-rgb),.18);
+  border:1px solid rgba(var(--accent-rgb),.42);
   font-weight:900;
 }
 .dayTitle{font-weight:900}
@@ -222,8 +235,8 @@
     .updateBar{
       display:none;
       margin-top:10px;
-      border:1px solid rgba(var(--accent-rgb),.30);
-      background:rgba(var(--accent-rgb),.10);
+      border:1px solid rgba(var(--accent-rgb),.42);
+      background:rgba(var(--accent-rgb),.12);
       padding:10px 12px;
       border-radius:14px;
       align-items:center;
@@ -384,8 +397,8 @@
     ============================ */
     .projectBar{
       margin-top:10px;
-      border:1px solid rgba(var(--accent-rgb),.26);
-      background:rgba(var(--accent-rgb),.08);
+      border:1px solid rgba(var(--accent-rgb),.42);
+      background:rgba(var(--accent-rgb),.10);
       border-radius:14px;
       padding:10px 12px;
       display:flex;
@@ -415,7 +428,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.30</div>
+          <div class="appVersion" id="appVersion">v0.8.7.31</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1388,7 +1401,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.30";
+const APP_VERSION = "v0.8.7.31";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
