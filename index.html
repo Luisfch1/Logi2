@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.33</title>
+    <title>Logi2 v0.8.7.34</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.33">
@@ -128,6 +128,12 @@
     .tabs{display:flex;gap:8px;align-items:center}
     .tab{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:8px 12px;font-weight:800;cursor:pointer;font-size:.88rem}
     .tab.active{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.30);color:var(--text)}
+
+    /* Captura: dejar "Cámara" como acción protagonista */
+    .captureActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .captureActions .btn{justify-content:center}
+    .captureActions #btnTomarFoto{flex:2;min-width:180px;padding:12px 16px;font-size:1rem}
+    .captureActions #btnGaleria{flex:1;min-width:140px}
 
     /* Plantilla de página (4/6/8) */
     .layoutPick{display:flex;gap:10px;flex-wrap:wrap}
@@ -440,7 +446,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.33</div>
+          <div class="appVersion" id="appVersion">v0.8.7.34</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -488,7 +494,7 @@
 
 
       <div id="capturaControls">
-      <div class="row" style="margin-top:10px;">
+	      <div class="captureActions" style="margin-top:10px;">
         <div style="flex:1;min-width:220px">
           <label for="fecha">Fecha</label>
           <input type="date" id="fecha" />
@@ -526,9 +532,7 @@
           </div>
           <button class="btn btn-secondary smallBtn" id="btnGalleryItemClear" title="Quitar filtro">✖</button>
         </div>
-<div class="muted" style="margin-top:8px">
-          Miniaturas por día. El encabezado del día se queda pegado arriba al hacer scroll.
-        </div>
+        <!-- Nota interna removida: no se debe mostrar al usuario -->
         <div class="muted" id="rangeInfo" style="margin-top:6px">Rango: —</div>
         <div id="galleryWrap" class="galleryWrap"></div>
       </div>
@@ -1413,7 +1417,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.33";
+const APP_VERSION = "v0.8.7.34";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
