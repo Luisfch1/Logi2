@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.37</title>
+    <title>Logi2 v0.8.7.34</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.33">
@@ -94,22 +94,7 @@
 
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px}
-    /* Inputs: iOS date puede desbordar si no usamos border-box */
-    input[type="date"], select, textarea{
-      width:100%;
-      max-width:100%;
-      box-sizing:border-box;
-      padding:10px;
-      min-height:44px;
-      border-radius:16px;
-      border:1px solid var(--border);
-      background:var(--card);
-      color:var(--text);
-      font-size:.95rem;
-      line-height:1.2;
-      -webkit-appearance:none;
-      appearance:none;
-    }
+    input[type="date"], select, textarea{width:100%;padding:10px;border-radius:16px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
     textarea{min-height:44px;resize:vertical}
     input[type="text"]{width:100%;padding:10px;border-radius:16px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.95rem}
     .btn{
@@ -117,23 +102,9 @@
       display:inline-flex;align-items:center;gap:8px;font-size:.92rem;
       user-select:none;-webkit-user-select:none;touch-action:manipulation;
     }
-/* Iconos (outline pro) */
-.ico{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
-.smallBtn .ico{width:18px;height:18px}
-.iconBtn .ico{width:22px;height:22px}
-.btn .ico{margin-right:2px}
-
     .btn-primary{background:var(--accent);color:white}
     .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
     .btn-danger{background:#ef4444;color:#fee2e2}
-    /* Icon-only danger buttons (small) -> outline, not filled */
-    .btn-danger.smallBtn{
-      background:transparent;
-      color:var(--danger);
-      border:1px solid rgba(239,68,68,.55);
-      box-shadow:none;
-    }
-    .btn-danger.smallBtn:hover{background:rgba(239,68,68,.10)}
     .btn-disabled{opacity:.45;cursor:not-allowed}
     .muted{color:var(--muted);font-size:.8rem}
     .pill{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:rgba(var(--accent-rgb),.14);border:1px solid rgba(var(--accent-rgb),.22);color:var(--text);font-weight:900}
@@ -238,8 +209,7 @@
       background:rgba(52,211,153,.9);
       color:#052e1a;border-color:transparent;
     }
-    .badgeShare{ right:8px; left:auto; display:flex; align-items:center; justify-content:center; }
-    .badgeShare .ico{width:14px;height:14px}
+    .badgeShare{ right:8px; left:auto; }
 
     /* Ítems (overlay en miniaturas) */
     .badgeItem{ top:auto; bottom:8px; font-size:.62rem; padding:2px 7px; letter-spacing:.2px;  white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; }
@@ -321,16 +291,7 @@
       box-shadow:var(--shadow);
       user-select:none;-webkit-user-select:none;
       position:relative;
-      color:rgba(var(--accent-rgb),1);
     }
-
-    /* Icon-only danger buttons should be outlined (red stroke), not filled */
-    .btn-danger.smallBtn{
-      background:transparent;
-      border:1px solid rgba(239,68,68,.55);
-      color:var(--danger);
-    }
-    .btn-danger.smallBtn:hover{background:rgba(239,68,68,.08)}
     .iconBtn.hasUpdate::after{
       content:"";
       position:absolute;
@@ -469,138 +430,11 @@
     .projectSelect{min-width:220px;max-width:420px}
     .projModalCard{width:min(560px, 96vw)}
 
-  
-/* icon buttons centered */
-.smallBtn, .iconBtn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-}
-.iconBtn{ padding:0; width:44px; height:44px; }
-.smallBtn.iconOnly{ padding:0; width:40px; height:40px; }
-
-.ico{ display:block; }
-
-/* gallery: missing blob */
-.gThumbNoBlob{ position:relative; }
-.gNoBlob{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:12px;
-  font-weight:700;
-  color:rgba(107,114,128,0.9);
-  background:rgba(0,0,0,0.04);
-  border-radius:14px;
-}
-@media (prefers-color-scheme: dark){
-  .gNoBlob{ color:rgba(156,163,175,0.95); background:rgba(255,255,255,0.06); }
-}
-
-</style>
+  </style>
 </head>
 
 <body>
   <div class="wrap">
-
-<!-- SVG sprite: iconos outline pro (estilo Lucide/Feather) -->
-<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="i-gear" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="3"></circle>
-    <path d="M19.4 15a7.8 7.8 0 0 0 .1-1l2-1.2-2-3.5-2.3.5a7.2 7.2 0 0 0-1.7-1l-.4-2.4H10l-.4 2.4a7.2 7.2 0 0 0-1.7 1l-2.3-.5-2 3.5 2 1.2a7.8 7.8 0 0 0 .1 1 7.8 7.8 0 0 0-.1 1l-2 1.2 2 3.5 2.3-.5a7.2 7.2 0 0 0 1.7 1l.4 2.4h4.1l.4-2.4a7.2 7.2 0 0 0 1.7-1l2.3.5 2-3.5-2-1.2a7.8 7.8 0 0 0-.1-1z"></path>
-  </symbol>
-  <symbol id="i-pencil" viewBox="0 0 24 24">
-    <path d="M12 20h9"></path>
-    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z"></path>
-  </symbol>
-  <symbol id="i-plus" viewBox="0 0 24 24">
-    <path d="M12 5v14"></path>
-    <path d="M5 12h14"></path>
-  </symbol>
-  <symbol id="i-trash" viewBox="0 0 24 24">
-    <path d="M3 6h18"></path>
-    <path d="M8 6V4h8v2"></path>
-    <path d="M6 6l1 16h10l1-16"></path>
-    <path d="M10 11v6"></path>
-    <path d="M14 11v6"></path>
-  </symbol>
-  <symbol id="i-camera" viewBox="0 0 24 24">
-    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-2h6l2 2h4a2 2 0 0 1 2 2z"></path>
-    <circle cx="12" cy="13" r="4"></circle>
-  </symbol>
-  <symbol id="i-image" viewBox="0 0 24 24">
-    <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-    <path d="M8 13l2-2 4 4 3-3 3 3"></path>
-    <circle cx="9" cy="9" r="1.2"></circle>
-  </symbol>
-  <symbol id="i-bolt" viewBox="0 0 24 24">
-    <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"></path>
-  </symbol>
-  <symbol id="i-download" viewBox="0 0 24 24">
-    <path d="M12 3v12"></path>
-    <path d="M7 10l5 5 5-5"></path>
-    <path d="M5 21h14"></path>
-  </symbol>
-  <symbol id="i-upload" viewBox="0 0 24 24">
-    <path d="M12 21V9"></path>
-    <path d="M7 14l5-5 5 5"></path>
-    <path d="M5 3h14"></path>
-  </symbol>
-  <symbol id="i-globe" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10"></circle>
-    <path d="M2 12h20"></path>
-    <path d="M12 2a15 15 0 0 1 0 20"></path>
-    <path d="M12 2a15 15 0 0 0 0 20"></path>
-  </symbol>
-  <symbol id="i-file" viewBox="0 0 24 24">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-    <path d="M14 2v6h6"></path>
-  </symbol>
-  <symbol id="i-file-text" viewBox="0 0 24 24">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-    <path d="M14 2v6h6"></path>
-    <path d="M8 13h8"></path>
-    <path d="M8 17h8"></path>
-    <path d="M8 9h3"></path>
-  </symbol>
-  <symbol id="i-eye" viewBox="0 0 24 24">
-    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path>
-    <circle cx="12" cy="12" r="2.5"></circle>
-  </symbol>
-  <symbol id="i-refresh" viewBox="0 0 24 24">
-    <path d="M21 12a9 9 0 0 1-15.5 6.4"></path>
-    <path d="M3 12a9 9 0 0 1 15.5-6.4"></path>
-    <path d="M18 5v4h-4"></path>
-    <path d="M6 19v-4h4"></path>
-  </symbol>
-  <symbol id="i-broom" viewBox="0 0 24 24">
-    <path d="M3 21l6-6"></path>
-    <path d="M14 4l6 6"></path>
-    <path d="M9 15l5-5"></path>
-    <path d="M7 17c1.5 1.5 5.5 1.5 7 0l3.5-3.5-7-7L7 10c-1.5 1.5-1.5 5.5 0 7z"></path>
-  </symbol>
-  <symbol id="i-x" viewBox="0 0 24 24">
-    <path d="M18 6L6 18"></path>
-    <path d="M6 6l12 12"></path>
-  </symbol>
-
-<symbol id="i-check" viewBox="0 0 24 24">
-  <path d="M20 6L9 17l-5-5"></path>
-</symbol>
-<symbol id="i-send" viewBox="0 0 24 24">
-  <path d="M22 2L11 13"></path>
-  <path d="M22 2l-7 20-4-9-9-4 20-7z"></path>
-</symbol>
-<symbol id="i-mic" viewBox="0 0 24 24">
-  <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z"></path>
-  <path d="M19 11a7 7 0 0 1-14 0"></path>
-  <path d="M12 21v-3"></path>
-  <path d="M8 21h8"></path>
-</symbol>
-</svg>
-
         <!-- Inputs ocultos (global) -->
         <input id="logoInput" class="hiddenFileInput" type="file" accept="image/*" />
         <input id="backupInput" class="hiddenFileInput" type="file" accept=".zip,application/zip" />
@@ -612,11 +446,11 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.37</div>
+          <div class="appVersion" id="appVersion">v0.8.7.34</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
-        <svg class="ico" aria-hidden="true"><use href="#i-gear"></use></svg>
+        <span class="icon">⚙️</span>
       </button>
     </div>
 
@@ -635,9 +469,9 @@
         </div>
         <div class="projectBarRight">
           <select id="projectSelect" class="projectSelect"></select>
-          <button class="btn btn-secondary smallBtn" id="btnProjectRename" title="Renombrar proyecto"><svg class="ico" aria-hidden="true"><use href="#i-pencil"></use></svg></button>
-          <button class="btn btn-primary smallBtn" id="btnProjectNew" title="Nuevo proyecto"><svg class="ico" aria-hidden="true"><use href="#i-plus"></use></svg></button>
-          <button class="btn btn-danger smallBtn" id="btnProjectDelete" title="Eliminar proyecto"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+          <button class="btn btn-secondary smallBtn" id="btnProjectRename" title="Renombrar proyecto">✏️</button>
+          <button class="btn btn-primary smallBtn" id="btnProjectNew" title="Nuevo proyecto">➕</button>
+          <button class="btn btn-danger smallBtn" id="btnProjectDelete" title="Eliminar proyecto">🗑️</button>
         </div>
       </div>
 
@@ -648,7 +482,7 @@
         <div class="muted">
           Hay una versión nueva lista. (Tip: si te da miedo perder algo, exporta HOY antes de actualizar.)
         </div>
-        <button class="btn btn-primary smallBtn glowBtn" id="btnUpdateNow"><svg class="ico" aria-hidden="true"><use href="#i-refresh"></use></svg> Instalar actualización</button>
+        <button class="btn btn-primary smallBtn glowBtn" id="btnUpdateNow">✅ Instalar actualización</button>
       </div>
 
       
@@ -675,14 +509,14 @@
       <div class="row" style="margin-top:10px;">
         <input id="camInput" class="hiddenFileInput" type="file" accept="image/*" capture="environment" multiple />
         <input id="galInput" class="hiddenFileInput" type="file" accept="image/*" multiple />
-        <button class="btn btn-primary" id="btnTomarFoto"><svg class="ico" aria-hidden="true"><use href="#i-camera"></use></svg> Cámara</button>
-        <button class="btn btn-secondary" id="btnGaleria"><svg class="ico" aria-hidden="true"><use href="#i-image"></use></svg> Galería</button>
+        <button class="btn btn-primary" id="btnTomarFoto">📷 Cámara</button>
+        <button class="btn btn-secondary" id="btnGaleria">🖼️ Galería</button>
       </div>
       </div>
 
       <div id="capturaView">
         <div class="muted" style="margin-top:8px">
-          Captura del día: escribe la descripción, marca ✅ Listo y si quieres <svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg> WhatsApp (solo imagen).
+          Captura del día: escribe la descripción, marca ✅ Listo y si quieres 📤 WhatsApp (solo imagen).
         </div>
 
         <div id="lista" class="list"></div>
@@ -737,8 +571,7 @@
           <input type="text" id="exportItem" list="datalistItems" placeholder="Código o busca en el listado…" />
           <div class="muted" id="exportItemHint" style="margin-top:6px">—</div>
         </div>
-        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
-      </div>
+        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro">✖
 
       <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:220px">
@@ -749,9 +582,12 @@
             <option value="zip">ZIP (reporte)</option>
           </select>
         </div>
-        <button class="btn btn-primary" id="btnExpress"><svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg> Exportar</button>
+        <button class="btn btn-primary" id="btnExpress">⚡ Exportar</button>
       </div>
       <div id="zipInfo" class="muted" style="margin-top:6px"></div>
+
+</button>
+      </div>
 
       <div class="row" style="margin-top:10px;">
         <div style="flex:1;min-width:220px">
@@ -810,8 +646,8 @@
         <div style="flex:1;min-width:220px">
           <label>Logo (opcional)</label>
           <div class="row" style="gap:10px;margin-top:6px;align-items:center">
-            <button class="btn btn-secondary" id="btnCargarLogo" type="button"><svg class="ico" aria-hidden="true"><use href="#i-image"></use></svg> Cargar logo</button>
-            <button class="btn btn-secondary" id="btnQuitarLogo" type="button" style="display:none"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg> Quitar logo</button>
+            <button class="btn btn-secondary" id="btnCargarLogo" type="button">🖼️ Cargar logo</button>
+            <button class="btn btn-secondary" id="btnQuitarLogo" type="button" style="display:none">🗑️ Quitar logo</button>
 
             <select id="logoCorner" style="width:auto">
               <option value="br">Logo: inferior derecha</option>
@@ -912,8 +748,8 @@
               <div class="muted">Backup del proyecto activo (ZIP con fotos)</div>
             </div>
             <div class="row" style="gap:8px;flex-wrap:wrap">
-              <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup del proyecto"><svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg></button>
-              <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup del proyecto"><svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg></button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupCreate" title="Crear backup del proyecto">⬇️</button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupRestore" title="Restaurar backup del proyecto">⬆️</button>
             </div>
           </div>
           <div class="muted" id="backupStatus" style="margin-top:-2px">Consejo: haz backup al final del día o antes de actualizar.</div>
@@ -924,8 +760,8 @@
               <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
             </div>
             <div class="row" style="gap:8px;flex-wrap:wrap">
-              <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total"><svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg></button>
-              <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total"><svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg></button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total">🌎⬇️</button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total">🌎⬆️</button>
             </div>
           </div>
           <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
@@ -940,9 +776,9 @@
               <div class="muted" id="itemsLabel">Cargar listado (Excel) por proyecto</div>
             </div>
             <div class="row" style="gap:8px;flex-wrap:wrap">
-              <button class="btn btn-secondary smallBtn" id="btnItemsTemplate" title="Descargar plantilla"><svg class="ico" aria-hidden="true"><use href="#i-file"></use></svg></button>
-              <button class="btn btn-secondary smallBtn" id="btnItemsUpload" title="Cargar listado"><svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg></button>
-              <button class="btn btn-danger smallBtn" id="btnItemsClear" title="Borrar ítems del proyecto"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+              <button class="btn btn-secondary smallBtn" id="btnItemsTemplate" title="Descargar plantilla">📄</button>
+              <button class="btn btn-secondary smallBtn" id="btnItemsUpload" title="Cargar listado">⬆️</button>
+              <button class="btn btn-danger smallBtn" id="btnItemsClear" title="Borrar ítems del proyecto">🗑️</button>
             </div>
           </div>
           <div class="muted" id="itemsStatus" style="margin-top:-2px">—</div>
@@ -953,9 +789,9 @@
               <div class="muted">Plantilla del usuario (DOCX para Word / PDF para PDF)</div>
             </div>
             <div class="row" style="gap:8px;flex-wrap:wrap">
-              <button class="btn btn-secondary smallBtn" id="btnUserTplUpload" title="Cargar plantilla (DOCX o PDF)"><svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg></button>
-              <button class="btn btn-secondary smallBtn" id="btnUserTplPreview" title="Previsualizar plantilla"><svg class="ico" aria-hidden="true"><use href="#i-eye"></use></svg></button>
-              <button class="btn btn-danger smallBtn" id="btnUserTplDelete" title="Eliminar plantilla"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+              <button class="btn btn-secondary smallBtn" id="btnUserTplUpload" title="Cargar plantilla (DOCX o PDF)">⬆️</button>
+              <button class="btn btn-secondary smallBtn" id="btnUserTplPreview" title="Previsualizar plantilla">👁️</button>
+              <button class="btn btn-danger smallBtn" id="btnUserTplDelete" title="Eliminar plantilla">🗑️</button>
             </div>
           </div>
           <div class="muted" id="userTplStatus" style="margin-top:-2px">Sin formato personalizado (usa Logi 4/6/8).</div>
@@ -969,7 +805,7 @@
               <div class="sheetRowTitle">Actualizar app</div>
               <div class="muted" id="updateLabel">Buscar / instalar actualización</div>
             </div>
-            <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet"><svg class="ico" aria-hidden="true"><use href="#i-refresh"></use></svg></button>
+            <button class="btn btn-primary smallBtn" id="btnUpdateFromSheet">🔄</button>
           </div>
 
           <button class="btn btn-secondary" id="btnResetCache" style="width:100%;margin-top:8px">🧰 Reiniciar caché (si se queda pegada)</button>
@@ -980,8 +816,8 @@
               <div class="muted">Exporta los últimos 500 eventos para diagnóstico</div>
             </div>
             <div class="row" style="gap:8px;flex-wrap:wrap">
-              <button class="btn btn-secondary smallBtn" id="btnBlackBoxExport" title="Exportar caja negra"><svg class="ico" aria-hidden="true"><use href="#i-file-text"></use></svg></button>
-              <button class="btn btn-secondary smallBtn" id="btnBlackBoxClear" title="Borrar registros"><svg class="ico" aria-hidden="true"><use href="#i-broom"></use></svg></button>
+              <button class="btn btn-secondary smallBtn" id="btnBlackBoxExport" title="Exportar caja negra">🧾⬇️</button>
+              <button class="btn btn-secondary smallBtn" id="btnBlackBoxClear" title="Borrar registros">🧹</button>
             </div>
           </div>
           <div class="muted" id="blackBoxStatus" style="margin-top:-2px">Tip: reproduce el fallo y exporta de inmediato.</div>
@@ -1014,7 +850,7 @@
               <div class="sheetRowTitle">Borrar todo</div>
               <div class="muted">Elimina todas las fotos, descripciones y proyectos guardados en este dispositivo</div>
             </div>
-            <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+            <button class="btn btn-danger smallBtn" id="btnBorrarTodo" title="Borrar todo">🗑️</button>
           </div>
         </details>
 
@@ -1046,16 +882,16 @@
           <div>
   <label style="display:flex;align-items:center;justify-content:space-between;gap:10px">
     <span>Descripción</span>
-    <button class="btn btn-secondary smallBtn" id="btnModalDictate" title="Dictar (voz)">${I('mic')}</button>
+    <button class="btn btn-secondary smallBtn" id="btnModalDictate" title="Dictar (voz)">🎙️</button>
   </label>
   <textarea id="modalDesc" placeholder="Descripción..."></textarea>
   <div class="muted" id="dictateStatus" style="margin-top:6px">—</div>
 </div>
 
           <div class="row">
-            <button class="btn btn-secondary smallBtn" id="btnModalDone"><svg class="ico" aria-hidden="true"><use href="#i-check"></use></svg> Listo</button>
-            <button class="btn btn-secondary smallBtn" id="btnModalShare"><svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg> WhatsApp</button>
-            <button class="btn btn-danger smallBtn" id="btnModalDelete"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+            <button class="btn btn-secondary smallBtn" id="btnModalDone">✅ Listo</button>
+            <button class="btn btn-secondary smallBtn" id="btnModalShare">📤 WhatsApp</button>
+            <button class="btn btn-danger smallBtn" id="btnModalDelete">🗑️</button>
           </div>
 
           <div class="muted">
@@ -1581,8 +1417,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.37";
-const I = (id)=>`<svg class="ico" aria-hidden="true"><use href="#i-${id}"></use></svg>`;
+const APP_VERSION = "v0.8.7.34";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -5818,23 +5653,23 @@ function renderCaptura(){
 
           <label style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px">
   <span>Descripción</span>
-  <button class="btn btn-secondary smallBtn dictate" data-id="${item.id}" title="Dictar (voz)" ${item.done ? "disabled" : ""}>${I('mic')}</button>
+  <button class="btn btn-secondary smallBtn dictate" data-id="${item.id}" title="Dictar (voz)" ${item.done ? "disabled" : ""}>🎙️</button>
 </label>
 <textarea data-id="${item.id}" class="desc" ${item.done ? "disabled" : ""}>${item.descripcion || ""}</textarea>
 
           <div class="row" style="margin-top:8px;justify-content:space-between;">
             <div class="row">
               <button class="btn btn-secondary smallBtn toggleDone" data-id="${item.id}">
-                ${item.done ? `${I("pencil")} Editar` : `${I("check")} Listo`}
+                ${item.done ? "✏️ Editar" : "✅ Listo"}
               </button>
 
               <button class="btn btn-secondary smallBtn shareOne ${shareDisabled ? "btn-disabled" : ""}" data-id="${item.id}" ${shareDisabled ? "disabled" : ""}>
-                <svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg> WhatsApp
+                📤 WhatsApp
               </button>
             </div>
 
             <div class="right">
-              <button class="btn btn-danger smallBtn del" data-id="${item.id}"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+              <button class="btn btn-danger smallBtn del" data-id="${item.id}">🗑️</button>
             </div>
           </div>
         </div>
@@ -6014,7 +5849,7 @@ if (!groups.length){
         <img class="gThumb ${hasItem ? "" : "gThumbMissing"}" src="${url}" data-open="${it.id}" alt="foto">
         <div class="badge ${it.done ? "badgeDone" : ""}">${it.done ? "LISTO" : "PEND"}</div>
         <div class="badge badgeItem ${hasItem ? "badgeItemOk" : "badgeItemMiss"}">${hasItem ? escAttr(codeShort) : "ÍTEM?"}</div>
-        <div class="badge badgeShare"><svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg></div>
+        <div class="badge badgeShare">📤</div>
       `;
       grid.appendChild(box);
     });
@@ -6050,7 +5885,7 @@ function openModal(id){
   $("modalDesc").value = it.descripcion || "";
   $("modalDesc").disabled = !!it.done;
 
-  $("btnModalDone").innerHTML = it.done ? `${I("pencil")} Editar` : `${I("check")} Listo`;
+  $("btnModalDone").textContent = it.done ? "✏️ Editar" : "✅ Listo";
   $("btnModalShare").disabled = !it.done;
   $("btnModalShare").classList.toggle("btn-disabled", !it.done);
 }
@@ -6148,7 +5983,7 @@ $("btnModalDone").onclick = async () => {
   // Refrescar UI inmediata (sin reabrir modal)
   try{
     $("modalMeta").textContent = `${updated.fecha} · ${updated.done ? "LISTA" : "PENDIENTE"}`;
-    $("btnModalDone").innerHTML = updated.done ? `${I("pencil")} Editar` : `${I("check")} Listo`;
+    $("btnModalDone").textContent = updated.done ? "✏️ Editar" : "✅ Listo";
     $("btnModalShare").disabled = !updated.done;
     $("btnModalShare").classList.toggle("btn-disabled", !updated.done);
     $("modalItem").disabled = !!updated.done;

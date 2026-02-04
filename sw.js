@@ -1,6 +1,6 @@
 // sw.js
 // Incrementa la versión en cada deploy para invalidar caché
-const CACHE_VERSION = "logi2-v0.8.7.36";
+const CACHE_VERSION = "logi2-v0.8.7.34";
 const CACHE = `logi2-cache-${CACHE_VERSION}`;
 
 const ASSETS = [
