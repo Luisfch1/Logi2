@@ -3368,11 +3368,22 @@ if (!groups.length){
     items.forEach(it => {
       const box = document.createElement("div");
       box.className = "gThumbBox";
-      const url = trackUrl(URL.createObjectURL(it.blob));
+let url = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+let hasBlob = false;
+try{
+  if (it.blob){
+    url = trackUrl(URL.createObjectURL(it.blob));
+    hasBlob = true;
+  }
+}catch(e){
+  url = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+  hasBlob = false;
+  try{ bbLog("thumb_blob_missing", { id: it.id, message: String(e) }); }catch{}
+}
       const hasItem = !!String(it.itemCode || "").trim();
       const codeShort = hasItem ? String(it.itemCode || "").trim().slice(0, 14) : "";
       box.innerHTML = `
-        <img class="gThumb ${hasItem ? "" : "gThumbMissing"}" src="${url}" data-open="${it.id}" alt="foto">
+        <img class="gThumb ${hasItem ? "" : "gThumbMissing"} ${hasBlob ? "" : "gThumbNoBlob"}" src="${url}" data-open="${it.id}" alt="foto">${hasBlob ? "" : \'<div class="gNoBlob">Sin imagen</div>\'}
         <div class="badge ${it.done ? "badgeDone" : ""}">${it.done ? "LISTO" : "PEND"}</div>
         <div class="badge badgeItem ${hasItem ? "badgeItemOk" : "badgeItemMiss"}">${hasItem ? escAttr(codeShort) : "ÍTEM?"}</div>
         <div class="badge badgeShare">📤</div>
@@ -3398,7 +3409,18 @@ function openModal(id){
   modalId = id;
   $("modal").classList.add("open");
 
-  const url = trackUrl(URL.createObjectURL(it.blob));
+let url = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+let hasBlob = false;
+try{
+  if (it && it.blob){
+    url = trackUrl(URL.createObjectURL(it.blob));
+    hasBlob = true;
+  }
+}catch(e){
+  url = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+  hasBlob = false;
+  try{ bbLog("modal_blob_missing", { id: it && it.id, message: String(e) }); }catch{}
+}
   $("modalImg").src = url;
 
   $("modalTitle").textContent = it.proyecto ? it.proyecto : "Foto";
@@ -5839,11 +5861,29 @@ function renderExport(){
     const ri = $("rangeInfo");
     if (ri) ri.style.display = "none";
     render();
-  }catch(e){
-    console.error("Init/IndexedDB error:", e);
-    const st = document.getElementById("status");
-    if (st) st.innerHTML = `<span style="color:#f87171;font-weight:800">⚠️ Error de almacenamiento local</span> · Cierra y abre la app. Si persiste: revisa modo privado y espacio libre.`;
+}catch(e){
+  console.error("Init/IndexedDB error:", e);
+  try{ bbLog("init_error", { name: e && e.name, message: String(e), stack: (e && e.stack) ? String(e.stack).slice(0,600) : "" }); }catch{}
+  // Intentar continuar (no bloquear UI por un fallo puntual)
+  try{ await ensureProjects(); }catch{}
+  try{ if (!activeProjectId) await ensureActiveProject(); }catch{}
+  try{ if (!cache || !cache.length) await loadCacheForActiveProject(); }catch{}
+  try{ await loadCatalogForActiveProject(); }catch{}
+  try{ await refreshUserTemplateStatus(); }catch{}
+  try{ render(); }catch{}
+
+  // Mostrar advertencia solo si el almacenamiento realmente está bloqueado
+  let storageBroken = false;
+  try{ await openDB(); }catch{ storageBroken = true; }
+  const st = document.getElementById("status");
+  if (st){
+    if (storageBroken){
+      st.innerHTML = `<span style="color:#f87171;font-weight:800">⚠️ Almacenamiento bloqueado</span> · Cierra y abre la app. Si persiste: revisa modo privado (Safari) y espacio libre.`;
+    } else {
+      st.innerHTML = "";
+    }
   }
+}
 
   fechaInput.onchange = () => render();
 })();

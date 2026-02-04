@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.36</title>
+    <title>Logi2 v0.8.7.37</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.33">
@@ -469,7 +469,37 @@
     .projectSelect{min-width:220px;max-width:420px}
     .projModalCard{width:min(560px, 96vw)}
 
-  </style>
+  
+/* icon buttons centered */
+.smallBtn, .iconBtn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.iconBtn{ padding:0; width:44px; height:44px; }
+.smallBtn.iconOnly{ padding:0; width:40px; height:40px; }
+
+.ico{ display:block; }
+
+/* gallery: missing blob */
+.gThumbNoBlob{ position:relative; }
+.gNoBlob{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  font-weight:700;
+  color:rgba(107,114,128,0.9);
+  background:rgba(0,0,0,0.04);
+  border-radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  .gNoBlob{ color:rgba(156,163,175,0.95); background:rgba(255,255,255,0.06); }
+}
+
+</style>
 </head>
 
 <body>
@@ -582,7 +612,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.36</div>
+          <div class="appVersion" id="appVersion">v0.8.7.37</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -1551,7 +1581,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.36";
+const APP_VERSION = "v0.8.7.37";
 const I = (id)=>`<svg class="ico" aria-hidden="true"><use href="#i-${id}"></use></svg>`;
 let swReg = null;
 let waitingSW = null;
