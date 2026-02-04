@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.35</title>
+    <title>Logi2 v0.8.7.36</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest?v=0.8.7.33">
@@ -126,6 +126,14 @@
     .btn-primary{background:var(--accent);color:white}
     .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
     .btn-danger{background:#ef4444;color:#fee2e2}
+    /* Icon-only danger buttons (small) -> outline, not filled */
+    .btn-danger.smallBtn{
+      background:transparent;
+      color:var(--danger);
+      border:1px solid rgba(239,68,68,.55);
+      box-shadow:none;
+    }
+    .btn-danger.smallBtn:hover{background:rgba(239,68,68,.10)}
     .btn-disabled{opacity:.45;cursor:not-allowed}
     .muted{color:var(--muted);font-size:.8rem}
     .pill{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:rgba(var(--accent-rgb),.14);border:1px solid rgba(var(--accent-rgb),.22);color:var(--text);font-weight:900}
@@ -313,7 +321,16 @@
       box-shadow:var(--shadow);
       user-select:none;-webkit-user-select:none;
       position:relative;
+      color:rgba(var(--accent-rgb),1);
     }
+
+    /* Icon-only danger buttons should be outlined (red stroke), not filled */
+    .btn-danger.smallBtn{
+      background:transparent;
+      border:1px solid rgba(239,68,68,.55);
+      color:var(--danger);
+    }
+    .btn-danger.smallBtn:hover{background:rgba(239,68,68,.08)}
     .iconBtn.hasUpdate::after{
       content:"";
       position:absolute;
@@ -565,7 +582,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.35</div>
+          <div class="appVersion" id="appVersion">v0.8.7.36</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -635,7 +652,7 @@
 
       <div id="capturaView">
         <div class="muted" style="margin-top:8px">
-          Captura del día: escribe la descripción, marca ✅ Listo y si quieres ${I("send")} WhatsApp (solo imagen).
+          Captura del día: escribe la descripción, marca ✅ Listo y si quieres <svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg> WhatsApp (solo imagen).
         </div>
 
         <div id="lista" class="list"></div>
@@ -690,7 +707,8 @@
           <input type="text" id="exportItem" list="datalistItems" placeholder="Código o busca en el listado…" />
           <div class="muted" id="exportItemHint" style="margin-top:6px">—</div>
         </div>
-        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro">✖
+        <button class="btn btn-secondary smallBtn" id="btnClearExportItem" title="Quitar filtro"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
+      </div>
 
       <div class="row" style="margin-top:10px;align-items:flex-end;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:220px">
@@ -704,9 +722,6 @@
         <button class="btn btn-primary" id="btnExpress"><svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg> Exportar</button>
       </div>
       <div id="zipInfo" class="muted" style="margin-top:6px"></div>
-
-</button>
-      </div>
 
       <div class="row" style="margin-top:10px;">
         <div style="flex:1;min-width:220px">
@@ -879,8 +894,8 @@
               <div class="muted">Backup de todos los proyectos (ZIP completo)</div>
             </div>
             <div class="row" style="gap:8px;flex-wrap:wrap">
-              <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total"><svg class="ico" aria-hidden="true"><use href="#i-globe"></use></svg></button>
-              <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total"><svg class="ico" aria-hidden="true"><use href="#i-globe"></use></svg></button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupAllCreate" title="Crear backup total"><svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg></button>
+              <button class="btn btn-secondary smallBtn" id="btnBackupAllRestore" title="Restaurar backup total"><svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg></button>
             </div>
           </div>
           <div class="muted" id="backupAllStatus" style="margin-top:-2px">—</div>
@@ -1009,7 +1024,7 @@
 
           <div class="row">
             <button class="btn btn-secondary smallBtn" id="btnModalDone"><svg class="ico" aria-hidden="true"><use href="#i-check"></use></svg> Listo</button>
-            <button class="btn btn-secondary smallBtn" id="btnModalShare">${I("send")} WhatsApp</button>
+            <button class="btn btn-secondary smallBtn" id="btnModalShare"><svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg> WhatsApp</button>
             <button class="btn btn-danger smallBtn" id="btnModalDelete"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
           </div>
 
@@ -1536,7 +1551,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.35";
+const APP_VERSION = "v0.8.7.36";
 const I = (id)=>`<svg class="ico" aria-hidden="true"><use href="#i-${id}"></use></svg>`;
 let swReg = null;
 let waitingSW = null;
@@ -5784,7 +5799,7 @@ function renderCaptura(){
               </button>
 
               <button class="btn btn-secondary smallBtn shareOne ${shareDisabled ? "btn-disabled" : ""}" data-id="${item.id}" ${shareDisabled ? "disabled" : ""}>
-                ${I("send")} WhatsApp
+                <svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg> WhatsApp
               </button>
             </div>
 
@@ -5969,7 +5984,7 @@ if (!groups.length){
         <img class="gThumb ${hasItem ? "" : "gThumbMissing"}" src="${url}" data-open="${it.id}" alt="foto">
         <div class="badge ${it.done ? "badgeDone" : ""}">${it.done ? "LISTO" : "PEND"}</div>
         <div class="badge badgeItem ${hasItem ? "badgeItemOk" : "badgeItemMiss"}">${hasItem ? escAttr(codeShort) : "ÍTEM?"}</div>
-        <div class="badge badgeShare">${I("send")}</div>
+        <div class="badge badgeShare"><svg class="ico" aria-hidden="true"><use href="#i-send"></use></svg></div>
       `;
       grid.appendChild(box);
     });
