@@ -4451,11 +4451,7 @@ function renderExport(){
   }catch(e){
     console.error("Init/IndexedDB error:", e);
     const st = document.getElementById("status");
-    // iOS (PWA/Safari) puede fallar temporalmente al abrir IndexedDB incluso cuando el almacenamiento
-    // está disponible. No mostramos una alerta roja al usuario para no asustarlo; dejamos el detalle en
-    // consola/caja negra y mantenemos la app operando.
-    window.__storageInitError = true;
-    if (st) st.innerHTML = `Todo bien.`;
+    if (st) st.innerHTML = `<span style="color:#f87171;font-weight:800">⚠️ Error de almacenamiento local</span> · Cierra y abre la app. Si persiste: revisa modo privado y espacio libre.`;
   }
 
   fechaInput.onchange = () => render();
