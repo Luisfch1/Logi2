@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b1220" />
 
-    <title>Logi2 v0.8.7.34</title>
+    <title>Logi2 v0.8.7.37</title>
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.33">
-  <link rel="icon" href="favicon.png?v=0.8.7.33">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.33">
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.7.37">
+  <link rel="icon" href="favicon.png?v=0.8.7.37">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=0.8.7.37">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -446,7 +446,7 @@
       <div class="appbarLeft">
         <div class="appTitleRow">
           <div class="appTitle">Logi</div>
-          <div class="appVersion" id="appVersion">v0.8.7.34</div>
+          <div class="appVersion" id="appVersion">v0.8.7.37</div>
         </div>
       </div>
       <button class="iconBtn" id="btnSettings" aria-label="Configuración">
@@ -831,6 +831,9 @@
               <button class="btn btn-secondary smallBtn" id="btnDiagView" title="Ver bitacora">LOG</button>
               <button class="btn btn-secondary smallBtn" id="btnDiagDownload" title="Descargar diagnostico">DIAG</button>
               <button class="btn btn-danger smallBtn" id="btnDiagClear" title="Limpiar bitacora">CLR</button>
+              <button class="btn btn-secondary smallBtn" id="btnBBReport" title="Descargar reporte caja negra">REPORT</button>
+              <button class="btn btn-secondary smallBtn" id="btnBBMark" title="Marcar incidente">MARCAR</button>
+              <button class="btn btn-secondary smallBtn" id="btnDoctor" title="Doctor Logi (prueba guiada)">DOCTOR</button>
             </div>
           </div>
           <div class="muted" id="diagStatus" style="margin-top:-2px">-</div>
@@ -1237,6 +1240,14 @@ setTimeout(() => {
     const b3 = $("btnDiagClear");
     if (b3) b3.onclick = () => diagClear();
     diagSetStatus($("diagStatus")?.textContent || "-");
+// Super Caja Negra + Doctor
+const bbR = $("btnBBReport");
+if (bbR) bbR.onclick = async () => { try{ BB.push("UI_BB_REPORT_CLICK", {}); await BB.downloadReport(); }catch(e){ console.error(e); } };
+const bbM = $("btnBBMark");
+if (bbM) bbM.onclick = () => { const note = prompt("¿Qué pasó? (breve)") || ""; try{ BB.mark(note); toast && toast("Incidente marcado"); }catch(e){} };
+const doc = $("btnDoctor");
+if (doc) doc.onclick = () => { try{ DoctorLogi.start(); }catch(e){ console.error(e); } };
+
   }catch{}
 }, 200);
 
@@ -1417,7 +1428,7 @@ function initTheme(){
    - Evita quedarnos pegados a un cache viejo
 =========================== */
 
-const APP_VERSION = "v0.8.7.34";
+const APP_VERSION = "v0.8.7.37";
 let swReg = null;
 let waitingSW = null;
 let _swReloaded = false;
@@ -3572,8 +3583,8 @@ if (!db.objectStoreNames.contains(DB_STORE_CATALOG)){
       }
     };
 
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { try{ BB.push("DB_OPEN_OK",{db:DB_NAME,ver:DB_VERSION}); }catch(e){}; resolve(req.result); };
+    req.onerror = () => { try{ BB.push("DB_OPEN_FAIL",{name:req.error?.name,message:req.error?.message}); }catch(e){}; reject(req.error); };
   });
 }
 
@@ -3752,7 +3763,7 @@ async function tplGet(projectId){
     const tx = db.transaction(DB_STORE_TPL, "readonly");
     const req = tx.objectStore(DB_STORE_TPL).get(projectId);
     req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => { try{ BB.push("DB_OPEN_FAIL",{name:req.error?.name,message:req.error?.message}); }catch(e){}; reject(req.error); };
   });
 }
 
@@ -3787,7 +3798,7 @@ async function itemFileGet(projectId){
     const tx = db.transaction(DB_STORE_ITEMFILES, "readonly");
     const req = tx.objectStore(DB_STORE_ITEMFILES).get(projectId);
     req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => { try{ BB.push("DB_OPEN_FAIL",{name:req.error?.name,message:req.error?.message}); }catch(e){}; reject(req.error); };
   });
 }
 async function itemFilePut(projectId, rec){
@@ -3814,7 +3825,7 @@ async function itemFileGetAll(){
     const tx = db.transaction(DB_STORE_ITEMFILES, "readonly");
     const req = tx.objectStore(DB_STORE_ITEMFILES).getAll();
     req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => { try{ BB.push("DB_OPEN_FAIL",{name:req.error?.name,message:req.error?.message}); }catch(e){}; reject(req.error); };
   });
 }
 
@@ -3825,7 +3836,7 @@ async function catGetByProject(projectId){
     const idx = tx.objectStore(DB_STORE_CATALOG).index("byProject");
     const req = idx.getAll(projectId);
     req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => { try{ BB.push("DB_OPEN_FAIL",{name:req.error?.name,message:req.error?.message}); }catch(e){}; reject(req.error); };
   });
 }
 
@@ -3835,7 +3846,7 @@ async function catGetAll(){
     const tx = db.transaction(DB_STORE_CATALOG, "readonly");
     const req = tx.objectStore(DB_STORE_CATALOG).getAll();
     req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => { try{ BB.push("DB_OPEN_FAIL",{name:req.error?.name,message:req.error?.message}); }catch(e){}; reject(req.error); };
   });
 }
 
@@ -7125,6 +7136,9 @@ async function exportZipByMode(modo, desde, hasta){
   const exportTemplate = !!$("exportTemplate")?.checked;
   const templateId = getTemplateId();
 
+  const exportOpId = "exp_" + Date.now().toString(36);
+  try{ BB.push("EXPORT_START", { opId: exportOpId, modo, desde, hasta, onlyDone: !!$("onlyDone")?.checked, useTimeNames: !!$("useTimeNames")?.checked }); }catch(e){}
+
   let selected = [];
   if (modo === "dia"){
     selected = cache.filter(x => x.fecha === desde);
@@ -7170,6 +7184,8 @@ async function exportZipByMode(modo, desde, hasta){
   zipInfo.textContent = `Armando ZIP (${selected.length} foto(s))...`;
 
   for (const it of selected){
+    try{ BB.push("EXPORT_PHOTO_START", { opId: exportOpId, id: it.id, fecha: it.fecha, bytes: it.blob?.size || null }); }catch(e){}
+    try{
     const folder = root.folder(it.fecha);
 
     const n = (perDayCounter.get(it.fecha) || 0) + 1;
@@ -7194,6 +7210,14 @@ async function exportZipByMode(modo, desde, hasta){
 
     const descText = (it.descripcion || "").trim();
     folder.file(filename.replace(/\.jpg$/i,".txt"), descText || "");
+
+    try{ BB.push("EXPORT_PHOTO_DONE", { opId: exportOpId, id: it.id, filename }); }catch(e){}
+    } catch(e){
+      try{ BB.push("EXPORT_PHOTO_FAIL", { opId: exportOpId, id: it.id, name: e?.name, message: e?.message }); }catch(_e){}
+      // continuar con las demas fotos
+      continue;
+    }
+
 
     manifestRows.push({
       fecha: it.fecha,
@@ -7236,6 +7260,7 @@ async function exportZipByMode(modo, desde, hasta){
   root.file(`Logi_Reporte_${start}_a_${end}${itemTag2}.docx`, docxBuffer);
 
   const outZipBlob = await zip.generateAsync({ type:"blob" }, (meta) => {
+    try{ BB.push("EXPORT_ZIP_PROGRESS", { opId: exportOpId, percent: Math.floor(meta.percent) }); }catch(e){}
     zipInfo.textContent = `Comprimiendo... ${Math.floor(meta.percent)}%`;
   });
 
@@ -7247,6 +7272,8 @@ async function exportZipByMode(modo, desde, hasta){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  try{ BB.push("EXPORT_DONE", { opId: exportOpId, ok: true, count: selected.length, packName }); }catch(e){}
 
   zipInfo.textContent = "ZIP descargado ✅";
   setTimeout(()=> zipInfo.textContent = "", 1800);
@@ -8232,7 +8259,7 @@ function renderExport(){
     const legacyName = "rf_db_v1";
     const legacy = await (async () => new Promise((resolve) => {
       const req = indexedDB.open(legacyName, 1);
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => { try{ BB.push("DB_OPEN_OK",{db:DB_NAME,ver:DB_VERSION}); }catch(e){}; resolve(req.result); };
       req.onerror = () => resolve(null);
     }))();
     if (!legacy) return;
@@ -8347,6 +8374,7 @@ function renderExport(){
     render();
   }catch(e){
     console.error("Init/IndexedDB error:", e);
+    try{ BB.push("APP_INIT_DB_FAIL",{name:e?.name,message:e?.message}); }catch(_e){}
     const st = document.getElementById("status");
     if (st) st.innerHTML = `<span style="color:#f87171;font-weight:800">⚠️ Error de almacenamiento local</span> · Cierra y abre la app. Si persiste: revisa modo privado y espacio libre.`;
   }
@@ -8356,3 +8384,126 @@ function renderExport(){
 </script>
 </body>
 </html>
+
+
+/* ===========================
+   🧪 Doctor Logi — v1 (prueba guiada)
+   - Pasos automáticos + pasos asistidos (usuario)
+   - Registra todo en la Caja Negra (BB)
+=========================== */
+const DoctorLogi = (() => {
+  let overlay=null;
+  const st={ running:false, step:0, opId:"", ctx:{} , steps:[] };
+
+  function ui(){
+    if (overlay) return overlay;
+    overlay=document.createElement("div");
+    overlay.style.cssText="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;padding:16px;";
+    overlay.innerHTML=`
+      <div style="width:min(720px,100%);background:#0b1220;border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden">
+        <div style="padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid rgba(255,255,255,.10)">
+          <div style="font-weight:800">Doctor Logi</div>
+          <div style="display:flex;gap:8px">
+            <button id="docMark" class="btn btn-secondary smallBtn">Marcar</button>
+            <button id="docClose" class="btn btn-danger smallBtn">Cerrar</button>
+          </div>
+        </div>
+        <div style="padding:12px 14px">
+          <div id="docTitle" style="font-weight:800;margin-bottom:6px"></div>
+          <div id="docBody" class="muted" style="line-height:1.35"></div>
+          <div id="docHint" class="muted" style="margin-top:8px;font-size:12px;opacity:.85"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:flex-end">
+            <button id="docFail" class="btn btn-secondary smallBtn">No pude</button>
+            <button id="docCheck" class="btn btn-secondary smallBtn">Verificar</button>
+            <button id="docNext" class="btn btn-primary smallBtn">Siguiente</button>
+          </div>
+          <div id="docProg" class="muted" style="margin-top:10px;font-size:12px"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#docClose").onclick=()=>stop();
+    overlay.querySelector("#docMark").onclick=()=>{
+      const note=prompt("¿Qué pasó? (breve)")||"";
+      BB.mark("Doctor: "+note);
+      try{ toast("Incidente marcado"); }catch(e){}
+    };
+    overlay.querySelector("#docNext").onclick=()=>next(true);
+    overlay.querySelector("#docFail").onclick=()=>fail("USER_CANNOT");
+    overlay.querySelector("#docCheck").onclick=()=>check();
+    return overlay;
+  }
+  function show(){ ui(); overlay.style.display="flex"; }
+  function hide(){ if(overlay) overlay.style.display="none"; }
+  function set(title, body, hint=""){
+    overlay.querySelector("#docTitle").textContent=title;
+    overlay.querySelector("#docBody").textContent=body;
+    overlay.querySelector("#docHint").textContent=hint||"";
+    overlay.querySelector("#docProg").textContent=`Paso ${st.step+1}/${st.steps.length} · OpID: ${st.opId}`;
+  }
+
+  function steps(){
+    return [
+      { id:"meta", title:"Estado base", body:"Registro versión, origen, modo y cuota.", hint:"Queda en Caja Negra.",
+        run: async()=>{ const rep=await BB.reportObject({ doctor:true }); st.ctx.meta=rep.meta; BB.push("DOCTOR_META_OK", rep.meta); return true; } },
+      { id:"db", title:"Base de datos", body:"Voy a intentar abrir IndexedDB.", hint:"Si falla, es el origen del problema.",
+        run: async()=>{ try{ const db=await openDB(); db.close&&db.close(); BB.push("DOCTOR_DB_OK",{}); return true; }catch(e){ BB.push("DOCTOR_DB_FAIL",{name:e?.name,message:e?.message}); return false; } } },
+      { id:"proj", title:"Proyecto DOCTOR_TEST", body:"Creo/activo el proyecto DOCTOR_TEST.", hint:"No borra nada.",
+        run: async()=>{ try{ const name="DOCTOR_TEST"; let p=(projects||[]).find(x=>(x?.name||"")===name); if(!p){ const id=(typeof genPid==="function")?genPid():("p"+Date.now()); p={id,name}; projects.push(p); saveProjects&&saveProjects(); } activeProjectId=p.id; localStorage.setItem("logi_project",activeProjectId); await loadCacheForActiveProject(); await loadCatalogForActiveProject(); refreshProjectUI&&refreshProjectUI(); render&&render(); BB.push("DOCTOR_PROJECT_ACTIVE",{id:p.id,name:p.name}); return true; }catch(e){ BB.push("DOCTOR_PROJECT_FAIL",{name:e?.name,message:e?.message}); return false; } } },
+      { id:"cam", title:"Cámara (foto real)", body:"Ve a CAPTURA y toma 1 foto real. Luego vuelve y toca VERIFICAR.", hint:"Prueba permisos y guardado real.",
+        run: async()=>{ try{ setTab&&setTab("captura"); }catch(e){} st.ctx.before=(cache||[]).length; BB.push("DOCTOR_ASK_CAMERA",{before:st.ctx.before}); return true; },
+        check: async()=>{ const after=(cache||[]).length; const ok=after> (st.ctx.before||0); BB.push("DOCTOR_CHECK_CAMERA",{before:st.ctx.before,after,ok}); return ok; } },
+      { id:"gal", title:"Galería del teléfono (real)", body:"Pulsa 'Importar desde galería' y selecciona 3 fotos. Luego vuelve y toca VERIFICAR.", hint:"No se puede simular por código.",
+        run: async()=>{ try{ setTab&&setTab("captura"); }catch(e){} st.ctx.before2=(cache||[]).length; BB.push("DOCTOR_ASK_GALLERY",{before:st.ctx.before2}); return true; },
+        check: async()=>{ const after=(cache||[]).length; const ok=after> (st.ctx.before2||0); BB.push("DOCTOR_CHECK_GALLERY",{before:st.ctx.before2,after,ok}); return ok; } },
+      { id:"thumbs", title:"Galería interna", body:"Ve a GALERÍA y confirma que hay miniaturas (no solo conteo). Luego VERIFICAR.", hint:"Si no hay miniaturas, puede haber blobs huérfanos.",
+        run: async()=>{ try{ setTab&&setTab("galeria"); }catch(e){} BB.push("DOCTOR_ASK_THUMBS",{}); return true; },
+        check: async()=>{ const imgCount=document.querySelectorAll("img").length; const ok=imgCount>0; BB.push("DOCTOR_CHECK_THUMBS",{imgCount,ok}); return ok; } },
+      { id:"export", title:"Export corto", body:"Ve a EXPORT y genera PDF o ZIP de un rango corto. Si se cuelga, marca incidente. Luego VERIFICAR.", hint:"Queremos que termine siempre.",
+        run: async()=>{ try{ setTab&&setTab("export"); }catch(e){} BB.push("DOCTOR_ASK_EXPORT",{}); return true; },
+        check: async()=>{ const ev=BB.getEvents().slice(-500); const ok=ev.some(e=>String(e.type||"").includes("EXPORT_") && String(e.type||"").includes("DONE")); BB.push("DOCTOR_CHECK_EXPORT",{ok}); return ok; } },
+      { id:"rep", title:"Reporte", body:"Ahora descarga REPORT para enviarlo.", hint:"Incluye todo lo que pasó.",
+        run: async()=>true }
+    ];
+  }
+
+  async function start(){
+    ui(); st.running=true; st.step=0; st.opId="doc_"+Date.now().toString(36); st.ctx={}; st.steps=steps();
+    BB.push("DOCTOR_START",{opId:st.opId, steps:st.steps.map(s=>s.id)});
+    show(); await run();
+  }
+
+  async function run(){
+    const s=st.steps[st.step];
+    if(!s){ set("Finalizado","Descarga REPORT para diagnóstico."); return; }
+    set(s.title, s.body, s.hint||"");
+    BB.push("DOCTOR_STEP_START",{opId:st.opId, stepId:s.id});
+    try{ await s.run(); }catch(e){ BB.push("DOCTOR_STEP_EXCEPTION",{stepId:s.id,name:e?.name,message:e?.message}); }
+  }
+
+  async function check(){
+    const s=st.steps[st.step];
+    if(!s?.check){ try{ toast("Este paso no requiere verificación."); }catch(e){} return; }
+    const ok=await s.check();
+    if(ok) next(true);
+    else try{ toast("Aún no. Intenta de nuevo o marca incidente."); }catch(e){}
+  }
+
+  function fail(reason){
+    const s=st.steps[st.step];
+    BB.push("DOCTOR_STEP_FAIL",{opId:st.opId, stepId:s?.id, reason});
+    next(false);
+  }
+
+  function next(ok){
+    const s=st.steps[st.step];
+    BB.push("DOCTOR_STEP_END",{opId:st.opId, stepId:s?.id, ok});
+    st.step++; run();
+  }
+
+  function stop(){
+    BB.push("DOCTOR_STOP",{opId:st.opId, at:st.steps[st.step]?.id});
+    hide(); st.running=false;
+  }
+
+  return { start };
+})();
